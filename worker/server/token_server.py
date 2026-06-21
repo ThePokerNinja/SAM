@@ -46,6 +46,8 @@ def _access_key_ok(request_headers: dict[str, str]) -> bool:
     if not want:
         return True
     got = (request_headers.get(_ACCESS_HEADER) or "").strip()
+    if " " in got and "+" not in got:
+        got = got.replace(" ", "+")
     return got == want
 
 

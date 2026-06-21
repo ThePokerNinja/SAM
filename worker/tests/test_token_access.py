@@ -41,6 +41,19 @@ class TokenAccessGateTests(unittest.TestCase):
             ok = client.post("/token", headers={"X-SAM-Access": "test-secret-key"})
             self.assertNotEqual(ok.status_code, 403)
 
+    def test_accepts_plus_restored_from_space_in_header(self) -> None:
+        env = {
+            "LIVEKIT_URL": "",
+            "LIVEKIT_API_KEY": "",
+            "LIVEKIT_API_SECRET": "",
+            "SAM_PORTAL_ACCESS_KEY": "ab+c/d",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            app = create_app()
+            client = TestClient(app)
+            res = client.post("/token", headers={"X-SAM-Access": "ab c/d"})
+            self.assertNotEqual(res.status_code, 403)
+
 
 if __name__ == "__main__":
     unittest.main()
