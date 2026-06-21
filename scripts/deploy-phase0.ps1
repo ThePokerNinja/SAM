@@ -1,4 +1,4 @@
-# Samuel Phase 0 deploy helper � preflight, health checks, optional Render deploy hooks.
+# Samuel Phase 0 deploy helper — preflight, health checks, optional Render deploy hooks.
 #
 # Usage (from SAM repo root):
 #   .\scripts\deploy-phase0.ps1 -Preflight     # typecheck + build + pytest
@@ -20,7 +20,7 @@ $PortalUrl = if ($env:SAM_PORTAL_URL) { $env:SAM_PORTAL_URL.TrimEnd("/") } else 
 function Invoke-DeployHook {
   param([string]$Name, [string]$HookUrl)
   if (-not $HookUrl) {
-    Write-Host "[skip] $Name � no hook URL" -ForegroundColor DarkGray
+    Write-Host "[skip] $Name — no hook URL" -ForegroundColor DarkGray
     return
   }
   Write-Host "Deploying $Name..." -ForegroundColor Cyan
@@ -70,7 +70,7 @@ if ($CheckOnly -or (-not $Preflight -and -not $Deploy)) {
       $r = Invoke-WebRequest -Uri $pair.Url -UseBasicParsing -TimeoutSec 20
       Write-Host "[OK] $($pair.Name) $($pair.Url) ($($r.StatusCode))" -ForegroundColor Green
     } catch {
-      Write-Host "[FAIL] $($pair.Name) $($pair.Url) � $($_.Exception.Message)" -ForegroundColor Red
+      Write-Host "[FAIL] $($pair.Name) $($pair.Url) — $($_.Exception.Message)" -ForegroundColor Red
     }
   }
   Write-Host ""

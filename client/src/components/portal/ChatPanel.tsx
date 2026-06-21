@@ -13,7 +13,7 @@ interface Props {
 }
 
 /**
- * Expandable chat panel � text UI only for now (worker text turns later).
+ * Expandable chat panel — text UI only for now (worker text turns later).
  * Attach is a visual placeholder (paperclip, not wired).
  */
 export function ChatPanel({ open }: Props) {
@@ -71,7 +71,7 @@ export function ChatPanel({ open }: Props) {
           ref={inputRef}
           type="text"
           className="chat-input"
-          placeholder="Message Samuel�"
+          placeholder="Message Samuel…"
           value={text}
           onChange={(e) => setText(e.target.value)}
           aria-label="Message Samuel"

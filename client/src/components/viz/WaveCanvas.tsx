@@ -7,7 +7,7 @@ interface Props {
   className?: string;
 }
 
-/** Horizontal flowing wave bands � brand gold/cyan, audio-reactive. */
+/** Horizontal flowing wave bands — brand gold/cyan, audio-reactive. */
 export function WaveCanvas({ state, volume, className }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef(state);

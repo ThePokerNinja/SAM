@@ -7,7 +7,7 @@ interface Props {
   className?: string;
 }
 
-/** Radial spokes from center � circular spectrum, audio-reactive. */
+/** Radial spokes from center — circular spectrum, audio-reactive. */
 export function RadialCanvas({ state, volume, className }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef(state);

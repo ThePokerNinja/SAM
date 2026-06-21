@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type MouseEventHandler } from "react";
 import { Track } from "livekit-client";
 import { useDisconnectButton, useTrackToggle } from "@livekit/components-react";
 import {
@@ -8,16 +8,23 @@ import {
   storeVizTreatment,
 } from "../viz/types";
 import { ChatPanel } from "./ChatPanel";
-import { IconChat, IconMic } from "./PortalIcons";
+import { IconChat, IconLeave, IconMic } from "./PortalIcons";
 
 interface Props {
   treatment: VizTreatment;
   onTreatmentChange: (t: VizTreatment) => void;
 }
 
-/** Mic, viz cycle, chat, and disconnect in one polished strip. */
+/**
+ * Mic, chat, and a single morphing logo button.
+ *
+ * Collapsed (default): the Rainmaker mark. Tapping it reveals the visualization
+ * toggle and morphs the mark into a red start-over icon. Tapping start-over
+ * disconnects (demo restarts) and the toggle collapses again.
+ */
 export function PortalCommandStrip({ treatment, onTreatmentChange }: Props) {
   const [chatOpen, setChatOpen] = useState(false);
+  const [vizOpen, setVizOpen] = useState(false);
   const mic = useTrackToggle({ source: Track.Source.Microphone });
   const { buttonProps: leaveProps } = useDisconnectButton({});
 
@@ -26,6 +33,11 @@ export function PortalCommandStrip({ treatment, onTreatmentChange }: Props) {
     const next = VIZ_TREATMENTS[(i + 1) % VIZ_TREATMENTS.length];
     storeVizTreatment(next);
     onTreatmentChange(next);
+  };
+
+  const startOver: MouseEventHandler<HTMLButtonElement> = (e) => {
+    setVizOpen(false);
+    leaveProps.onClick?.(e);
   };
 
   return (
@@ -46,16 +58,20 @@ export function PortalCommandStrip({ treatment, onTreatmentChange }: Props) {
 
         <span className="cmd-div" aria-hidden="true" />
 
-        <button
-          type="button"
-          className="cmd-btn cmd-btn--label"
-          onClick={cycleViz}
-          aria-label={`Visualization: ${VIZ_LABELS[treatment]}. Tap to change.`}
-        >
-          {VIZ_LABELS[treatment]}
-        </button>
+        {vizOpen && (
+          <>
+            <button
+              type="button"
+              className="cmd-btn cmd-btn--label"
+              onClick={cycleViz}
+              aria-label={`Visualization: ${VIZ_LABELS[treatment]}. Tap to change.`}
+            >
+              {VIZ_LABELS[treatment]}
+            </button>
 
-        <span className="cmd-div" aria-hidden="true" />
+            <span className="cmd-div" aria-hidden="true" />
+          </>
+        )}
 
         <button
           type="button"
@@ -69,20 +85,27 @@ export function PortalCommandStrip({ treatment, onTreatmentChange }: Props) {
 
         <span className="cmd-div" aria-hidden="true" />
 
-        <button
-          type="button"
-          className="cmd-btn cmd-btn--mark cmd-btn--leave"
-          onClick={leaveProps.onClick}
-          disabled={leaveProps.disabled}
-          aria-label="Start over"
-        >
-          <img
-            src="/brand/rainmaker-mark.png"
-            className="cmd-mark"
-            alt=""
-            draggable={false}
-          />
-        </button>
+        {vizOpen ? (
+          <button
+            type="button"
+            className="cmd-btn cmd-btn--leave"
+            onClick={startOver}
+            disabled={leaveProps.disabled}
+            aria-label="Start over"
+          >
+            <IconLeave />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="cmd-btn cmd-btn--mark"
+            onClick={() => setVizOpen(true)}
+            aria-label="Visualization options"
+            aria-expanded={vizOpen}
+          >
+            <span className="cmd-mark" aria-hidden="true" />
+          </button>
+        )}
       </div>
     </div>
   );

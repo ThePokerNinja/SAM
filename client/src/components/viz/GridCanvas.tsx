@@ -7,7 +7,7 @@ interface Props {
   className?: string;
 }
 
-/** Pulsing dot grid � center blooms on voice energy. */
+/** Pulsing dot grid — center blooms on voice energy. */
 export function GridCanvas({ state, volume, className }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef(state);

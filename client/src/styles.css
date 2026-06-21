@@ -366,23 +366,25 @@ body {
 .cmd-btn--label:hover:not(:disabled) {
   color: #ffe8c2;
 }
-.cmd-btn--leave:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06);
+.cmd-btn--leave {
+  color: var(--bad);
 }
-.cmd-btn--mark {
-  padding: 0 8px;
+.cmd-btn--leave:hover:not(:disabled) {
+  color: var(--bad);
+  background: rgba(255, 107, 107, 0.1);
 }
 .cmd-mark {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-  mix-blend-mode: screen;
-  opacity: 0.92;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  width: 20px;
+  height: 20px;
+  /* Fill the mark with the button's icon color so it matches the other icons
+     (muted by default, text on hover) instead of its native gold. */
+  background-color: currentColor;
+  -webkit-mask: url("/brand/rainmaker-mark.png") center / contain no-repeat;
+  mask: url("/brand/rainmaker-mark.png") center / contain no-repeat;
+  transition: transform 0.15s ease;
 }
 .cmd-btn--mark:hover:not(:disabled) .cmd-mark {
-  opacity: 1;
-  transform: scale(1.06);
+  transform: scale(1.08);
 }
 .cmd-div {
   width: 1px;
@@ -646,7 +648,9 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   justify-content: center;
-  padding-top: 56px;
+  /* Symmetric vertical padding so the viz + lockup + strip stack stays
+     centered on the page (uneven top/bottom would shift it low). */
+  padding-top: 32px;
   padding-bottom: 32px;
   box-sizing: border-box;
 }

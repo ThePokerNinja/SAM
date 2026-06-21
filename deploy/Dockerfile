@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY worker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Silero VAD weights � avoids cold-start download on first room join.
+# Silero VAD weights — avoids cold-start download on first room join.
 RUN python -c "from livekit.plugins import silero; silero.VAD.load()"
 
 COPY worker/ .
