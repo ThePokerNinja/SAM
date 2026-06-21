@@ -1,4 +1,4 @@
-# S.A.M. Phase 0 ÔøΩ voice.michaelstewman.com portal + token server + LiveKit agent worker.
+# S.A.M. Phase 0 ù voice.michaelstewman.com portal + token server + LiveKit agent worker.
 #
 # First-time setup (Render dashboard):
 #   1. New ? Blueprint ? connect ThePokerNinja/SAM ? Apply
@@ -49,7 +49,7 @@ services:
         source: /*
         destination: /index.html
 
-  # LiveKit Agents worker ÔøΩ auto-dispatches Samuel into rooms the portal creates.
+  # LiveKit Agents worker ù auto-dispatches Samuel into rooms the portal creates.
   - type: pserv
     name: sam-agent
     runtime: docker
@@ -58,11 +58,7 @@ services:
     plan: standard
     region: oregon
     maxShutdownDelaySeconds: 300
-    scaling:
-      minInstances: 1
-      maxInstances: 2
-      targetCPUPercent: 70
-      targetMemoryPercent: 70
+    # No scaling block ó autoscaling requires a paid workspace (not Hobby).
     envVars:
       - key: LIVEKIT_URL
         sync: false
