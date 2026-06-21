@@ -1,8 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "sam-worker"
 version = "0.0.1"
-description = "S.A.M. (Samuel) agent worker — LiveKit realtime pipeline + Hermes brain."
+description = "S.A.M. (Samuel) agent worker - LiveKit realtime pipeline + Hermes brain."
 requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["sam_worker", "sam_worker.tools", "server"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
