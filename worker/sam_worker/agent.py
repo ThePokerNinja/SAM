@@ -16,6 +16,7 @@ Per turn it logs: EOU delay + LLM TTFT + TTS TTFB = v2v, flagged against the 800
 from __future__ import annotations
 
 import logging
+import os
 import sys
 
 # Windows consoles default to cp1252; LiveKit's CLI banner prints an emoji that crashes
@@ -80,6 +81,20 @@ async def entrypoint(ctx: JobContext) -> None:
     brain = "groq:" + s.groq_model if s.groq_api_key else "openai:" + s.openai_model
     _log.info("Samuel starting | brain=%s | stt=%s | voice=%s", brain, s.stt_model, s.voice_ids["samuel"][:6])
 
+    # Barge-in sensitivity. Defaults are deliberately less twitchy than LiveKit's
+    # (0.5s / 0 words): require ~0.8s of sustained speech AND >=2 recognized words
+    # before cutting Sam off, so coughs, "uh", room noise, and speaker echo don't
+    # interrupt mid-sentence. Tune from .env without code changes.
+    interrupt_dur = float(os.getenv("SAM_INTERRUPT_MIN_DURATION", "0.8"))
+    interrupt_words = int(os.getenv("SAM_INTERRUPT_MIN_WORDS", "2"))
+
+    # Endpointing = how long Sam waits in silence before deciding you're done and
+    # replying. This dominates perceived latency (brain+TTS are ~450ms; the default
+    # turn detector was sitting on ~2.5s of EOU). min = floor after a confident
+    # end-of-turn; max = ceiling when it's unsure you've finished. Tune from .env.
+    endpoint_min = float(os.getenv("SAM_ENDPOINTING_MIN", "0.3"))
+    endpoint_max = float(os.getenv("SAM_ENDPOINTING_MAX", "1.2"))
+
     session = AgentSession(
         stt=inference.STT(model=s.stt_model),
         llm=_build_llm(s),
@@ -90,6 +105,10 @@ async def entrypoint(ctx: JobContext) -> None:
         ),
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
+        min_interruption_duration=interrupt_dur,
+        min_interruption_words=interrupt_words,
+        min_endpointing_delay=endpoint_min,
+        max_endpointing_delay=endpoint_max,
     )
 
     turns: dict[str, _Turn] = {}
