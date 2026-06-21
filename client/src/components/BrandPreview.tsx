@@ -57,8 +57,6 @@ export function BrandPreview() {
     <div className="preview-root">
       {/* Mock portal sits beneath the intro overlay. */}
       <div className={`portal-stage state-${demoState} preview-portal`}>
-        <img src="/brand/rainmaker-mark.png" className="portal-mark" alt="" draggable={false} />
-
         <div className="viz-wrap">
           <AuraCanvas state={demoState} volume={demoState === "speaking" ? 0.6 : 0} />
         </div>

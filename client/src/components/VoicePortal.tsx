@@ -25,26 +25,26 @@ export function VoicePortal() {
     <div className={`portal-stage state-${state}`}>
       <RoomAudioRenderer />
 
-      <img src="/brand/rainmaker-mark.png" className="portal-mark" alt="" draggable={false} />
-
       <div className="viz-wrap">
         <SamViz treatment={treatment} />
       </div>
 
-      <div className="portal-brand">
-        <img
-          src="/brand/signature-gold.png"
-          className="portal-wordmark"
-          alt="Michael Stewman"
-          draggable={false}
-        />
-      </div>
+      <div className="portal-lockup">
+        <div className="portal-brand">
+          <img
+            src="/brand/signature-gold.png"
+            className="portal-wordmark"
+            alt="Michael Stewman"
+            draggable={false}
+          />
+        </div>
 
-      <div className="portal-status" aria-live="polite">
-        {STATE_LABEL[state] ?? state}
-      </div>
+        <div className="portal-status" aria-live="polite">
+          {STATE_LABEL[state] ?? state}
+        </div>
 
-      {caption && <p className="portal-caption">{caption}</p>}
+        <p className="portal-caption">{caption}</p>
+      </div>
 
       <PortalCommandStrip treatment={treatment} onTreatmentChange={setTreatment} />
     </div>

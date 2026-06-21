@@ -8,7 +8,7 @@ import {
   storeVizTreatment,
 } from "../viz/types";
 import { ChatPanel } from "./ChatPanel";
-import { IconChat, IconLeave, IconMic } from "./PortalIcons";
+import { IconChat, IconMic } from "./PortalIcons";
 
 interface Props {
   treatment: VizTreatment;
@@ -71,12 +71,17 @@ export function PortalCommandStrip({ treatment, onTreatmentChange }: Props) {
 
         <button
           type="button"
-          className="cmd-btn cmd-btn--leave"
+          className="cmd-btn cmd-btn--mark cmd-btn--leave"
           onClick={leaveProps.onClick}
           disabled={leaveProps.disabled}
-          aria-label="Disconnect"
+          aria-label="Start over"
         >
-          <IconLeave />
+          <img
+            src="/brand/rainmaker-mark.png"
+            className="cmd-mark"
+            alt=""
+            draggable={false}
+          />
         </button>
       </div>
     </div>

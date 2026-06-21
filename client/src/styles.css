@@ -241,23 +241,39 @@ body {
   animation: fade-in 0.5s ease both;
 }
 .viz-wrap {
-  width: 340px;
-  height: 340px;
-  max-width: 82vw;
-  max-height: 82vw;
+  width: min(340px, 82vw);
+  height: min(340px, 82vw);
+  flex-shrink: 0;
   display: grid;
   place-items: center;
-  transition: width 0.4s ease, height 0.4s ease;
 }
-.state-speaking .viz-wrap {
-  width: min(420px, 90vw);
-  height: min(420px, 90vw);
+/* Pulse the viz on speak without resizing the layout box (prevents lockup jump). */
+.state-speaking .viz-wrap > * {
+  transform: scale(1.06);
+  transition: transform 0.35s ease;
+}
+.viz-wrap > * {
+  width: 100%;
+  height: 100%;
+  transition: transform 0.35s ease;
 }
 .aura-canvas { width: 100%; height: 100%; display: block; }
 
+.portal-lockup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 520px;
+  flex-shrink: 0;
+  /* Reserve space for signature + status + ~3 caption lines so state changes don't jump. */
+  min-height: 118px;
+}
+
 .portal-brand {
   pointer-events: none;
-  margin: -6px 0 -2px;
+  margin: 0;
   display: flex;
   justify-content: center;
   background: transparent;
@@ -268,17 +284,25 @@ body {
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--muted);
+  min-height: 1.2em;
 }
 .state-speaking .portal-status { color: var(--amber); }
 .state-listening .portal-status { color: var(--cyan); }
 .portal-caption {
   max-width: 520px;
+  width: 100%;
   text-align: center;
   color: var(--text);
   line-height: 1.55;
   font-size: 15px;
   margin: 0;
-  min-height: 1.55em;
+  min-height: 4.65em;
+  max-height: 4.65em;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.portal-caption:empty {
+  visibility: hidden;
 }
 
 /* Unified command strip + chat */
@@ -343,8 +367,22 @@ body {
   color: #ffe8c2;
 }
 .cmd-btn--leave:hover:not(:disabled) {
-  color: var(--bad);
-  background: rgba(255, 107, 107, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+}
+.cmd-btn--mark {
+  padding: 0 8px;
+}
+.cmd-mark {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  mix-blend-mode: screen;
+  opacity: 0.92;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.cmd-btn--mark:hover:not(:disabled) .cmd-mark {
+  opacity: 1;
+  transform: scale(1.06);
 }
 .cmd-div {
   width: 1px;
@@ -568,20 +606,8 @@ body {
   min-height: 100vh;
   justify-content: center;
   position: relative;
-  padding-top: 88px;
+  padding-top: 48px;
   padding-bottom: 72px;
-}
-.portal-mark {
-  position: absolute;
-  top: 22px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 52px;
-  height: 52px;
-  object-fit: contain;
-  pointer-events: none;
-  mix-blend-mode: screen;
-  opacity: 1;
 }
 .preview-wordmark,
 .portal-wordmark {
@@ -618,9 +644,11 @@ body {
 .stage--full .portal-stage {
   position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   justify-content: center;
-  padding-top: 88px;
+  padding-top: 56px;
   padding-bottom: 32px;
+  box-sizing: border-box;
 }
 .app-header--floating {
   position: fixed;
@@ -644,4 +672,121 @@ body {
   z-index: 60;
   max-width: 90vw;
   text-align: center;
+}
+
+/* Mobile: sticky command footer + tighter portal layout */
+@media (max-width: 640px) {
+  .app-header--floating {
+    top: max(10px, env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+  }
+  .app-header--floating .brand-mark {
+    font-size: 18px;
+    letter-spacing: 1px;
+  }
+  .app-header--floating .brand-sub {
+    font-size: 11px;
+    max-width: min(200px, 50vw);
+  }
+  .tier-badge {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  .tier-meta {
+    display: none;
+  }
+
+  .stage--full .portal-stage {
+    padding-top: max(52px, calc(44px + env(safe-area-inset-top)));
+    padding-bottom: calc(100px + env(safe-area-inset-bottom));
+    gap: 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  .viz-wrap {
+    width: min(300px, 78vw);
+    height: min(300px, 78vw);
+  }
+
+  .portal-lockup {
+    min-height: 108px;
+    gap: 8px;
+  }
+
+  .portal-caption {
+    font-size: 14px;
+    max-width: 100%;
+    padding: 0 4px;
+    min-height: 4.2em;
+    max-height: 4.2em;
+  }
+  .portal-status {
+    font-size: 12px;
+    letter-spacing: 1.6px;
+  }
+
+  .portal-command {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    margin-top: 0;
+    width: 100%;
+    padding: 8px max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
+    background: linear-gradient(
+      180deg,
+      rgba(8, 11, 18, 0) 0%,
+      rgba(8, 11, 18, 0.88) 28%,
+      rgba(8, 11, 18, 0.96) 100%
+    );
+    box-sizing: border-box;
+  }
+
+  .portal-command-strip {
+    width: 100%;
+    max-width: 100%;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 14px;
+  }
+
+  .cmd-btn {
+    min-width: 40px;
+    height: 40px;
+    flex: 1 1 auto;
+  }
+  .cmd-btn--label {
+    flex: 1.4 1 auto;
+    font-size: 10px;
+    letter-spacing: 0.9px;
+    padding: 0 6px;
+  }
+  .cmd-btn--mark {
+    flex: 0 0 auto;
+    min-width: 44px;
+  }
+
+  .chat-panel {
+    width: 100%;
+    max-width: none;
+    margin-bottom: 4px;
+  }
+
+  .connect-error-overlay {
+    bottom: calc(96px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px);
+  }
+}
+
+@media (max-width: 380px) {
+  .cmd-div {
+    height: 18px;
+  }
+  .cmd-btn--label {
+    letter-spacing: 0.6px;
+  }
 }
