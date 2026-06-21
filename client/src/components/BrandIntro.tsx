@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CandleFlame } from "./CandleFlame";
 
-type Phase = "candle" | "igniting" | "dark" | "bright" | "settle" | "done";
+type Phase = "candle" | "igniting" | "dark" | "bright" | "settle" | "done" | "denied";
 
 interface Props {
   /** External readiness gate: the final reveal waits until Sam is ready. */
   ready: boolean;
-  /** Fired the moment the user clicks the candle (start connecting here). */
-  onIgnite?: () => void;
+  /** Fired when the user clicks the candle. Return false to deny (no ignite animation). */
+  onIgnite?: () => boolean | void;
   /** Fired once the reveal finishes and the portal beneath is interactive. */
   onRevealed?: () => void;
+  /** When true, show dim candle + access denied (no reveal). */
+  accessDenied?: boolean;
   /** Card artwork shown during the bright lead-up. */
   cardSrc?: string;
 }
@@ -21,7 +23,13 @@ const MIN_BRIGHT_MS = 1300; // keep the card on screen at least this long
  * ignite -> the room dips dark -> blooms to light while the business card leads
  * up -> settles into the portal. No text.
  */
-export function BrandIntro({ ready, onIgnite, onRevealed, cardSrc = "/brand/card.svg" }: Props) {
+export function BrandIntro({
+  ready,
+  onIgnite,
+  onRevealed,
+  accessDenied = false,
+  cardSrc = "/brand/card.svg",
+}: Props) {
   const [phase, setPhase] = useState<Phase>("candle");
   const [boost, setBoost] = useState(0);
   const brightStart = useRef(0);
@@ -29,10 +37,18 @@ export function BrandIntro({ ready, onIgnite, onRevealed, cardSrc = "/brand/card
   readyRef.current = ready;
 
   const ignite = useCallback(() => {
-    if (phase !== "candle") return;
-    onIgnite?.();
+    if (phase !== "candle" || accessDenied) return;
+    const ok = onIgnite?.();
+    if (ok === false) {
+      setPhase("denied");
+      return;
+    }
     setPhase("igniting");
-  }, [phase, onIgnite]);
+  }, [phase, accessDenied, onIgnite]);
+
+  useEffect(() => {
+    if (accessDenied) setPhase("denied");
+  }, [accessDenied]);
 
   // Flare the flame up during ignite.
   useEffect(() => {
@@ -95,7 +111,7 @@ export function BrandIntro({ ready, onIgnite, onRevealed, cardSrc = "/brand/card
       role={phase === "candle" ? "button" : undefined}
       aria-label={phase === "candle" ? "Begin" : undefined}
       tabIndex={phase === "candle" ? 0 : -1}
-      onClick={ignite}
+      onClick={phase === "denied" ? undefined : ignite}
       onKeyDown={(e) => {
         if (phase === "candle" && (e.key === "Enter" || e.key === " ")) ignite();
       }}
@@ -103,6 +119,9 @@ export function BrandIntro({ ready, onIgnite, onRevealed, cardSrc = "/brand/card
       <div className="bi-candle">
         <CandleFlame boost={boost} className="bi-candle-canvas" />
       </div>
+      {phase === "denied" && (
+        <p className="bi-denied-hint" role="status">Access denied</p>
+      )}
       <div className="bi-card" aria-hidden="true">
         <img src={cardSrc} alt="" draggable={false} />
       </div>

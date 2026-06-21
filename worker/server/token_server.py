@@ -24,7 +24,7 @@ except Exception:
     pass
 
 try:
-    from fastapi import FastAPI, HTTPException
+    from fastapi import FastAPI, HTTPException, Request
     from fastapi.middleware.cors import CORSMiddleware
     from livekit import api
 except Exception:  # deps not installed in --mock-only setups
@@ -33,6 +33,20 @@ except Exception:  # deps not installed in --mock-only setups
 
 # How long a minted token is valid for the initial join handshake.
 _TOKEN_TTL_SECONDS = 600
+
+_ACCESS_HEADER = "x-sam-access"
+
+
+def _portal_access_required() -> bool:
+    return bool(os.getenv("SAM_PORTAL_ACCESS_KEY", "").strip())
+
+
+def _access_key_ok(request_headers: dict[str, str]) -> bool:
+    want = os.getenv("SAM_PORTAL_ACCESS_KEY", "").strip()
+    if not want:
+        return True
+    got = (request_headers.get(_ACCESS_HEADER) or "").strip()
+    return got == want
 
 
 def _allowed_origins() -> list[str]:
@@ -68,10 +82,16 @@ def create_app():
             and os.getenv("LIVEKIT_API_SECRET")
             and os.getenv("LIVEKIT_URL")
         )
-        return {"ok": True, "livekitConfigured": configured}
+        return {
+            "ok": True,
+            "livekitConfigured": configured,
+            "portalAccessRequired": _portal_access_required(),
+        }
 
     @app.post("/token")
-    def token(identity: str | None = None, room: str | None = None) -> dict:
+    def token(request: Request, identity: str | None = None, room: str | None = None) -> dict:
+        if not _access_key_ok(dict(request.headers)):
+            raise HTTPException(status_code=403, detail="access_denied")
         key = os.getenv("LIVEKIT_API_KEY")
         secret = os.getenv("LIVEKIT_API_SECRET")
         url = os.getenv("LIVEKIT_URL")

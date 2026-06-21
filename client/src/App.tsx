@@ -6,10 +6,21 @@ import { TierBadge } from "./components/TierBadge";
 import { VoicePortal } from "./components/VoicePortal";
 import { BrandIntro } from "./components/BrandIntro";
 import { useTierController } from "./hooks/useTierController";
-import { connectSam } from "./lib/samRoom";
+import {
+  bootstrapPortalAccessFromUrl,
+  clearPortalAccessKey,
+  getPortalAccessKey,
+} from "./lib/portalAccess";
+import {
+  connectSam,
+  fetchTokenHealth,
+  PortalAccessDeniedError,
+} from "./lib/samRoom";
 import { SAMUEL_DEFINITION } from "./brand/brand";
 
-type Status = "idle" | "connecting" | "live" | "error";
+type Status = "idle" | "connecting" | "live" | "error" | "denied";
+
+bootstrapPortalAccessFromUrl();
 
 export default function App() {
   const [status, setStatus] = useState<Status>("idle");
@@ -17,32 +28,53 @@ export default function App() {
   const [error, setError] = useState<string>("");
   const [revealed, setRevealed] = useState(false);
   const [attempt, setAttempt] = useState(0); // remount the intro back to candle on retry
+  const [portalAccessRequired, setPortalAccessRequired] = useState(false);
   const roomRef = useRef<Room | null>(null);
 
-  // Tier controller drives only the visual choice here (fps-based; no raw pc needed).
   const { preset, lastReason } = useTierController(null);
 
-  const start = useCallback(async () => {
+  useEffect(() => {
+    fetchTokenHealth().then((h) => setPortalAccessRequired(h.portalAccessRequired));
+  }, []);
+
+  const start = useCallback((): boolean => {
+    if (portalAccessRequired && !getPortalAccessKey()) {
+      setStatus("denied");
+      setError("");
+      return false;
+    }
+
     setStatus("connecting");
     setError("");
-    try {
-      const { room: r } = await connectSam();
-      roomRef.current = r;
-      r.on(RoomEvent.Disconnected, () => {
-        setStatus("idle");
-        setRoom(null);
-        roomRef.current = null;
-        setRevealed(false);
+
+    (async () => {
+      try {
+        const { room: r } = await connectSam();
+        roomRef.current = r;
+        r.on(RoomEvent.Disconnected, () => {
+          setStatus("idle");
+          setRoom(null);
+          roomRef.current = null;
+          setRevealed(false);
+          setAttempt((n) => n + 1);
+        });
+        setRoom(r);
+        setStatus("live");
+      } catch (e) {
+        if (e instanceof PortalAccessDeniedError) {
+          clearPortalAccessKey();
+          setStatus("denied");
+          setError("");
+          return;
+        }
+        setError(String((e as Error)?.message || e));
+        setStatus("error");
         setAttempt((n) => n + 1);
-      });
-      setRoom(r);
-      setStatus("live");
-    } catch (e) {
-      setError(String((e as Error)?.message || e));
-      setStatus("error");
-      setAttempt((n) => n + 1); // send the intro back to the candle
-    }
-  }, []);
+      }
+    })();
+
+    return true;
+  }, [portalAccessRequired]);
 
   useEffect(() => {
     return () => {
@@ -51,6 +83,7 @@ export default function App() {
   }, []);
 
   const showIntro = !revealed || status !== "live";
+  const accessDenied = status === "denied";
 
   return (
     <div className="app">
@@ -75,6 +108,7 @@ export default function App() {
           <BrandIntro
             key={attempt}
             ready={status === "live"}
+            accessDenied={accessDenied}
             onIgnite={start}
             onRevealed={() => setRevealed(true)}
           />

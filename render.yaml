@@ -28,6 +28,8 @@ services:
         sync: false
       - key: SAM_ALLOWED_ORIGINS
         value: https://voice.michaelstewman.com
+      - key: SAM_PORTAL_ACCESS_KEY
+        sync: false
 
   # Static React portal (candle intro + voice UI). Custom domain: voice.michaelstewman.com
   - type: web
