@@ -1,5 +1,7 @@
-// Brand palette derived from business_cards_v2 / ms.com brand assets.
-// Gold gradient stops are the literal card vectors; cyan is the voice-energy
+/** Customer-facing product name � use in header, title, and docs. */
+export const SAMUEL_DEFINITION = "Samuel (S.A.M.), Systems Agent Model";
+
+// Brand palette derived from business_cards_v2 / ms.com brand assets.// Gold gradient stops are the literal card vectors; cyan is the voice-energy
 // accent from voice.gif. Everything sits on deep navy.
 
 export type RGB = [number, number, number];

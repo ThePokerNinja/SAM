@@ -1,6 +1,6 @@
-# S.A.M. — System Agentic Model (Samuel)
+# S.A.M. — Systems Agent Model (Samuel)
 
-**Samuel ("Sam")** is the flagship customer-facing voice agent for the Rainmaker platform — and
+**Samuel (S.A.M.), Systems Agent Model** — flagship customer-facing voice agent for Rainmaker.
 the Rainmaker trading agent. **Hermes** (internal codename "Charles") is the invisible
 orchestrator/brain; customers only ever meet Samuel.
 

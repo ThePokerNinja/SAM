@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "S.A.M. (Samuel) flagship voice agent — React/Vite client with adaptive TierController.",
+  "description": "Samuel (S.A.M.), Systems Agent Model — React/Vite voice portal.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

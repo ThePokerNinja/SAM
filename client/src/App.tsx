@@ -7,6 +7,7 @@ import { VoicePortal } from "./components/VoicePortal";
 import { BrandIntro } from "./components/BrandIntro";
 import { useTierController } from "./hooks/useTierController";
 import { connectSam } from "./lib/samRoom";
+import { SAMUEL_DEFINITION } from "./brand/brand";
 
 type Status = "idle" | "connecting" | "live" | "error";
 
@@ -55,6 +56,10 @@ export default function App() {
     <div className="app">
       {revealed && status === "live" && (
         <header className="app-header app-header--floating">
+          <div className="brand" aria-label={SAMUEL_DEFINITION}>
+            <span className="brand-mark">Samuel</span>
+            <span className="brand-sub">S.A.M. � Systems Agent Model</span>
+          </div>
           <TierBadge preset={preset} reason={lastReason} />
         </header>
       )}
