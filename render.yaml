@@ -1,12 +1,10 @@
-# S.A.M. Phase 0 ù voice.michaelstewman.com portal + token server + LiveKit agent worker.
+# S.A.M. Phase 0 - voice.michaelstewman.com portal + token server + LiveKit agent worker.
 #
 # First-time setup (Render dashboard):
-#   1. New ? Blueprint ? connect ThePokerNinja/SAM ? Apply
+#   1. New -> Blueprint -> connect ThePokerNinja/SAM -> Apply
 #   2. Set sync:false secrets on sam-token + sam-agent (see deploy/README.md)
-#   3. Custom domain voice.michaelstewman.com on sam-voice-portal (Settings ? Custom Domains)
+#   3. Custom domain voice.michaelstewman.com on sam-voice-portal
 #   4. Re-deploy sam-voice-portal after sam-token is live (VITE_TOKEN_URL linkage)
-#
-# Optional: create an Environment Group "sam-prod" and attach to all three services.
 
 services:
   # Mints LiveKit join tokens for the browser client.
@@ -49,7 +47,7 @@ services:
         source: /*
         destination: /index.html
 
-  # LiveKit Agents worker ù auto-dispatches Samuel into rooms the portal creates.
+  # LiveKit Agents worker - auto-dispatches Samuel into rooms the portal creates.
   - type: pserv
     name: sam-agent
     runtime: docker
@@ -58,7 +56,7 @@ services:
     plan: standard
     region: oregon
     maxShutdownDelaySeconds: 300
-    # No scaling block ó autoscaling requires a paid workspace (not Hobby).
+    # No scaling block - autoscaling requires a paid workspace (not Hobby).
     envVars:
       - key: LIVEKIT_URL
         sync: false
