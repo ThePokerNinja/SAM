@@ -1,4 +1,4 @@
-/** Owner gate for the voice portal ó secret link, no OAuth.
+/** Owner gate for the voice portal ù secret link, no OAuth.
 
  * Bookmark once (hash form is safest for base64 keys with '+'):
  *   https://voice.michaelstewman.com/#access=<SAM_PORTAL_ACCESS_KEY>
@@ -24,17 +24,36 @@ function normalizeAccessKey(raw: string): string {
 
 export function getPortalAccessKey(): string {
   try {
-    return normalizeAccessKey(localStorage.getItem(STORAGE_KEY) || "");
+    const fromLocal = normalizeAccessKey(localStorage.getItem(STORAGE_KEY) || "");
+    if (fromLocal) return fromLocal;
+    return normalizeAccessKey(sessionStorage.getItem(STORAGE_KEY) || "");
   } catch {
-    return "";
+    try {
+      return normalizeAccessKey(sessionStorage.getItem(STORAGE_KEY) || "");
+    } catch {
+      return "";
+    }
   }
 }
 
 export function setPortalAccessKey(key: string): void {
   try {
     const k = normalizeAccessKey(key);
-    if (k) localStorage.setItem(STORAGE_KEY, k);
-    else localStorage.removeItem(STORAGE_KEY);
+    if (k) {
+      localStorage.setItem(STORAGE_KEY, k);
+      try {
+        sessionStorage.setItem(STORAGE_KEY, k);
+      } catch {
+        /* ignore */
+      }
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+      try {
+        sessionStorage.removeItem(STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
   } catch {
     /* private mode */
   }

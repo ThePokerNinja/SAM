@@ -38,8 +38,10 @@ class TokenAccessGateTests(unittest.TestCase):
             self.assertEqual(res.status_code, 403)
             bad = client.post("/token", headers={"X-SAM-Access": "wrong"})
             self.assertEqual(bad.status_code, 403)
-            ok = client.post("/token", headers={"X-SAM-Access": "test-secret-key"})
-            self.assertNotEqual(ok.status_code, 403)
+            res = client.post("/token", headers={"X-SAM-Access": "test-secret-key"})
+            self.assertNotEqual(res.status_code, 403)
+            via_query = client.post("/token?access=test-secret-key")
+            self.assertNotEqual(via_query.status_code, 403)
 
     def test_accepts_plus_restored_from_space_in_header(self) -> None:
         env = {

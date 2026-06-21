@@ -52,7 +52,12 @@ export async function connectSam(): Promise<SamSession> {
   const access = getPortalAccessKey();
   if (access) headers[PORTAL_ACCESS_HEADER] = access;
 
-  const res = await fetch(base + "/token", {
+  const tokenUrl =
+    access
+      ? `${base}/token?access=${encodeURIComponent(access)}`
+      : `${base}/token`;
+
+  const res = await fetch(tokenUrl, {
     method: "POST",
     headers,
   });

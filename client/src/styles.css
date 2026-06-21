@@ -180,7 +180,7 @@ body {
 .app-footer { color: var(--muted); font-size: 12px; text-align: center; }
 
 /* ============================================================
-   Live voice portal (Samuel) ÔøΩ flagship polish
+   Live voice portal (Samuel) ù flagship polish
    ============================================================ */
 :root {
   --amber: #f5b24e;
@@ -569,6 +569,17 @@ body {
   backdrop-filter: blur(8px);
   pointer-events: none;
   animation: fade-in 0.45s ease both;
+  text-align: center;
+  line-height: 1.45;
+}
+.bi-denied-sub {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--muted);
+  opacity: 0.9;
 }
 
 .phase-bright .bi-candle,

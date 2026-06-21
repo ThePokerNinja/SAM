@@ -41,11 +41,11 @@ def _portal_access_required() -> bool:
     return bool(os.getenv("SAM_PORTAL_ACCESS_KEY", "").strip())
 
 
-def _access_key_ok(request_headers: dict[str, str]) -> bool:
+def _access_key_ok(request_headers: dict[str, str], query_access: str | None = None) -> bool:
     want = os.getenv("SAM_PORTAL_ACCESS_KEY", "").strip()
     if not want:
         return True
-    got = (request_headers.get(_ACCESS_HEADER) or "").strip()
+    got = (request_headers.get(_ACCESS_HEADER) or (query_access or "")).strip()
     if " " in got and "+" not in got:
         got = got.replace(" ", "+")
     return got == want
@@ -92,7 +92,7 @@ def create_app():
 
     @app.post("/token")
     def token(request: Request, identity: str | None = None, room: str | None = None) -> dict:
-        if not _access_key_ok(dict(request.headers)):
+        if not _access_key_ok(dict(request.headers), request.query_params.get("access")):
             raise HTTPException(status_code=403, detail="access_denied")
         key = os.getenv("LIVEKIT_API_KEY")
         secret = os.getenv("LIVEKIT_API_SECRET")

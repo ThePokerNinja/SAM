@@ -120,7 +120,10 @@ export function BrandIntro({
         <CandleFlame boost={boost} className="bi-candle-canvas" />
       </div>
       {phase === "denied" && (
-        <p className="bi-denied-hint" role="status">Access denied</p>
+        <p className="bi-denied-hint" role="status">
+          Access denied
+          <span className="bi-denied-sub">Owner link must include ?access=your-key</span>
+        </p>
       )}
       <div className="bi-card" aria-hidden="true">
         <img src={cardSrc} alt="" draggable={false} />

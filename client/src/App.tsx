@@ -20,8 +20,6 @@ import { SAMUEL_DEFINITION } from "./brand/brand";
 
 type Status = "idle" | "connecting" | "live" | "error" | "denied";
 
-bootstrapPortalAccessFromUrl();
-
 export default function App() {
   const [status, setStatus] = useState<Status>("idle");
   const [room, setRoom] = useState<Room | null>(null);
@@ -34,6 +32,7 @@ export default function App() {
   const { preset, lastReason } = useTierController(null);
 
   useEffect(() => {
+    bootstrapPortalAccessFromUrl();
     fetchTokenHealth().then((h) => setPortalAccessRequired(h.portalAccessRequired));
   }, []);
 
@@ -91,7 +90,7 @@ export default function App() {
         <header className="app-header app-header--floating">
           <div className="brand" aria-label={SAMUEL_DEFINITION}>
             <span className="brand-mark">Samuel</span>
-            <span className="brand-sub">S.A.M. ÔøΩ Systems Agent Model</span>
+            <span className="brand-sub">S.A.M. ù Systems Agent Model</span>
           </div>
           <TierBadge preset={preset} reason={lastReason} />
         </header>
