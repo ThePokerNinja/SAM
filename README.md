@@ -31,16 +31,16 @@ client/  (React + Vite + TS + Rive)        worker/  (Python + LiveKit Agents)
                                              - token server (mint LiveKit JWT)
 ```
 
-## Status: Phase 4 scaffold (stubs)
+## Status: Phase 5b POC (local) — Phase 0 deploy ready
 
-This is a **structure + stubs** scaffold. It **boots locally with mock providers** and needs no
-real vendor keys. Real LiveKit / Deepgram / ElevenLabs / Hermes wiring lands in **Phase 5 (Speed
-POC)**, gated by the <800ms KPI.
+Real LiveKit pipeline is wired and measured locally (v2v p50 ~1091ms / p95 ~1439ms). Portal UI
+(candle intro, visualizers, chat shell) runs against `python -m sam_worker.agent dev` + token server.
 
-- The **client** runs against a built-in `MockTransport` that simulates a turn loop so the
-  TierController + LatencyHUD are reviewable end-to-end without a backend.
-- The **worker** has a `--mock` loop (stdlib only) that simulates turns and prints per-stage
-  timings; the real LiveKit agent entrypoint is stubbed with clear TODOs.
+**Prod deploy:** see `deploy/README.md` and `render.yaml` (portal + token server + agent worker on Render).
+
+- The **client** connects via `connectSam()` → token server → LiveKit room; mock transport still available for UI-only review.
+- The **worker** runs the real `AgentSession` (Groq + ElevenLabs + inference STT + turn-detector-v1).
+- Offline: `python -m sam_worker --mock` | bench: `python -m sam_worker --bench`
 
 ## Quick start
 
@@ -51,6 +51,13 @@ npm install
 npm run dev        # http://localhost:5173  (mock transport, no keys needed)
 npm run test       # TierController unit tests (vitest)
 npm run build      # typecheck + production build
+
+### Deploy (Phase 0)
+```bash
+# Preflight + see deploy/README.md for Render Blueprint first-time setup
+powershell -File scripts/deploy-phase0.ps1 -Preflight
+```
+Prod portal: `https://voice.michaelstewman.com` (custom domain on Render `sam-voice-portal`).
 ```
 
 ### Worker

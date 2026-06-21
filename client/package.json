@@ -13,6 +13,8 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@livekit/components-react": "^2.9.21",
+    "@livekit/components-styles": "^1.2.0",
     "@rive-app/react-canvas": "^4.18.0",
     "livekit-client": "^2.7.0",
     "react": "^18.3.1",

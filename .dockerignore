@@ -1,0 +1,20 @@
+# Client (not in agent image)
+client/
+node_modules/
+
+# Secrets and local noise
+.env
+.env.*
+!.env.example
+**/.env
+**/.venv
+**/venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/*.log
+.git
+.gitignore
+.cursor

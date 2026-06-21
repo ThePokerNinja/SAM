@@ -1,82 +1,92 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { LatencyHUD } from "./components/LatencyHUD";
-import { MicButton } from "./components/MicButton";
-import { SamAvatar } from "./components/SamAvatar";
-import { Simulator } from "./components/Simulator";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { RoomContext } from "@livekit/components-react";
+import "@livekit/components-styles";
+import { Room, RoomEvent } from "livekit-client";
 import { TierBadge } from "./components/TierBadge";
+import { VoicePortal } from "./components/VoicePortal";
+import { BrandIntro } from "./components/BrandIntro";
 import { useTierController } from "./hooks/useTierController";
-import { createTransport } from "./lib/createTransport";
-import type { PersonaId, SamPhase, TurnTiming } from "./lib/transport";
+import { connectSam } from "./lib/samRoom";
 
-const PERSONA_LABEL: Record<PersonaId, string> = {
-  samuel: "Samuel",
-  schedule: "Schedule Agent",
-  design: "Design Agent",
-  sales: "Sales Agent",
-};
-
-const MAX_TURNS = 50;
+type Status = "idle" | "connecting" | "live" | "error";
 
 export default function App() {
-  const transport = useMemo(() => createTransport(), []);
-  const [phase, setPhase] = useState<SamPhase>("idle");
-  const [turns, setTurns] = useState<TurnTiming[]>([]);
-  const [persona, setPersona] = useState<PersonaId>("samuel");
-  const [showSim, setShowSim] = useState(true);
-  const pcRef = useRef<RTCPeerConnection | null>(transport.getPeerConnection());
+  const [status, setStatus] = useState<Status>("idle");
+  const [room, setRoom] = useState<Room | null>(null);
+  const [error, setError] = useState<string>("");
+  const [revealed, setRevealed] = useState(false);
+  const [attempt, setAttempt] = useState(0); // remount the intro back to candle on retry
+  const roomRef = useRef<Room | null>(null);
 
-  const { controller, preset, signals, lastReason } = useTierController(pcRef.current);
+  // Tier controller drives only the visual choice here (fps-based; no raw pc needed).
+  const { preset, lastReason } = useTierController(null);
+
+  const start = useCallback(async () => {
+    setStatus("connecting");
+    setError("");
+    try {
+      const { room: r } = await connectSam();
+      roomRef.current = r;
+      r.on(RoomEvent.Disconnected, () => {
+        setStatus("idle");
+        setRoom(null);
+        roomRef.current = null;
+        setRevealed(false);
+        setAttempt((n) => n + 1);
+      });
+      setRoom(r);
+      setStatus("live");
+    } catch (e) {
+      setError(String((e as Error)?.message || e));
+      setStatus("error");
+      setAttempt((n) => n + 1); // send the intro back to the candle
+    }
+  }, []);
 
   useEffect(() => {
-    void transport.connect();
-    const offPhase = transport.onPhase(setPhase);
-    const offTurn = transport.onTurn((t) => {
-      setPersona(t.persona);
-      setTurns((prev) => {
-        const next = [...prev, t].slice(-MAX_TURNS);
-        // feed the latency guard: rolling v2v p95
-        const v2v = next.map((x) => x.v2vMs).sort((a, b) => a - b);
-        const p95 = v2v[Math.min(v2v.length - 1, Math.floor(0.95 * v2v.length))];
-        controller.setSignals({ v2vP95Ms: Math.round(p95) });
-        return next;
-      });
-    });
     return () => {
-      offPhase();
-      offTurn();
-      transport.disconnect();
+      roomRef.current?.disconnect();
     };
-  }, [transport, controller]);
+  }, []);
+
+  const showIntro = !revealed || status !== "live";
 
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="brand">
-          <span className="brand-mark">S.A.M.</span>
-          <span className="brand-sub">System Agentic Model · Samuel</span>
-        </div>
-        <TierBadge preset={preset} reason={lastReason} />
-      </header>
+      {revealed && status === "live" && (
+        <header className="app-header app-header--floating">
+          <TierBadge preset={preset} reason={lastReason} />
+        </header>
+      )}
 
-      <main className="stage">
-        <SamAvatar phase={phase} visual={preset.visual} persona={PERSONA_LABEL[persona]} />
-        <MicButton
-          phase={phase}
-          onDown={() => transport.setTalking(true)}
-          onUp={() => transport.setTalking(false)}
-        />
+      <main className="stage stage--full">
+        {status === "live" && room && (
+          <RoomContext.Provider value={room}>
+            <VoicePortal />
+          </RoomContext.Provider>
+        )}
+
+        {showIntro && (
+          <BrandIntro
+            key={attempt}
+            ready={status === "live"}
+            onIgnite={start}
+            onRevealed={() => setRevealed(true)}
+          />
+        )}
+
+        {status === "error" && (
+          <div className="connect-error-overlay">
+            <p className="connect-error">
+              Couldn&rsquo;t connect: {error}
+              <br />
+              <span className="connect-error-hint">
+                Check the token server (VITE_TOKEN_URL) and that the agent worker is running, then tap the flame again.
+              </span>
+            </p>
+          </div>
+        )}
       </main>
-
-      <LatencyHUD turns={turns} signals={signals} />
-
-      <button className="sim-toggle" onClick={() => setShowSim((v) => !v)}>
-        {showSim ? "Hide" : "Show"} simulator
-      </button>
-      {showSim && <Simulator controller={controller} />}
-
-      <footer className="app-footer">
-        Mock mode · no backend. Real LiveKit pipeline lands in Phase 5 (gated by v2v &lt; 800ms).
-      </footer>
     </div>
   );
 }
