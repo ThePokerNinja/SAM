@@ -59,6 +59,7 @@ from .tools.handlers import (
     handle_get_trades,
     handle_queue_research,
 )
+from .owner_gate import build_owner_gate, wire_owner_gate_listeners
 from .voice_verify import VoiceVerifier
 
 # Spoken refusal when a Tier-T (trigger) tool is called by a non-owner session.
@@ -137,19 +138,6 @@ _log = logging.getLogger("sam.agent")
 
 def prewarm(proc: JobProcess) -> None:
     proc.userdata["vad"] = silero.VAD.load()
-
-
-def _participant_is_owner(ctx: JobContext) -> bool:
-    """Fallback owner check: a remote participant carrying role=owner from the token mint
-    (set by the token server when the portal access key is configured AND matched)."""
-    try:
-        for p in ctx.room.remote_participants.values():
-            attrs = getattr(p, "attributes", None) or {}
-            if attrs.get("role") == "owner":
-                return True
-    except Exception:  # noqa: BLE001
-        pass
-    return False
 
 
 def _build_llm(s: Settings):
@@ -268,11 +256,7 @@ async def entrypoint(ctx: JobContext) -> None:
     # Owner gate for Tier-T tools: live voice match (primary) OR access-key owner
     # attribute on the token (fallback). Verifier is None when voice verify isn't configured.
     verifier = VoiceVerifier.from_settings(s)
-
-    def _session_is_owner() -> bool:
-        if verifier is not None and verifier.is_owner():
-            return True
-        return _participant_is_owner(ctx)
+    _session_is_owner, owner_gate = build_owner_gate(ctx, verifier)
 
     rm_tools = _build_rainmaker_tools(rm_client, _session_is_owner)
     rm_mode = "mock" if (s.sam_mock_rm or not s.rm_api_base_url) else "http:" + s.rm_api_base_url
@@ -285,13 +269,20 @@ async def entrypoint(ctx: JobContext) -> None:
 
     instructions = (
         SAMUEL.system_hint
-        + "\n\nTOOLS: For any question about scans/picks, the market pulse or regime, or "
-        "trades/positions/P&L, you MUST call the matching tool (get_scans, get_pulse, "
-        "get_trades) and speak only what it returns. Never answer these from memory."
+        + "\n\nTOOLS (always call the tool; never answer from memory):\n"
+        "- Scans/picks/watchlist -> get_scans\n"
+        "- Market pulse/regime/mood -> get_pulse\n"
+        "- Trades/P&L/positions -> get_trades\n"
+        "- Research digest / what has been researched -> get_research\n"
+        "- Owner asks to RUN, REFRESH, or TRIGGER a scan -> run_scan (starts in background)\n"
+        "- Owner asks to RESEARCH or queue research on a topic/ticker -> queue_research\n"
+        "Speak only what the tool returns."
     )
 
     await session.start(agent=Agent(instructions=instructions, tools=rm_tools), room=ctx.room)
     await ctx.connect()
+
+    wire_owner_gate_listeners(ctx.room, owner_gate)
 
     # Start scoring the human mic for the owner voiceprint (no-op when not configured).
     if verifier is not None:
