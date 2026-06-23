@@ -1,0 +1,75 @@
+{
+  "method_version": "0.1.0",
+  "kpi": {
+    "v2v_p50_ms": 800,
+    "v2v_p95_ms": 1500,
+    "grounded_task_success_min": 0.90,
+    "hallucination_rate_max": 0.02
+  },
+  "tiered_targets": {
+    "minimum_enterprise": { "v2v_p50_ms": 1000, "v2v_p95_ms": 1500, "barge_in_ms": 400 },
+    "premium":            { "v2v_p50_ms": 800,  "v2v_p95_ms": 1200, "barge_in_ms": 250 },
+    "industry_leading":   { "v2v_p50_ms": 600,  "v2v_p95_ms": 1000, "barge_in_ms": 150 }
+  },
+  "ship_gate": "premium",
+  "barge_in_ms": 250,
+  "per_stage_budget_p50_ms": {
+    "eou_ms": 300,
+    "stt_ms": 150,
+    "llm_ttft_ms": 200,
+    "tts_ttfb_ms": 200
+  },
+  "sample": {
+    "min_turns_per_arm_per_scenario": 30,
+    "min_sessions": 3,
+    "network_profiles": ["wifi", "throttled_mobile"]
+  },
+  "arms": [
+    {
+      "id": "samuel",
+      "label": "Samuel (prod cascade, Hermes brain)",
+      "enabled": false,
+      "transport": "livekit",
+      "brain": "hermes",
+      "note": "Enable after Wave 1 (HermesBrain + read-only tools) lands."
+    },
+    {
+      "id": "samuel-groq",
+      "label": "Samuel (current, Groq llama-3.1-8b-instant)",
+      "enabled": false,
+      "transport": "livekit",
+      "brain": "groq",
+      "note": "Current live config; baseline arm."
+    },
+    {
+      "id": "chatgpt-voice",
+      "label": "ChatGPT Advanced Voice (S2S)",
+      "enabled": false,
+      "transport": "openai_realtime_or_manual",
+      "brain": "gpt-realtime",
+      "note": "Respect OpenAI ToS. Prefer official realtime API for an automatable arm; else documented manual protocol. General arena only \u2014 cannot play the grounded arena (no platform access)."
+    },
+    {
+      "id": "samuel-s2s",
+      "label": "Samuel S2S experiment (future Tier 0)",
+      "enabled": false,
+      "transport": "livekit",
+      "brain": "gpt-realtime",
+      "note": "Optional future experiment per ADR-2; not the foundation."
+    }
+  ],
+  "weights": {
+    "general_arena": {
+      "latency": 0.35,
+      "barge_in": 0.25,
+      "naturalness": 0.25,
+      "recovery_charm": 0.15
+    },
+    "grounded_arena": {
+      "task_success": 0.45,
+      "anti_hallucination": 0.30,
+      "tool_accuracy": 0.15,
+      "refusal_appropriateness": 0.10
+    }
+  }
+}

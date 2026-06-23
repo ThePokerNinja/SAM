@@ -104,14 +104,18 @@ def create_app():
         room_name = room or f"sam-{uuid.uuid4().hex[:12]}"
 
         grant = api.VideoGrants(room_join=True, room=room_name, can_publish=True, can_subscribe=True)
-        jwt = (
+        builder = (
             api.AccessToken(key, secret)
             .with_identity(ident)
             .with_name("You")
             .with_grants(grant)
             .with_ttl(timedelta(seconds=_TOKEN_TTL_SECONDS))
-            .to_jwt()
         )
+        # Owner signal for the agent's Tier-T gate: only when a portal access key is BOTH
+        # configured AND matched (gate-off mode means everyone passes, so it must not imply owner).
+        if _portal_access_required():
+            builder = builder.with_attributes({"role": "owner"})
+        jwt = builder.to_jwt()
         return {"token": jwt, "url": url, "room": room_name, "identity": ident}
 
     return app

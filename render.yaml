@@ -90,3 +90,19 @@ services:
         value: "1.2"
       - key: RM_API_BASE_URL
         value: https://rainmaker-api-waqs.onrender.com
+      # SAM-003: same secret as RM_CRON_TOKEN on the rainmaker-api Render service.
+      # Copy the value from Render → rainmaker-api → Environment → RM_CRON_TOKEN.
+      - key: RM_API_TOKEN
+        sync: false
+      # Use OpenAI for the brain — Groq llama-3.1-8b-instant has a 6K TPM cap that the
+      # canon prompt exhausts in 1-2 turns.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SAM_BRAIN
+        value: openai
+      # Owner voice verification (Tier-T gate). Both must be set to arm the voice gate;
+      # otherwise Tier-T falls back to the portal access-key owner attribute.
+      - key: PICOVOICE_ACCESS_KEY
+        sync: false
+      - key: SAM_OWNER_VOICEPRINT
+        sync: false

@@ -11,6 +11,9 @@ requires-python = ">=3.10"
 [tool.setuptools]
 packages = ["sam_worker", "sam_worker.tools", "server"]
 
+[tool.setuptools.package-data]
+"sam_worker" = ["prompts/*.txt"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]

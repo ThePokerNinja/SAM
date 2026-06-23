@@ -1,14 +1,29 @@
-"""STT stage — Deepgram Nova-3 streaming (ADR-3). Phase 4 = stub notes only.
+"""STT stage — Deepgram Nova-3 streaming (ADR-3).
 
-Phase 5: use livekit-plugins-deepgram with streaming partials; the LiveKit AgentSession
-consumes this directly. Configure a fallback STT provider per ADR-3.
+Default prod path uses LiveKit Inference (no Deepgram key). When ``DEEPGRAM_API_KEY`` is set,
+or ``SAM_STT=deepgram``, we use the Deepgram plugin directly — bypasses LiveKit Inference
+rate limits (429) on ``agent-gateway.livekit.cloud``.
 """
 
 from __future__ import annotations
 
+import os
 
-def build_stt(deepgram_api_key: str):  # -> deepgram.STT (Phase 5)
-    """Return a configured Deepgram streaming STT. Stubbed until Phase 5."""
-    raise NotImplementedError(
-        "STT wiring is Phase 5. In --mock the turn loop simulates transcripts."
-    )
+from livekit.agents import inference
+from livekit.plugins import deepgram
+
+from .config import Settings
+
+
+def build_stt(s: Settings):
+    """Return STT for AgentSession: Deepgram direct when configured, else LiveKit Inference."""
+    mode = (os.getenv("SAM_STT", "") or "").strip().lower()
+    use_deepgram = mode == "deepgram" or (mode != "inference" and bool(s.deepgram_api_key))
+
+    if use_deepgram:
+        if not s.deepgram_api_key:
+            raise RuntimeError("SAM_STT=deepgram but DEEPGRAM_API_KEY is not set in worker/.env")
+        model = s.stt_model.removeprefix("deepgram/") if s.stt_model.startswith("deepgram/") else "nova-3"
+        return deepgram.STT(model=model, api_key=s.deepgram_api_key)
+
+    return inference.STT(model=s.stt_model)

@@ -42,6 +42,25 @@ class PersonaTests(unittest.TestCase):
         self.assertNotIn(SAMUEL.id, [p.id for p in SUB_AGENTS])
         self.assertIn("never mention hermes", SAMUEL.system_hint.lower())
 
+    def test_samuel_canon_has_anti_hallucination_rules(self) -> None:
+        """SAM-004: the canon prompt must explicitly fence the 2026-06-21 failures."""
+        hint = SAMUEL.system_hint.lower()
+        # Pricing/fees guardrail (invented $20-$100 trade fee + 0.5-1% AUM in prod).
+        self.assertIn("pricing", hint)
+        self.assertIn("fee", hint)
+        # Never claim email/links/messaging delivery.
+        self.assertIn("email", hint)
+        # Never claim an onboarding team / other staff.
+        self.assertIn("onboarding team", hint)
+        # Never claim account state.
+        self.assertIn("account", hint)
+        # Must instruct honesty / "don't know" behavior.
+        self.assertTrue("don't know" in hint or "i don't have" in hint or "say so" in hint)
+
+    def test_samuel_canon_loaded_from_file(self) -> None:
+        """The full canon (not just the inline fallback) should be in use."""
+        self.assertGreater(len(SAMUEL.system_hint), 400)
+
     def test_all_personas_have_voice_env(self) -> None:
         for p in ALL.values():
             self.assertTrue(p.voice_env.endswith("_VOICE_ID"))

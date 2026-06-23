@@ -45,11 +45,21 @@ class Settings:
     groq_api_key: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
     groq_model: str = "llama-3.1-8b-instant"
+    # SAM_BRAIN: "openai" | "groq" | "hermes" — explicit override (else auto-detect).
+    sam_brain: str = ""
     hermes_base_url: str = ""
     hermes_api_key: str = ""
     rm_api_base_url: str = "https://rainmaker-api-waqs.onrender.com"
     rm_api_token: str = ""
+    # When true (SAM_MOCK_RM=1), Rainmaker tools use canned data instead of hitting rm_api.
+    sam_mock_rm: bool = False
     token_server_port: int = 8788
+    # Voice verification (owner-gate for trigger tools). Inert unless both a Picovoice
+    # access key AND an enrolled owner voiceprint are present.
+    picovoice_access_key: str = ""
+    owner_voiceprint: str = ""  # base64 of a serialized Eagle profile
+    owner_voiceprint_path: str = ""  # alt: path to a profile file
+    voice_threshold: float = 0.5  # Eagle owner-confidence to clear the gate
     voice_ids: dict[str, str] = field(default_factory=dict)
 
     @classmethod
@@ -68,11 +78,17 @@ class Settings:
             groq_api_key=os.getenv("GROQ_API_KEY", ""),
             groq_base_url=os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
             groq_model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
+            sam_brain=os.getenv("SAM_BRAIN", "").strip().lower(),
             hermes_base_url=os.getenv("HERMES_BASE_URL", ""),
             hermes_api_key=os.getenv("HERMES_API_KEY", ""),
             rm_api_base_url=os.getenv("RM_API_BASE_URL", "https://rainmaker-api-waqs.onrender.com"),
             rm_api_token=os.getenv("RM_API_TOKEN", ""),
+            sam_mock_rm=os.getenv("SAM_MOCK_RM", "").strip().lower() in {"1", "true", "yes"},
             token_server_port=int(os.getenv("TOKEN_SERVER_PORT", "8788")),
+            picovoice_access_key=os.getenv("PICOVOICE_ACCESS_KEY", ""),
+            owner_voiceprint=os.getenv("SAM_OWNER_VOICEPRINT", ""),
+            owner_voiceprint_path=os.getenv("SAM_OWNER_VOICEPRINT_PATH", ""),
+            voice_threshold=float(os.getenv("SAM_VOICE_THRESHOLD", "0.5") or 0.5),
             voice_ids={
                 "samuel": os.getenv("SAM_VOICE_ID", ""),
                 "schedule": os.getenv("SCHEDULE_VOICE_ID", ""),

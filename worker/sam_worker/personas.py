@@ -4,6 +4,28 @@ by switching ElevenLabs voice_id during the Executive Brief (one agent, many voi
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+
+# Fallback Samuel prompt if the canon file is missing. Keeps the "never mention
+# hermes" guardrail and the anti-hallucination core so the agent never ships
+# without grounding rules. The full canon lives in prompts/samuel_canon.txt.
+_SAMUEL_FALLBACK = (
+    "You are Samuel ('Sam'), the single customer-facing Rainmaker agent. Warm, sharp, "
+    "concise, confident. You host and cover trading/Rainmaker yourself. Never mention "
+    "Hermes or 'Charles' - you are the only agent the user meets. Keep replies short "
+    "and spoken. Never invent pricing, fees, an onboarding team, email/links, or account "
+    "state; if you don't know, say so and offer a real next step."
+)
+
+
+def _load_samuel_canon() -> str:
+    """Load the canon Samuel system prompt (SAM-004); fall back to the inline core."""
+    path = Path(__file__).resolve().parent / "prompts" / "samuel_canon.txt"
+    try:
+        text = path.read_text(encoding="utf-8").strip()
+        return text or _SAMUEL_FALLBACK
+    except OSError:
+        return _SAMUEL_FALLBACK
 
 
 @dataclass(frozen=True)
@@ -18,11 +40,7 @@ SAMUEL = Persona(
     id="samuel",
     display_name="Samuel",
     voice_env="SAM_VOICE_ID",
-    system_hint=(
-        "You are Samuel ('Sam'), the customer-facing Rainmaker agent. Warm, sharp, concise, "
-        "confident. You host and you cover trading/Rainmaker yourself. Never mention Hermes or "
-        "'Charles' to the user - you are the only agent they meet."
-    ),
+    system_hint=_load_samuel_canon(),
 )
 
 SCHEDULE = Persona(
