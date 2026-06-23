@@ -142,3 +142,43 @@ async def handle_get_research(client: RainmakerClient, limit: int = 3) -> str:
     if not bits:
         return "I have research on file but no summaries to read yet."
     return ("Recent research: " + " | ".join(bits) + ".")[:_MAX_SPOKEN]
+
+
+_BRIEF_SPOKEN_MAX = 520  # brief is longer than other tools; still cap for one voice turn
+
+
+async def handle_get_brief(client: RainmakerClient) -> str:
+    res = await client.get_brief()
+    if not res.get("ok"):
+        return _fail("morning brief")
+    message = (res.get("message") or "").strip()
+    if not message:
+        return "I couldn't assemble a brief right now."
+    # Speak the opening lines; offer SMS for the full text if truncated.
+    spoken = message.replace("\n", ". ").strip()
+    if len(spoken) > _BRIEF_SPOKEN_MAX:
+        spoken = spoken[: _BRIEF_SPOKEN_MAX - 40].rsplit(".", 1)[0] + ". "
+        spoken += "Say text me the brief if you want the full version on your phone."
+    return spoken
+
+
+async def handle_send_brief(client: RainmakerClient) -> str:
+    res = await client.send_brief()
+    if not res.get("ok"):
+        return _fail("brief text")
+    if res.get("sent"):
+        return "Done - I texted you the morning brief."
+    reason = res.get("reason") or "send_failed"
+    return f"I couldn't text the brief right now ({reason})."
+
+
+async def handle_send_hero(client: RainmakerClient) -> str:
+    res = await client.send_hero()
+    if not res.get("ok"):
+        return _fail("hero card")
+    if res.get("sent"):
+        return "Your HERO card is on its way - check your texts for the image."
+    if res.get("ascii"):
+        return "Twilio couldn't send the image, so I texted you an ASCII version of the card."
+    reason = res.get("reason") or "send_failed"
+    return f"I couldn't send the HERO card right now ({reason})."

@@ -8,12 +8,15 @@ import unittest
 from sam_worker.config import Settings
 from sam_worker.tools.handlers import (
     build_rainmaker_client,
+    handle_get_brief,
     handle_get_pulse,
     handle_get_research,
     handle_get_scans,
     handle_get_trades,
     handle_queue_research,
     handle_run_scan,
+    handle_send_brief,
+    handle_send_hero,
 )
 from sam_worker.tools.rainmaker import HttpRainmakerClient, MockRainmakerClient
 
@@ -21,7 +24,7 @@ from sam_worker.tools.rainmaker import HttpRainmakerClient, MockRainmakerClient
 class SpyClient:
     """Records that a tool actually called through to the client (AC: mock invoked)."""
 
-    def __init__(self, scans=None, pulse=None, trades=None, run=None, queue=None, research=None) -> None:
+    def __init__(self, scans=None, pulse=None, trades=None, run=None, queue=None, research=None, brief=None, send_brief_res=None, send_hero_res=None) -> None:
         self.calls: list[str] = []
         self._scans = scans or {"ok": True, "symbols": ["NVDA", "AAPL"], "newSymbols": ["AAPL"]}
         self._pulse = pulse or {"ok": True, "available": True, "label": "Risk-on", "pct": 62, "confidence": "med"}
@@ -29,6 +32,9 @@ class SpyClient:
         self._run = run or {"ok": True, "newSymbols": ["TSLA"], "count": 9}
         self._queue = queue or {"ok": True, "shortId": "abc12345", "status": "queued", "queuedAhead": 0}
         self._research = research or {"ok": True, "items": [{"prompt": "p", "summary": "Solid setup on NVDA"}], "count": 1}
+        self._brief = brief or {"ok": True, "message": "Good morning. Top 3: scans, workout, review."}
+        self._send_brief_res = send_brief_res or {"ok": True, "sent": True}
+        self._send_hero_res = send_hero_res or {"ok": True, "sent": True}
 
     async def get_scans(self, limit: int = 10) -> dict:
         self.calls.append(f"get_scans:{limit}")
@@ -53,6 +59,18 @@ class SpyClient:
     async def get_research(self, limit: int = 3) -> dict:
         self.calls.append(f"get_research:{limit}")
         return self._research
+
+    async def get_brief(self) -> dict:
+        self.calls.append("get_brief")
+        return self._brief
+
+    async def send_brief(self) -> dict:
+        self.calls.append("send_brief")
+        return self._send_brief_res
+
+    async def send_hero(self) -> dict:
+        self.calls.append("send_hero")
+        return self._send_hero_res
 
 
 class HandlerInvokeTests(unittest.TestCase):
@@ -118,6 +136,26 @@ class TriggerHandlerTests(unittest.TestCase):
         spy = SpyClient(research={"ok": True, "items": [], "count": 0})
         out = asyncio.run(handle_get_research(spy))
         self.assertIn("empty", out.lower())
+
+
+class BriefHeroHandlerTests(unittest.TestCase):
+    def test_get_brief_reads_message(self) -> None:
+        spy = SpyClient()
+        out = asyncio.run(handle_get_brief(spy))
+        self.assertIn("get_brief", spy.calls)
+        self.assertIn("Good morning", out)
+
+    def test_send_brief_confirms(self) -> None:
+        spy = SpyClient()
+        out = asyncio.run(handle_send_brief(spy))
+        self.assertIn("send_brief", spy.calls)
+        self.assertIn("texted", out.lower())
+
+    def test_send_hero_confirms(self) -> None:
+        spy = SpyClient()
+        out = asyncio.run(handle_send_hero(spy))
+        self.assertIn("send_hero", spy.calls)
+        self.assertIn("hero", out.lower())
 
 
 class HandlerDegradeTests(unittest.TestCase):

@@ -67,6 +67,9 @@ class RainmakerClient(Protocol):
     async def run_scan(self) -> dict: ...
     async def queue_research(self, prompt: str) -> dict: ...
     async def get_research(self, limit: int = 3) -> dict: ...
+    async def get_brief(self) -> dict: ...
+    async def send_brief(self) -> dict: ...
+    async def send_hero(self) -> dict: ...
 
 
 class MockRainmakerClient:
@@ -96,6 +99,19 @@ class MockRainmakerClient:
     async def get_research(self, limit: int = 3) -> dict:
         return {"ok": True, "items": [{"prompt": "mock idea", "summary": "mock summary"}]}
 
+    async def get_brief(self) -> dict:
+        return {
+            "ok": True,
+            "message": "Good morning - mock brief. Top priority: review scans.",
+            "weekend": False,
+        }
+
+    async def send_brief(self) -> dict:
+        return {"ok": True, "sent": True, "message": "Mock brief sent to your phone."}
+
+    async def send_hero(self) -> dict:
+        return {"ok": True, "sent": True, "reason": "mock_mms"}
+
 
 class HttpRainmakerClient:
     """Read-only rm_api client (SAM-005). httpx + ``X-RM-CRON-TOKEN``.
@@ -112,6 +128,10 @@ class HttpRainmakerClient:
     SCAN_RUN_PATH = "/scan/scheduled"
     RESEARCH_IDEAS_PATH = "/research/ideas"
     RESEARCH_DIGEST_PATH = "/research/digest"
+    BRIEF_PREVIEW_PATH = "/notify/owner-brief/preview"
+    BRIEF_SEND_PATH = "/notify/owner-brief"
+    HERO_SEND_PATH = "/notify/test-hero"
+    _LONG_TIMEOUT = 30.0
 
     def __init__(
         self,
@@ -133,17 +153,18 @@ class HttpRainmakerClient:
             headers["X-RM-CRON-TOKEN"] = self.token
         return headers
 
-    async def _get(self, path: str, params: dict[str, Any] | None = None) -> dict:
+    async def _get(self, path: str, params: dict[str, Any] | None = None, *, timeout: float | None = None) -> dict:
         import httpx
 
         url = self.base_url + path
+        tmo = self.timeout if timeout is None else timeout
         try:
             if self._client is not None:
                 resp = await self._client.get(
-                    url, params=params, headers=self._headers(), timeout=self.timeout
+                    url, params=params, headers=self._headers(), timeout=tmo
                 )
             else:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with httpx.AsyncClient(timeout=tmo) as client:
                     resp = await client.get(url, params=params, headers=self._headers())
         except httpx.TimeoutException:
             return {"ok": False, "error": "timeout"}
@@ -156,17 +177,20 @@ class HttpRainmakerClient:
         except ValueError:
             return {"ok": False, "error": "bad_json"}
 
-    async def _post(self, path: str, body: dict[str, Any] | None = None) -> dict:
+    async def _post(
+        self, path: str, body: dict[str, Any] | None = None, *, timeout: float | None = None
+    ) -> dict:
         import httpx
 
         url = self.base_url + path
+        tmo = self.timeout if timeout is None else timeout
         try:
             if self._client is not None:
                 resp = await self._client.post(
-                    url, json=body or {}, headers=self._headers(), timeout=self.timeout
+                    url, json=body or {}, headers=self._headers(), timeout=tmo
                 )
             else:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with httpx.AsyncClient(timeout=tmo) as client:
                     resp = await client.post(url, json=body or {}, headers=self._headers())
         except httpx.TimeoutException:
             return {"ok": False, "error": "timeout"}
@@ -271,3 +295,44 @@ class HttpRainmakerClient:
         data = res.get("data") or {}
         items = data.get("research_digest") or []
         return {"ok": True, "items": items[:limit], "count": len(items)}
+
+    async def get_brief(self) -> dict:
+        """Assemble the owner morning brief (read-only preview). Can take ~20s."""
+        res = await self._get(self.BRIEF_PREVIEW_PATH, timeout=self._LONG_TIMEOUT)
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        message = (data.get("message") or "").strip()
+        if not message:
+            return {"ok": False, "error": "empty_brief"}
+        return {
+            "ok": True,
+            "message": message,
+            "weekend": bool(data.get("weekend")),
+        }
+
+    async def send_brief(self) -> dict:
+        """SMS the assembled morning brief to the owner (Tier-T). Mirrors SMS BRIEF."""
+        res = await self._post(self.BRIEF_SEND_PATH, body={"send": True}, timeout=self._LONG_TIMEOUT)
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {
+            "ok": True,
+            "sent": bool(data.get("sent")),
+            "reason": data.get("reason"),
+            "message": (data.get("message") or "")[:200],
+        }
+
+    async def send_hero(self) -> dict:
+        """MMS the Samuel HERO character card to the owner phone. Mirrors SMS HERO."""
+        res = await self._post(self.HERO_SEND_PATH, body={}, timeout=self._LONG_TIMEOUT)
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {
+            "ok": True,
+            "sent": bool(data.get("sent")),
+            "reason": data.get("reason"),
+            "ascii": bool(data.get("ascii")),
+        }

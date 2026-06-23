@@ -205,6 +205,49 @@ class GetResearchTests(unittest.TestCase):
         self.assertIn("limit=3", captured["url"])
 
 
+class BriefHeroTests(unittest.TestCase):
+    def test_get_brief_preview(self) -> None:
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            return httpx.Response(
+                200,
+                json={"message": "Good morning Michael", "weekend": False},
+            )
+
+        res = asyncio.run(_client(handler).get_brief())
+        self.assertTrue(res["ok"])
+        self.assertIn("Good morning", res["message"])
+        self.assertTrue(captured["url"].endswith("/notify/owner-brief/preview"))
+
+    def test_send_brief_posts(self) -> None:
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["method"] = request.method
+            captured["url"] = str(request.url)
+            return httpx.Response(200, json={"sent": True, "message": "brief body"})
+
+        res = asyncio.run(_client(handler).send_brief())
+        self.assertTrue(res["ok"])
+        self.assertTrue(res["sent"])
+        self.assertEqual(captured["method"], "POST")
+        self.assertTrue(captured["url"].endswith("/notify/owner-brief"))
+
+    def test_send_hero_posts(self) -> None:
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            return httpx.Response(200, json={"sent": True})
+
+        res = asyncio.run(_client(handler).send_hero())
+        self.assertTrue(res["ok"])
+        self.assertTrue(res["sent"])
+        self.assertTrue(captured["url"].endswith("/notify/test-hero"))
+
+
 class FailureModeTests(unittest.TestCase):
     def test_http_error_status(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:

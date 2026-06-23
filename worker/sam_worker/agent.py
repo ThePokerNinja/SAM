@@ -53,11 +53,14 @@ from .personas import SAMUEL
 from .stt import build_stt
 from .tools.handlers import (
     build_rainmaker_client,
+    handle_get_brief,
     handle_get_pulse,
     handle_get_research,
     handle_get_scans,
     handle_get_trades,
     handle_queue_research,
+    handle_send_brief,
+    handle_send_hero,
 )
 from .owner_gate import build_owner_gate, wire_owner_gate_listeners
 from .voice_verify import VoiceVerifier
@@ -130,7 +133,39 @@ def _build_rainmaker_tools(client, is_owner) -> list:
             return _OWNER_ONLY
         return await handle_queue_research(client, topic)
 
-    return [get_scans, get_pulse, get_trades, get_research, run_scan, queue_research]
+    @function_tool
+    async def get_brief(context: RunContext) -> str:
+        """Read the owner's morning brief aloud (priorities, schedule, market line).
+        Use when they ask for the brief, morning summary, or what's on today."""
+        return await handle_get_brief(client)
+
+    @function_tool
+    async def send_brief(context: RunContext) -> str:
+        """Text the full morning brief to the owner's phone. Owner only. Use when they ask to
+        text/send the brief, or want the full brief on their phone."""
+        if not is_owner():
+            return _OWNER_ONLY
+        return await handle_send_brief(client)
+
+    @function_tool
+    async def send_hero(context: RunContext) -> str:
+        """Send the Samuel HERO character card image to the owner's phone via text. Owner only.
+        Use when they ask for their hero card, character card, or stats card."""
+        if not is_owner():
+            return _OWNER_ONLY
+        return await handle_send_hero(client)
+
+    return [
+        get_scans,
+        get_pulse,
+        get_trades,
+        get_research,
+        run_scan,
+        queue_research,
+        get_brief,
+        send_brief,
+        send_hero,
+    ]
 
 load_dotenv()
 _log = logging.getLogger("sam.agent")
@@ -274,8 +309,11 @@ async def entrypoint(ctx: JobContext) -> None:
         "- Market pulse/regime/mood -> get_pulse\n"
         "- Trades/P&L/positions -> get_trades\n"
         "- Research digest / what has been researched -> get_research\n"
+        "- Morning brief / what's on today -> get_brief\n"
         "- Owner asks to RUN, REFRESH, or TRIGGER a scan -> run_scan (starts in background)\n"
         "- Owner asks to RESEARCH or queue research on a topic/ticker -> queue_research\n"
+        "- Owner asks to TEXT/SEND the brief -> send_brief\n"
+        "- Owner asks for HERO/character/stats card -> send_hero\n"
         "Speak only what the tool returns."
     )
 
