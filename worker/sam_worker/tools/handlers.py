@@ -8,8 +8,8 @@ Kept stdlib-only (no LiveKit import) so the formatting/grounding is unit-testabl
   - ``build_rainmaker_client(settings)``: picks the mock vs http client (SAM_MOCK_RM /
     missing config -> mock).
 
-The LiveKit ``function_tool`` wrappers live in ``agent.py`` (which imports LiveKit at module
-top) so the ``RunContext`` annotation resolves under Python 3.14 deferred annotations.
+The LiveKit ``function_tool`` wrappers are built from ``registry.py`` + ``rainmaker_registry.py``
+(SAM-035) so new tools register without editing ``agent.py``.
 """
 
 from __future__ import annotations

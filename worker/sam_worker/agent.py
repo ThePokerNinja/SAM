@@ -39,7 +39,6 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     MetricsCollectedEvent,
-    RunContext,
     WorkerOptions,
     cli,
     function_tool,
@@ -51,17 +50,9 @@ from .config import Settings
 from .latency import TurnProfile, latency_log_enabled, write_profile
 from .personas import SAMUEL
 from .stt import build_stt
-from .tools.handlers import (
-    build_rainmaker_client,
-    handle_get_brief,
-    handle_get_pulse,
-    handle_get_research,
-    handle_get_scans,
-    handle_get_trades,
-    handle_queue_research,
-    handle_send_brief,
-    handle_send_hero,
-)
+from .tools.handlers import build_rainmaker_client
+from .tools.rainmaker_registry import register_rainmaker_tools
+from .tools.registry import ToolRegistry
 from .owner_gate import build_owner_gate, wire_owner_gate_listeners
 from .voice_verify import VoiceVerifier
 
@@ -82,90 +73,11 @@ async def _run_scan_bg(client) -> None:
         _log.exception("background scan run crashed")
 
 
-def _build_rainmaker_tools(client, is_owner) -> list:
-    """LiveKit function tools bound to ``client``. Defined at module scope so the
-    ``RunContext`` annotation resolves against this module's globals (Python 3.14
-    evaluates annotations lazily; LiveKit calls get_type_hints on the tool fn).
+def _build_tool_registry() -> ToolRegistry:
+    registry = ToolRegistry()
+    register_rainmaker_tools(registry)
+    return registry
 
-    ``is_owner`` is a zero-arg callable gating Tier-T (trigger) tools."""
-
-    @function_tool
-    async def get_scans(context: RunContext) -> str:
-        """Get the latest Rainmaker scan picks (ticker symbols and any new tickers today).
-        Use this whenever the user asks about scans, picks, watchlist, or what's on the board."""
-        return await handle_get_scans(client, limit=5)
-
-    @function_tool
-    async def get_pulse(context: RunContext) -> str:
-        """Get the current market pulse / morning bias (regime, lean, confidence).
-        Use this for any question about the market read, mood, regime, or how the tape looks."""
-        return await handle_get_pulse(client)
-
-    @function_tool
-    async def get_trades(context: RunContext) -> str:
-        """Get recent realized (closed) Rainmaker trades.
-        Use this for questions about trades, positions, P/L, or recent performance."""
-        return await handle_get_trades(client, status=None)
-
-    @function_tool
-    async def get_research(context: RunContext) -> str:
-        """Read the most recent Rainmaker research digest (completed research ideas + summaries).
-        Use this when the user asks about research, the latest findings, or what's been researched."""
-        return await handle_get_research(client, limit=3)
-
-    @function_tool
-    async def run_scan(context: RunContext) -> str:
-        """Trigger a fresh Rainmaker scan now. Owner only. Use only when the owner explicitly
-        asks to run, refresh, or re-run the scan. It starts the scan and returns immediately."""
-        if not is_owner():
-            return _OWNER_ONLY
-        asyncio.ensure_future(_run_scan_bg(client))
-        return (
-            "Scan started - it takes about a minute. Ask me for the latest picks shortly "
-            "and I'll read what it found."
-        )
-
-    @function_tool
-    async def queue_research(context: RunContext, topic: str) -> str:
-        """Queue a Rainmaker research request on a topic or ticker. Owner only. Use when the owner
-        asks you to research something. `topic` is what to research (a company, ticker, or question)."""
-        if not is_owner():
-            return _OWNER_ONLY
-        return await handle_queue_research(client, topic)
-
-    @function_tool
-    async def get_brief(context: RunContext) -> str:
-        """Read the owner's morning brief aloud (priorities, schedule, market line).
-        Use when they ask for the brief, morning summary, or what's on today."""
-        return await handle_get_brief(client)
-
-    @function_tool
-    async def send_brief(context: RunContext) -> str:
-        """Text the full morning brief to the owner's phone. Owner only. Use when they ask to
-        text/send the brief, or want the full brief on their phone."""
-        if not is_owner():
-            return _OWNER_ONLY
-        return await handle_send_brief(client)
-
-    @function_tool
-    async def send_hero(context: RunContext) -> str:
-        """Send the Samuel HERO character card image to the owner's phone via text. Owner only.
-        Use when they ask for their hero card, character card, or stats card."""
-        if not is_owner():
-            return _OWNER_ONLY
-        return await handle_send_hero(client)
-
-    return [
-        get_scans,
-        get_pulse,
-        get_trades,
-        get_research,
-        run_scan,
-        queue_research,
-        get_brief,
-        send_brief,
-        send_hero,
-    ]
 
 load_dotenv()
 _log = logging.getLogger("sam.agent")
@@ -293,7 +205,14 @@ async def entrypoint(ctx: JobContext) -> None:
     verifier = VoiceVerifier.from_settings(s)
     _session_is_owner, owner_gate = build_owner_gate(ctx, verifier)
 
-    rm_tools = _build_rainmaker_tools(rm_client, _session_is_owner)
+    tool_registry = _build_tool_registry()
+    rm_tools = tool_registry.build_livekit_tools(
+        rm_client,
+        _session_is_owner,
+        function_tool=function_tool,
+        owner_refusal=_OWNER_ONLY,
+        deps={"run_scan_bg": _run_scan_bg},
+    )
     rm_mode = "mock" if (s.sam_mock_rm or not s.rm_api_base_url) else "http:" + s.rm_api_base_url
     _log.info(
         "Rainmaker tools enabled (%d) | client=%s | voice_verify=%s",
