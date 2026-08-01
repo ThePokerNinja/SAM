@@ -53,6 +53,8 @@ from .stt import build_stt
 from .tools.handlers import build_rainmaker_client
 from .tools.rainmaker_registry import register_rainmaker_tools
 from .tools.registry import ToolRegistry
+from .tier import TierState
+from .tier_session import apply_tier_to_session, parse_tier_payload
 from .owner_gate import build_owner_gate, wire_owner_gate_listeners
 from .voice_verify import VoiceVerifier
 
@@ -61,6 +63,9 @@ _OWNER_ONLY = (
     "I can only do that for the owner, and I didn't recognize your voice just now. "
     "I can still read you the scans, the pulse, trades, or research."
 )
+
+TIER_TOPIC = "sam-tier"
+CHAT_TOPIC = "sam-chat"
 
 
 async def _run_scan_bg(client) -> None:
@@ -239,17 +244,42 @@ async def entrypoint(ctx: JobContext) -> None:
     await session.start(agent=Agent(instructions=instructions, tools=rm_tools), room=ctx.room)
     await ctx.connect()
 
+    tier_state = TierState(tier=2)
+    apply_tier_to_session(session, tier_state, s)
+
+    async def _apply_tier_update(tier: int, reason: str = "") -> None:
+        try:
+            await session.wait_for_idle()
+        except Exception:  # noqa: BLE001
+            pass
+        if tier_state.update(tier):
+            apply_tier_to_session(session, tier_state, s)
+        elif reason == "init":
+            apply_tier_to_session(session, tier_state, s)
+
     wire_owner_gate_listeners(ctx.room, owner_gate)
 
     # Start scoring the human mic for the owner voiceprint (no-op when not configured).
     if verifier is not None:
         verifier.attach(ctx.room)
 
-    # SAM-007: receive typed messages from the chat panel and reply in voice.
-    # Client sends: {type: "text_input", text: "<message>"} as reliable data on topic "sam-chat".
+    # SAM-007 / SAM-034: chat panel text + tier updates over the data channel.
     @ctx.room.on("data_received")
     def _on_data_received(packet: rtc.DataPacket) -> None:
-        if packet.topic != "sam-chat":
+        if packet.topic == TIER_TOPIC:
+            try:
+                payload = json.loads(bytes(packet.data).decode("utf-8"))
+            except Exception:
+                return
+            tier = parse_tier_payload(payload)
+            if tier is None:
+                return
+            reason = str(payload.get("reason") or "")
+            _log.debug("tier update from client: tier=%s reason=%s", tier, reason)
+            asyncio.ensure_future(_apply_tier_update(tier, reason))
+            return
+
+        if packet.topic != CHAT_TOPIC:
             return
         try:
             payload = json.loads(bytes(packet.data).decode("utf-8"))

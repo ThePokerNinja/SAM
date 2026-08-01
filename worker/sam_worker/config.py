@@ -27,6 +27,22 @@ def memory_turns_for_tier(tier: int) -> int:
     return TIER_MEMORY_TURNS.get(tier, 12)
 
 
+def effective_model_for_tier(tier: int, settings: "Settings") -> str:
+    """Resolve tier brain id to the model string for the active SAM_BRAIN."""
+    mapped = model_for_tier(tier)
+    brain = (settings.sam_brain or "").strip().lower()
+    use_groq = brain == "groq" or (
+        not brain and settings.groq_api_key and not settings.openai_api_key
+    )
+    if brain == "hermes" and settings.hermes_base_url:
+        return mapped
+    if use_groq:
+        return settings.groq_model
+    if mapped.startswith("gpt-"):
+        return mapped
+    return settings.openai_model
+
+
 @dataclass
 class Settings:
     livekit_url: str = ""
