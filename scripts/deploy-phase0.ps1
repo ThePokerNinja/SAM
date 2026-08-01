@@ -21,9 +21,23 @@ $TokenUrl = if ($env:SAM_TOKEN_URL) { $env:SAM_TOKEN_URL.TrimEnd("/") } else { "
 $PortalUrl = if ($env:SAM_PORTAL_URL) { $env:SAM_PORTAL_URL.TrimEnd("/") } else { "https://voice.michaelstewman.com" }
 
 function Test-DeployHookUrl {
-  param([string]$Url)
-  if ([string]::IsNullOrWhiteSpace($Url)) { return $false }
-  return $Url -match '^https://api\.render\.com/deploy/srv-[a-z0-9]+\?key='
+  param([string]$Url, [string]$Name)
+  if ([string]::IsNullOrWhiteSpace($Url)) { return $true }
+  if ($Url -match '\?key=https?://') {
+    Write-Host "[FAIL] $Name - hook URL looks nested (you pasted the template around the real URL)." -ForegroundColor Red
+    Write-Host "       Use ONLY what Render copies, e.g. https://api.render.com/deploy/srv-abc?key=xyz" -ForegroundColor Yellow
+    Write-Host "       Not: ...?key=https://api.render.com/deploy/srv-..." -ForegroundColor Yellow
+    return $false
+  }
+  if ($Url -match 'srv-XXXX') {
+    Write-Host "[FAIL] $Name - still contains placeholder srv-XXXX; copy the real hook from Render." -ForegroundColor Red
+    return $false
+  }
+  if ($Url -notmatch '^https://api\.render\.com/deploy/srv-[a-z0-9]+\?key=') {
+    Write-Host "[FAIL] $Name - hook URL does not look like a Render deploy hook (expect https://api.render.com/deploy/srv-...?key=...)" -ForegroundColor Red
+    return $false
+  }
+  return $true
 }
 
 function Invoke-RenderApiDeploy {
@@ -53,10 +67,7 @@ function Invoke-DeployHook {
     Write-Host "[skip] $Name - no hook URL" -ForegroundColor DarkGray
     return $false
   }
-  if (-not (Test-DeployHookUrl $HookUrl)) {
-    Write-Host "[FAIL] $Name - hook URL does not look like a Render deploy hook (expect https://api.render.com/deploy/srv-...?key=...)" -ForegroundColor Red
-    return $false
-  }
+  if (-not (Test-DeployHookUrl -Url $HookUrl -Name $Name)) { return $false }
   Write-Host "Deploying $Name (hook)..." -ForegroundColor Cyan
   try {
     $res = Invoke-WebRequest -Method POST -Uri $HookUrl -UseBasicParsing -TimeoutSec 90
