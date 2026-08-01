@@ -98,10 +98,24 @@ Runs client typecheck + build and worker pytest.
 
 ### Deploy hook env vars (optional)
 
+Copy the **full** URL from Render -> service -> **Settings** -> **Deploy Hook** (must include `?key=...`).
+If a hook returns **404 Not Found**, it was revoked or copied from the wrong service — regenerate in Render.
+
 ```powershell
-$env:SAM_TOKEN_DEPLOY_HOOK_URL = '<sam-token hook>'
-$env:SAM_PORTAL_DEPLOY_HOOK_URL = '<sam-voice-portal hook>'
-$env:SAM_AGENT_DEPLOY_HOOK_URL = '<sam-agent hook>'
+$env:SAM_TOKEN_DEPLOY_HOOK_URL = 'https://api.render.com/deploy/srv-...?key=...'
+$env:SAM_PORTAL_DEPLOY_HOOK_URL = 'https://api.render.com/deploy/srv-...?key=...'
+$env:SAM_AGENT_DEPLOY_HOOK_URL = 'https://api.render.com/deploy/srv-...?key=...'
+.\scripts\deploy-phase0.ps1 -Deploy -CheckOnly
+```
+
+**API fallback** (same pattern as rainmaker-api):
+
+```powershell
+$env:RENDER_API_KEY = '<Render account API key>'
+$env:SAM_TOKEN_SERVICE_ID = 'srv-...'   # from Render dashboard URL
+$env:SAM_AGENT_SERVICE_ID = 'srv-...'
+$env:SAM_PORTAL_SERVICE_ID = 'srv-...'
+.\scripts\deploy-phase0.ps1 -Deploy
 ```
 
 ## Prod v2v baseline
