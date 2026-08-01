@@ -48,6 +48,7 @@ from livekit.plugins import deepgram, elevenlabs, openai, silero  # noqa: F401 â
 
 from .config import Settings
 from .latency import TurnProfile, latency_log_enabled, write_profile
+from .session_log import SessionLogger
 from .personas import SAMUEL
 from .stt import build_stt
 from .tools.handlers import build_rainmaker_client
@@ -209,6 +210,50 @@ async def entrypoint(ctx: JobContext) -> None:
     # attribute on the token (fallback). Verifier is None when voice verify isn't configured.
     verifier = VoiceVerifier.from_settings(s)
     _session_is_owner, owner_gate = build_owner_gate(ctx, verifier)
+
+    session_logger = SessionLogger(
+        room_name=ctx.room.name or ctx.job.id,
+        room_sid=getattr(ctx.room, "sid", "") or "",
+        is_owner=_session_is_owner,
+    )
+    if session_logger.active:
+        _log.info("session log enabled | path=%s", session_logger.path)
+
+        @session.on("conversation_item_added")
+        def _on_conversation_item(ev) -> None:  # type: ignore[no-redef]
+            try:
+                session_logger.on_conversation_item(ev.item)
+            except Exception:  # noqa: BLE001
+                pass
+
+        @session.on("user_input_transcribed")
+        def _on_user_transcript(ev) -> None:  # type: ignore[no-redef]
+            try:
+                session_logger.on_user_transcript(
+                    transcript=ev.transcript,
+                    is_final=ev.is_final,
+                    speaker_id=getattr(ev, "speaker_id", None),
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
+        @session.on("function_tools_executed")
+        def _on_tools_executed(ev) -> None:  # type: ignore[no-redef]
+            try:
+                session_logger.on_tools_executed(ev)
+            except Exception:  # noqa: BLE001
+                pass
+
+        @session.on("close")
+        def _on_session_close(ev) -> None:  # type: ignore[no-redef]
+            try:
+                err = getattr(ev, "error", None)
+                session_logger.close(
+                    reason=str(getattr(ev, "reason", "") or "close"),
+                    error=str(err) if err is not None else None,
+                )
+            except Exception:  # noqa: BLE001
+                pass
 
     tool_registry = _build_tool_registry()
     rm_tools = tool_registry.build_livekit_tools(
