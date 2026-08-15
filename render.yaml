@@ -88,8 +88,13 @@ services:
         value: "0.3"
       - key: SAM_ENDPOINTING_MAX
         value: "1.2"
-      - key: RM_API_BASE_URL
-        value: https://rainmaker-api-waqs.onrender.com
+      # Same workspace + Oregon region: keep Samuel's command traffic on
+      # Render's private network. config.py adds the http:// scheme.
+      - key: RM_API_HOSTPORT
+        fromService:
+          type: web
+          name: rainmaker-api
+          property: hostport
       # SAM-003: same secret as RM_CRON_TOKEN on the rainmaker-api Render service.
       # Copy the value from Render → rainmaker-api → Environment → RM_CRON_TOKEN.
       - key: RM_API_TOKEN

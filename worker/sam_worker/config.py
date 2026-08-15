@@ -43,6 +43,17 @@ def effective_model_for_tier(tier: int, settings: "Settings") -> str:
     return settings.openai_model
 
 
+def rainmaker_api_base_url() -> str:
+    """Prefer Render private networking while retaining local/public fallback."""
+    explicit = os.getenv("RM_API_BASE_URL", "").strip()
+    if explicit:
+        return explicit
+    hostport = os.getenv("RM_API_HOSTPORT", "").strip()
+    if hostport:
+        return f"http://{hostport}"
+    return "https://rainmaker-api-waqs.onrender.com"
+
+
 @dataclass
 class Settings:
     livekit_url: str = ""
@@ -97,7 +108,7 @@ class Settings:
             sam_brain=os.getenv("SAM_BRAIN", "").strip().lower(),
             hermes_base_url=os.getenv("HERMES_BASE_URL", ""),
             hermes_api_key=os.getenv("HERMES_API_KEY", ""),
-            rm_api_base_url=os.getenv("RM_API_BASE_URL", "https://rainmaker-api-waqs.onrender.com"),
+            rm_api_base_url=rainmaker_api_base_url(),
             rm_api_token=os.getenv("RM_API_TOKEN", ""),
             sam_mock_rm=os.getenv("SAM_MOCK_RM", "").strip().lower() in {"1", "true", "yes"},
             token_server_port=int(os.getenv("TOKEN_SERVER_PORT", "8788")),
