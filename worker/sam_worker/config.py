@@ -45,12 +45,12 @@ def effective_model_for_tier(tier: int, settings: "Settings") -> str:
 
 def rainmaker_api_base_url() -> str:
     """Prefer Render private networking while retaining local/public fallback."""
-    explicit = os.getenv("RM_API_BASE_URL", "").strip()
-    if explicit:
-        return explicit
     hostport = os.getenv("RM_API_HOSTPORT", "").strip()
     if hostport:
         return f"http://{hostport}"
+    explicit = os.getenv("RM_API_BASE_URL", "").strip()
+    if explicit:
+        return explicit
     return "https://rainmaker-api-waqs.onrender.com"
 
 
