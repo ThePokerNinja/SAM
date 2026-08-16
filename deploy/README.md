@@ -96,6 +96,22 @@ Runs client typecheck + build and worker pytest.
 - **Git auto-deploy** if enabled on each service
 - Or deploy hooks / `.\scripts\deploy-phase0.ps1 -Deploy` (needs hook URLs in env)
 
+### Blueprint env vs deploy hook (Wave 8.1)
+
+A **deploy hook** rebuilds the current service. It does **not** re-apply `render.yaml` env
+values onto a service that already has those keys set in the Render dashboard.
+
+Wave 8.1 shipped `SAM_ENDPOINTING_MAX=0.6` in `render.yaml`, hooked a deploy, and production
+kept the old dashboard value `1.2` — the 777ms EOU floor. Code defaults only win when the
+var is **unset**.
+
+After changing a non-secret in `render.yaml`:
+
+1. Confirm the live value on Render → **sam-agent** → Environment (or the `Samuel starting |
+   endpoint=min/max` worker log line).
+2. If it is stale, edit the dashboard value or sync the Blueprint, then redeploy.
+3. Do not treat “hook returned 200” as “new env is live.”
+
 ### Deploy hook env vars (optional)
 
 Copy the **full** URL from Render -> **that service** -> **Settings** -> **Deploy Hook** (must include `?key=...`).

@@ -36,11 +36,29 @@ The driver requires `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET`. 
 and raw result files are gitignored. Repeat after selecting each deployed `SAM_TURN_MODE`; never
 label a mode from CLI differently from the worker configuration actually under test.
 
-The first Wave 8 matrix is tracked in
-`worker/bench/evidence/wave8-2026-08-15.json`. STT was the fastest mode with no detected cutoffs,
-but it still missed Minimum Enterprise (1503 ms p50 / 1853 ms p95). Adaptive interruption remains
-the safe default: VAD interruption produced a 213 ms best case but falsely stopped on both
-backchannel decoys and was unstable on repeat.
+Canonical evidence: `worker/bench/evidence/wave8-2026-08-15.json` (Wave 8) and
+`worker/bench/evidence/wave81-2026-08-16.json` (Wave 8.1).
+
+## Barge-in t=0 (do not regress)
+
+The 1081ms Wave 8 production barge-in number was mostly harness error. `measure_barge_in` must:
+
+1. **t=0 = first voiced interrupt frame**, not `time.perf_counter()` before `publish_fixture`.
+   `publish_fixture` already returns `PublishTiming.first_voice_at`.
+2. **Subtract `AUDIO_PAUSED_LAG_S` (100ms).** `audio_paused` is our derived event: it fires on
+   the 6th silent 20ms frame, so elapsed time from the first silent frame is five intervals.
+3. **Publish the interrupt with `reset=False`.** Resetting mid-turn clears `_speaking` and the
+   monitor cannot emit `audio_paused` until it re-detects speech.
+
+A known-offset unit test in `tests/test_livekit_audio_bench.py` locks this. If a barge-in number
+jumps by ~400–1000ms after a harness edit, distrust the clock before retuning interruption.
+
+## EOU 0.30 → 0.78
+
+That step is LiveKit **dynamic** endpointing interpolating toward `SAM_ENDPOINTING_MAX`, not
+prompt growth. Production max of 1.2s produced the 777ms floor. The measured default is
+**STT + 0.25 / 0.6**. `Settings.from_env()` caps max at 0.6 so a stale Render env cannot
+bring 1.2 back.
 
 For intelligence scoring:
 
