@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import struct
+import time
 import wave
 
 from sam_worker.bench.livekit_audio import (
+    AudioFixture,
+    LiveKitAudioDriver,
     load_manifest,
     mint_token,
     pcm_rms,
@@ -56,3 +60,51 @@ def test_benchmark_token_is_room_scoped() -> None:
     )
     assert isinstance(token, str)
     assert token.count(".") == 2
+
+
+def test_rolling_silence_rearms_after_one_noisy_frame() -> None:
+    async def exercise() -> list[str]:
+        driver = LiveKitAudioDriver(url="ws://example.invalid", token="test")
+        now = time.perf_counter()
+        await driver._process_audio_level(True, now)
+        for index in range(40):
+            await driver._process_audio_level(index == 20, now + (index + 1) * 0.02)
+        await driver._process_audio_level(True, now + 1.0)
+        events = []
+        while not driver.events.empty():
+            kind, _timestamp = driver.events.get_nowait()
+            events.append(kind)
+        return events
+
+    assert asyncio.run(exercise()) == [
+        "audio_started",
+        "audio_paused",
+        "audio_stopped",
+        "audio_started",
+    ]
+
+
+def test_timeout_preserves_agent_events(tmp_path) -> None:
+    async def exercise():
+        driver = LiveKitAudioDriver(url="ws://example.invalid", token="test")
+        fixture = AudioFixture("one", tmp_path / "unused.wav", "short", "hello")
+
+        async def publish(_fixture):
+            started = time.perf_counter()
+            driver.bench_events.extend(
+                [
+                    {"type": "tool_calls", "names": ["get_pulse"]},
+                    {"type": "assistant_message", "text": "Market pulse is risk-on."},
+                ]
+            )
+            return started, started
+
+        driver.publish_fixture = publish
+        return await driver.measure_turn(fixture, turn_mode="stt", timeout_s=0.01)
+
+    result = asyncio.run(exercise())
+    assert result.error == "TimeoutError"
+    assert result.heard_audio is False
+    assert result.tool_calls == ("get_pulse",)
+    assert result.assistant_text == "Market pulse is risk-on."
+    assert result.agent_event_types == ("tool_calls", "assistant_message")

@@ -10,9 +10,11 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import statistics
 import time
 import wave
 from array import array
+from collections import deque
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -39,6 +41,8 @@ class AudioTurnResult:
     false_trigger: bool = False
     assistant_text: str = ""
     tool_calls: tuple[str, ...] = ()
+    heard_audio: bool = False
+    agent_event_types: tuple[str, ...] = ()
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -108,6 +112,7 @@ class LiveKitAudioDriver:
         sample_rate: int = 16000,
         silence_rms: float = 180.0,
         participant_identity_prefix: str = "",
+        debug_audio_path: Path | None = None,
     ) -> None:
         self.url = url
         self.token = token
@@ -121,6 +126,13 @@ class LiveKitAudioDriver:
         self.bench_events: list[dict[str, Any]] = []
         self._monitor_tasks: set[asyncio.Task] = set()
         self.audio_track_ready = asyncio.Event()
+        self._speaking = False
+        self._paused = False
+        self._silence_window: deque[bool] = deque(maxlen=40)
+        self._debug_audio_path = debug_audio_path
+        self._trace_rows: list[dict[str, Any]] = []
+        self._turn_rms: list[float] = []
+        self._turn_trace_id = 0
 
     async def connect(self) -> None:
         @self.room.on("track_subscribed")
@@ -164,49 +176,128 @@ class LiveKitAudioDriver:
         """Let the auto-dispatched agent finish its greeting before fixture one."""
         try:
             started = await self.wait_event("audio_started", after=0.0, timeout_s=timeout_s)
-            await self.wait_event("audio_stopped", after=started, timeout_s=timeout_s)
+            stopped = await self.wait_event("audio_stopped", after=started, timeout_s=timeout_s)
+            await self.wait_audio_quiet(after=stopped, quiet_s=3.0, timeout_s=timeout_s)
         except TimeoutError:
             await asyncio.sleep(1.0)
+        self.reset_turn_state()
+
+    def reset_turn_state(self) -> None:
+        """Re-arm audio detection and discard events from the preceding turn."""
+        if self._turn_rms:
+            ordered = sorted(self._turn_rms)
+            p95_index = min(len(ordered) - 1, math.ceil(len(ordered) * 0.95) - 1)
+            self._trace(
+                "rms_summary",
+                frame_count=len(ordered),
+                minimum=round(ordered[0], 3),
+                median=round(statistics.median(ordered), 3),
+                p95=round(ordered[p95_index], 3),
+                maximum=round(ordered[-1], 3),
+            )
+        self._turn_trace_id += 1
+        self._turn_rms = []
+        self._speaking = False
+        self._paused = False
+        self._silence_window.clear()
         while not self.events.empty():
             try:
                 self.events.get_nowait()
             except asyncio.QueueEmpty:
                 break
+        self._trace("state_reset")
+
+    def _trace(self, event: str, **details: Any) -> None:
+        if self._debug_audio_path is None:
+            return
+        self._trace_rows.append(
+            {
+                "at": time.time(),
+                "event": event,
+                "turn_id": self._turn_trace_id,
+                **details,
+            }
+        )
+
+    def _flush_trace(self) -> None:
+        if self._debug_audio_path is None or not self._trace_rows:
+            return
+        self._debug_audio_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._debug_audio_path.open("a", encoding="utf-8") as stream:
+            for row in self._trace_rows:
+                stream.write(json.dumps(row, sort_keys=True) + "\n")
+        self._trace_rows.clear()
 
     async def close(self) -> None:
+        self.reset_turn_state()
         for task in list(self._monitor_tasks):
             task.cancel()
         if self._monitor_tasks:
             await asyncio.gather(*self._monitor_tasks, return_exceptions=True)
         await self.room.disconnect()
+        self._flush_trace()
 
     async def _monitor_audio(self, track: rtc.RemoteAudioTrack) -> None:
-        stream = rtc.AudioStream.from_track(
-            track=track,
-            sample_rate=self.sample_rate,
-            num_channels=1,
-            frame_size_ms=20,
-        )
-        speaking = False
-        silent_frames = 0
-        async for event in stream:
-            active = pcm_rms(event.frame.data) >= self.silence_rms
-            now = time.perf_counter()
+        for attempt in range(2):
+            try:
+                stream = rtc.AudioStream.from_track(
+                    track=track,
+                    sample_rate=self.sample_rate,
+                    num_channels=1,
+                    frame_size_ms=20,
+                )
+                self._trace("monitor_started", attempt=attempt + 1)
+                async for event in stream:
+                    rms = pcm_rms(event.frame.data)
+                    self._turn_rms.append(rms)
+                    self._trace("rms", value=round(rms, 3))
+                    await self._process_audio_level(rms >= self.silence_rms, time.perf_counter())
+                self._trace("monitor_ended", attempt=attempt + 1)
+            except asyncio.CancelledError:
+                self._trace("monitor_cancelled", attempt=attempt + 1)
+                raise
+            except Exception as exc:  # noqa: BLE001 - preserve benchmark diagnostics
+                self._trace(
+                    "monitor_error",
+                    attempt=attempt + 1,
+                    error=type(exc).__name__,
+                    message=str(exc)[:200],
+                )
+            if attempt == 0:
+                await asyncio.sleep(0.1)
+        self.audio_track_ready.clear()
+        self._trace("monitor_stopped")
+
+    async def _process_audio_level(self, active: bool, now: float) -> None:
+        """Advance the rolling audio state machine for one remote frame."""
+        if not self._speaking:
             if active:
-                silent_frames = 0
-                if not speaking:
-                    speaking = True
-                    await self.events.put(("audio_started", now))
-            elif speaking:
-                silent_frames += 1
-                if silent_frames == 6:
-                    await self.events.put(("audio_paused", now))
-                if silent_frames >= 40:
-                    speaking = False
-                    silent_frames = 0
-                    await self.events.put(("audio_stopped", now))
+                self._speaking = True
+                self._paused = False
+                self._silence_window.clear()
+                await self.events.put(("audio_started", now))
+                self._trace("audio_started", monotonic_at=now)
+            return
+
+        self._silence_window.append(not active)
+        recent = tuple(self._silence_window)
+        if not self._paused and len(recent) >= 8 and sum(recent[-8:]) >= 6:
+            self._paused = True
+            await self.events.put(("audio_paused", now))
+            self._trace("audio_paused", monotonic_at=now)
+        elif self._paused and len(recent) >= 4 and sum(recent[-4:]) <= 1:
+            self._paused = False
+            self._trace("audio_resumed", monotonic_at=now)
+
+        if len(recent) == self._silence_window.maxlen and sum(recent) >= 36:
+            self._speaking = False
+            self._paused = False
+            self._silence_window.clear()
+            await self.events.put(("audio_stopped", now))
+            self._trace("audio_stopped", monotonic_at=now)
 
     async def publish_fixture(self, fixture: AudioFixture) -> tuple[float, float]:
+        self.reset_turn_state()
         sample_rate, frames = read_pcm_frames(fixture.path)
         if sample_rate != self.sample_rate:
             raise ValueError(
@@ -228,7 +319,9 @@ class LiveKitAudioDriver:
                 last_voice_at = time.perf_counter()
             await asyncio.sleep(0.02)
         silence = b"\x00" * (samples_per_frame * 2)
-        for _ in range(60):
+        # Keep sending real silence long enough for STT endpointing to finalize;
+        # stopping frame delivery at 1.2s can leave Deepgram's transcript open.
+        for _ in range(200):
             await self.source.capture_frame(
                 rtc.AudioFrame(
                     data=silence,
@@ -256,6 +349,37 @@ class LiveKitAudioDriver:
             if event_kind == kind and timestamp >= after:
                 return timestamp
 
+    async def wait_audio_quiet(
+        self,
+        *,
+        after: float,
+        quiet_s: float,
+        timeout_s: float,
+    ) -> None:
+        """Wait until remote audio has not restarted for ``quiet_s`` seconds."""
+        overall_deadline = time.perf_counter() + timeout_s
+        last_stop = after
+        while True:
+            remaining = overall_deadline - time.perf_counter()
+            if remaining <= 0:
+                return
+            try:
+                restarted = await self.wait_event(
+                    "audio_started",
+                    after=last_stop,
+                    timeout_s=min(quiet_s, remaining),
+                )
+            except TimeoutError:
+                return
+            try:
+                last_stop = await self.wait_event(
+                    "audio_stopped",
+                    after=restarted,
+                    timeout_s=max(0.1, overall_deadline - time.perf_counter()),
+                )
+            except TimeoutError:
+                return
+
     async def measure_turn(
         self,
         fixture: AudioFixture,
@@ -263,8 +387,9 @@ class LiveKitAudioDriver:
         turn_mode: str,
         timeout_s: float = 15.0,
     ) -> AudioTurnResult:
+        event_start = len(self.bench_events)
+        result = AudioTurnResult(fixture.id, fixture.kind, turn_mode, None)
         try:
-            event_start = len(self.bench_events)
             speech_start, speech_end = await self.publish_fixture(fixture)
             deadline = time.perf_counter() + timeout_s
             audio_start: float | None = None
@@ -276,38 +401,43 @@ class LiveKitAudioDriver:
                 if kind == "audio_started" and timestamp >= speech_start:
                     audio_start = timestamp
             cut_off = audio_start < speech_end
-            result = AudioTurnResult(
-                fixture.id,
-                fixture.kind,
-                turn_mode,
-                round(max(0.0, audio_start - speech_end) * 1000.0, 1),
-                cut_off=cut_off,
-            )
+            result.v2v_ms = round(max(0.0, audio_start - speech_end) * 1000.0, 1)
+            result.cut_off = cut_off
+            result.heard_audio = True
             try:
-                await self.wait_event("audio_stopped", after=audio_start, timeout_s=30.0)
+                stopped = await self.wait_event(
+                    "audio_stopped", after=audio_start, timeout_s=30.0
+                )
+                await self.wait_audio_quiet(after=stopped, quiet_s=8.0, timeout_s=30.0)
             except TimeoutError:
                 pass
+            await asyncio.sleep(0.5)
+        except Exception as exc:  # noqa: BLE001 - each fixture is an independent sample
+            result.error = type(exc).__name__
+        finally:
             turn_events = self.bench_events[event_start:]
-            result.assistant_text = " ".join(
-                str(event.get("text", ""))
-                for event in turn_events
-                if event.get("type") == "assistant_message"
-            ).strip()
+            messages: list[str] = []
+            for event in turn_events:
+                if event.get("type") != "assistant_message":
+                    continue
+                text = str(event.get("text", "")).strip()
+                if text and (not messages or text != messages[-1]):
+                    messages.append(text)
+            result.assistant_text = " ".join(messages)
             result.tool_calls = tuple(
                 str(name)
                 for event in turn_events
                 if event.get("type") == "tool_calls"
                 for name in event.get("names", [])
             )
-            return result
-        except Exception as exc:  # noqa: BLE001 - each fixture is an independent sample
-            return AudioTurnResult(
-                fixture.id,
-                fixture.kind,
-                turn_mode,
-                None,
-                error=type(exc).__name__,
+            result.agent_event_types = tuple(
+                dict.fromkeys(
+                    str(event.get("type", ""))
+                    for event in turn_events
+                    if event.get("type")
+                )
             )
+        return result
 
     async def measure_barge_in(
         self,

@@ -96,6 +96,9 @@ async def _run(args) -> dict:
         url=url,
         token=token,
         participant_identity_prefix="embedded-agent-" if args.embedded_agent else "",
+        debug_audio_path=(
+            args.output.with_suffix(".audio.jsonl") if args.debug_audio else None
+        ),
     )
     if args.agent_name:
         livekit_api = api.LiveKitAPI(url=url, api_key=api_key, api_secret=api_secret)
@@ -269,6 +272,11 @@ def main() -> int:
     parser.add_argument("--turn-timeout", type=float, default=15.0)
     parser.add_argument("--max-turns", type=int)
     parser.add_argument("--skip-barge", action="store_true")
+    parser.add_argument(
+        "--debug-audio",
+        action="store_true",
+        help="Write per-frame RMS values and audio state transitions beside --output",
+    )
     args = parser.parse_args()
 
     async def run_with_http_context() -> dict:

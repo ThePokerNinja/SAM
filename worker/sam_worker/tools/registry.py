@@ -6,6 +6,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
+from livekit.agents import RunContext
+
 ToolBuilder = Callable[[Any, Callable[[], bool], dict[str, Any]], Callable[..., Awaitable[str]]]
 
 
@@ -84,7 +86,7 @@ class ToolRegistry:
                 original = raw
 
                 def _owner_gated(handler: Callable[..., Awaitable[str]]):
-                    async def _gated(context: Any) -> str:
+                    async def _gated(context: RunContext) -> str:
                         if not is_owner():
                             return owner_refusal
                         return await handler(context)

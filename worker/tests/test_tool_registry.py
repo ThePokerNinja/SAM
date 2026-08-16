@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import inspect
 import unittest
-from typing import Any
+from typing import Any, get_type_hints
+
+from livekit.agents import RunContext
 
 from sam_worker.tools.rainmaker_registry import register_rainmaker_tools
 from sam_worker.tools.registry import ToolRegistry, ToolSpec
@@ -88,6 +90,7 @@ class RegistryBuildTests(unittest.TestCase):
             only=["run_scan"],
         )
         self.assertEqual(list(inspect.signature(tools[0]).parameters), ["context"])
+        self.assertIs(get_type_hints(tools[0])["context"], RunContext)
 
     def test_builder_invokes_handler(self) -> None:
         class Spy:
