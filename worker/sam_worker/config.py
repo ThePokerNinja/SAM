@@ -37,7 +37,7 @@ def effective_model_for_tier(tier: int, settings: Settings) -> str:
     """Resolve tier brain id to the model string for the active SAM_BRAIN."""
     mapped = model_for_tier(tier)
     brain = (settings.sam_brain or "").strip().lower()
-    use_groq = brain == "groq" or (
+    use_groq = brain in {"groq", "hybrid"} or (
         not brain and settings.groq_api_key and not settings.openai_api_key
     )
     if brain == "hermes" and settings.hermes_base_url:
@@ -81,8 +81,8 @@ class Settings:
     # STT via LiveKit Inference (string model, billed through LiveKit Cloud).
     stt_model: str = "deepgram/nova-3"
     turn_mode: TurnMode = "cloud"
-    endpoint_min: float = 0.3
-    endpoint_max: float = 1.2
+    endpoint_min: float = 0.25
+    endpoint_max: float = 0.6
     interruption_min_duration: float = 0.25
     interruption_min_words: int = 1
     interruption_mode: InterruptionMode = "adaptive"
@@ -98,7 +98,8 @@ class Settings:
     groq_api_key: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
     groq_model: str = "llama-3.1-8b-instant"
-    # SAM_BRAIN: "openai" | "groq" | "hermes" — explicit override (else auto-detect).
+    # SAM_BRAIN: "openai" | "groq" | "hybrid" | "hermes" — explicit override (else auto-detect).
+    # hybrid uses Groq for the session LLM; the fast router covers tool turns.
     sam_brain: str = ""
     hermes_base_url: str = ""
     hermes_api_key: str = ""
@@ -124,8 +125,8 @@ class Settings:
             deepgram_api_key=os.getenv("DEEPGRAM_API_KEY", ""),
             stt_model=os.getenv("SAM_STT_MODEL", "deepgram/nova-3"),
             turn_mode=turn_mode_from_env(),
-            endpoint_min=float(os.getenv("SAM_ENDPOINTING_MIN", "0.3") or 0.3),
-            endpoint_max=float(os.getenv("SAM_ENDPOINTING_MAX", "1.2") or 1.2),
+            endpoint_min=float(os.getenv("SAM_ENDPOINTING_MIN", "0.25") or 0.25),
+            endpoint_max=float(os.getenv("SAM_ENDPOINTING_MAX", "0.6") or 0.6),
             interruption_min_duration=float(
                 os.getenv("SAM_INTERRUPT_MIN_DURATION", "0.25") or 0.25
             ),

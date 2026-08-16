@@ -9,6 +9,7 @@ import pytest
 from sam_worker.bench.latency_profile import (
     DEFAULT_TIERED_TARGETS,
     analyze,
+    analyze_eou_drift,
     classify_tier,
     stage_percentiles,
 )
@@ -108,6 +109,21 @@ def test_barge_in_failure_demotes_tier() -> None:
 def test_missing_barge_in_evidence_cannot_pass_a_tier() -> None:
     rows = [_profile(f"s{i}", 300, 100, 100).to_dict() for i in range(10)]
     assert classify_tier(rows)["tier"] == "none"
+
+
+def test_eou_drift_tracks_turn_index() -> None:
+    rows = [
+        {"turn_index": 1, "eou_ms": 300.0, "prompt_tokens": 1400, "transcript_chars": 20},
+        {"turn_index": 2, "eou_ms": 301.0, "prompt_tokens": 1460, "transcript_chars": 24},
+        {"turn_index": 3, "eou_ms": 305.0, "prompt_tokens": 1500, "transcript_chars": 18},
+        {"turn_index": 4, "eou_ms": 777.0, "prompt_tokens": 1680, "transcript_chars": 22},
+        {"turn_index": 5, "eou_ms": 778.0, "prompt_tokens": 1760, "transcript_chars": 40},
+    ]
+    report = analyze_eou_drift(rows)
+    assert report["tracks_turn_index"] is True
+    assert report["early_eou_ms"] == 302.0
+    assert report["late_eou_ms"] == 777.5
+    assert report["step_ms"] == 475.5
 
 
 def test_analyze_shape_and_defaults_match() -> None:

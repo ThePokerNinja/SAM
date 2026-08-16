@@ -21,6 +21,15 @@ from typing import Any
 
 from livekit import api, rtc
 
+# audio_paused fires once 6 of the last 8 remote frames (20ms) are silent.
+# That detection lag is added to every barge-in sample and must be subtracted.
+AUDIO_FRAME_MS = 20
+AUDIO_PAUSE_WINDOW = 8
+AUDIO_PAUSE_SILENT_COUNT = 6
+# Six silent frames are required; the event timestamp is the 6th frame, so
+# elapsed time from the first silent frame is five frame intervals.
+AUDIO_PAUSED_LAG_S = (AUDIO_PAUSE_SILENT_COUNT - 1) * (AUDIO_FRAME_MS / 1000.0)
+
 
 @dataclass(frozen=True)
 class AudioFixture:
@@ -47,6 +56,25 @@ class AudioTurnResult:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class PublishTiming:
+    """Wall-clock marks from one fixture publish."""
+
+    publish_start: float
+    first_voice_at: float
+    last_voice_at: float
+
+
+def compute_barge_in_ms(first_voice_at: float, paused_at: float) -> float:
+    """Barge-in latency from first voiced interrupt frame to detected pause.
+
+    Subtracts the rolling-silence monitor's known detection lag so the number
+    reflects agent interruption, not the harness hysteresis.
+    """
+    raw_s = paused_at - first_voice_at
+    return round(max(0.0, raw_s - AUDIO_PAUSED_LAG_S) * 1000.0, 1)
 
 
 def load_manifest(path: Path | str) -> list[AudioFixture]:
@@ -281,7 +309,11 @@ class LiveKitAudioDriver:
 
         self._silence_window.append(not active)
         recent = tuple(self._silence_window)
-        if not self._paused and len(recent) >= 8 and sum(recent[-8:]) >= 6:
+        if (
+            not self._paused
+            and len(recent) >= AUDIO_PAUSE_WINDOW
+            and sum(recent[-AUDIO_PAUSE_WINDOW:]) >= AUDIO_PAUSE_SILENT_COUNT
+        ):
             self._paused = True
             await self.events.put(("audio_paused", now))
             self._trace("audio_paused", monotonic_at=now)
@@ -296,15 +328,22 @@ class LiveKitAudioDriver:
             await self.events.put(("audio_stopped", now))
             self._trace("audio_stopped", monotonic_at=now)
 
-    async def publish_fixture(self, fixture: AudioFixture) -> tuple[float, float]:
-        self.reset_turn_state()
+    async def publish_fixture(
+        self,
+        fixture: AudioFixture,
+        *,
+        reset: bool = True,
+    ) -> PublishTiming:
+        if reset:
+            self.reset_turn_state()
         sample_rate, frames = read_pcm_frames(fixture.path)
         if sample_rate != self.sample_rate:
             raise ValueError(
                 f"{fixture.path} sample rate {sample_rate} does not match {self.sample_rate}"
             )
-        samples_per_frame = self.sample_rate * 20 // 1000
+        samples_per_frame = self.sample_rate * AUDIO_FRAME_MS // 1000
         started = time.perf_counter()
+        first_voice_at: float | None = None
         last_voice_at = started
         for data in frames:
             await self.source.capture_frame(
@@ -316,8 +355,11 @@ class LiveKitAudioDriver:
                 )
             )
             if pcm_rms(data) >= self.silence_rms:
-                last_voice_at = time.perf_counter()
-            await asyncio.sleep(0.02)
+                now = time.perf_counter()
+                if first_voice_at is None:
+                    first_voice_at = now
+                last_voice_at = now
+            await asyncio.sleep(AUDIO_FRAME_MS / 1000.0)
         silence = b"\x00" * (samples_per_frame * 2)
         # Keep sending real silence long enough for STT endpointing to finalize;
         # stopping frame delivery at 1.2s can leave Deepgram's transcript open.
@@ -330,8 +372,8 @@ class LiveKitAudioDriver:
                     samples_per_channel=samples_per_frame,
                 )
             )
-            await asyncio.sleep(0.02)
-        return started, last_voice_at
+            await asyncio.sleep(AUDIO_FRAME_MS / 1000.0)
+        return PublishTiming(started, first_voice_at or started, last_voice_at)
 
     async def wait_event(
         self,
@@ -390,7 +432,7 @@ class LiveKitAudioDriver:
         event_start = len(self.bench_events)
         result = AudioTurnResult(fixture.id, fixture.kind, turn_mode, None)
         try:
-            speech_start, speech_end = await self.publish_fixture(fixture)
+            published = await self.publish_fixture(fixture)
             deadline = time.perf_counter() + timeout_s
             audio_start: float | None = None
             while audio_start is None:
@@ -398,10 +440,10 @@ class LiveKitAudioDriver:
                 if remaining <= 0:
                     raise TimeoutError("timed out waiting for audio_started")
                 kind, timestamp = await asyncio.wait_for(self.events.get(), remaining)
-                if kind == "audio_started" and timestamp >= speech_start:
+                if kind == "audio_started" and timestamp >= published.publish_start:
                     audio_start = timestamp
-            cut_off = audio_start < speech_end
-            result.v2v_ms = round(max(0.0, audio_start - speech_end) * 1000.0, 1)
+            cut_off = audio_start < published.last_voice_at
+            result.v2v_ms = round(max(0.0, audio_start - published.last_voice_at) * 1000.0, 1)
             result.cut_off = cut_off
             result.heard_audio = True
             try:
@@ -447,20 +489,21 @@ class LiveKitAudioDriver:
         turn_mode: str,
     ) -> AudioTurnResult:
         try:
-            _speech_start, speech_end = await self.publish_fixture(prompt)
-            started = await self.wait_event("audio_started", after=speech_end, timeout_s=15.0)
+            prompt_timing = await self.publish_fixture(prompt)
+            started = await self.wait_event(
+                "audio_started", after=prompt_timing.last_voice_at, timeout_s=15.0
+            )
             await asyncio.sleep(0.4)
-            interrupt_start = time.perf_counter()
-            await self.publish_fixture(interruption)
+            interrupt_timing = await self.publish_fixture(interruption, reset=False)
             stopped = await self.wait_event(
-                "audio_paused", after=interrupt_start, timeout_s=4.0
+                "audio_paused", after=interrupt_timing.first_voice_at, timeout_s=4.0
             )
             return AudioTurnResult(
                 interruption.id,
                 "barge_in",
                 turn_mode,
-                round((started - speech_end) * 1000.0, 1),
-                barge_in_ms=round((stopped - interrupt_start) * 1000.0, 1),
+                round((started - prompt_timing.last_voice_at) * 1000.0, 1),
+                barge_in_ms=compute_barge_in_ms(interrupt_timing.first_voice_at, stopped),
             )
         except Exception as exc:  # noqa: BLE001
             return AudioTurnResult(
@@ -480,26 +523,27 @@ class LiveKitAudioDriver:
     ) -> AudioTurnResult:
         """Return whether a short backchannel incorrectly stopped a long response."""
         try:
-            _speech_start, speech_end = await self.publish_fixture(prompt)
-            started = await self.wait_event("audio_started", after=speech_end, timeout_s=15.0)
+            prompt_timing = await self.publish_fixture(prompt)
+            started = await self.wait_event(
+                "audio_started", after=prompt_timing.last_voice_at, timeout_s=15.0
+            )
             await asyncio.sleep(0.4)
-            decoy_start = time.perf_counter()
-            await self.publish_fixture(decoy)
+            decoy_timing = await self.publish_fixture(decoy, reset=False)
             false_trigger = False
             try:
                 stopped = await self.wait_event(
                     "audio_stopped",
-                    after=decoy_start,
+                    after=decoy_timing.first_voice_at,
                     timeout_s=2.5,
                 )
-                false_trigger = stopped - decoy_start <= 2.5
+                false_trigger = stopped - decoy_timing.first_voice_at <= 2.5
             except TimeoutError:
                 pass
             return AudioTurnResult(
                 decoy.id,
                 "decoy",
                 turn_mode,
-                round((started - speech_end) * 1000.0, 1),
+                round((started - prompt_timing.last_voice_at) * 1000.0, 1),
                 false_trigger=false_trigger,
             )
         except Exception as exc:  # noqa: BLE001

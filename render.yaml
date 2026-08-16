@@ -101,9 +101,9 @@ services:
       - key: SAM_INTERRUPTION_MODE
         value: adaptive
       - key: SAM_ENDPOINTING_MIN
-        value: "0.3"
+        value: "0.25"
       - key: SAM_ENDPOINTING_MAX
-        value: "1.2"
+        value: "0.6"
       # Same workspace + Oregon region: keep Samuel's command traffic on
       # Render's private network. config.py adds the http:// scheme.
       - key: RM_API_HOSTPORT

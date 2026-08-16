@@ -53,6 +53,9 @@ class TurnProfile:
     tool_ms: float | None = None
     route: str | None = None
     turn_mode: str | None = None
+    turn_index: int | None = None
+    prompt_tokens: int | None = None
+    transcript_chars: int | None = None
     # Interruption.
     barge_in_ms: float | None = None            # user speaks over TTS -> playback stops
     # Bookkeeping.

@@ -18,6 +18,8 @@ def test_all_turn_modes_use_new_turn_handling(mode) -> None:
         if mode == "mini":
             assert detector.model == "turn-detector-v1-mini"
     assert options["endpointing"]["mode"] == "dynamic"
+    assert options["endpointing"]["min_delay"] == 0.25
+    assert options["endpointing"]["max_delay"] == 0.6
     assert options["preemptive_generation"]["preemptive_tts"] is True
     assert options["interruption"]["enabled"] is True
 

@@ -1,0 +1,429 @@
+{
+  "analysis": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 8,
+        "tier": "none",
+        "v2v_p50_ms": 829.7,
+        "v2v_p95_ms": 3432.7
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 8,
+      "tier": "none",
+      "v2v_p50_ms": 829.7,
+      "v2v_p95_ms": 3432.7
+    },
+    "stages": {
+      "v2v_ms": {
+        "n": 8.0,
+        "p50": 829.7,
+        "p90": 3432.7,
+        "p95": 3432.7
+      }
+    },
+    "turns": 8
+  },
+  "captured_at": "2026-08-16T22:25:16Z",
+  "cut_off_rate": 0.0,
+  "endpoint_max": 1.2,
+  "endpoint_min": 0.3,
+  "eou_drift": {
+    "by_turn_index": {
+      "1": 300.4,
+      "10": 300.9,
+      "11": 300.0,
+      "12": 331.2,
+      "13": 301.4,
+      "14": 300.2,
+      "15": 334.7,
+      "16": 301.8,
+      "2": 300.3,
+      "3": 300.3,
+      "4": 300.1,
+      "5": 301.1,
+      "6": 300.3,
+      "7": 300.1,
+      "8": 300.9,
+      "9": 381.7
+    },
+    "early_eou_ms": 300.3,
+    "late_eou_ms": 311.9,
+    "n": 16,
+    "prompt_token_pairs": [
+      [
+        1425.0,
+        300.28319358825684
+      ],
+      [
+        1510.0,
+        381.65855407714844
+      ],
+      [
+        1520.0,
+        300.9059429168701
+      ],
+      [
+        1551.0,
+        300.0466823577881
+      ],
+      [
+        1579.0,
+        331.1598300933838
+      ],
+      [
+        1589.0,
+        301.42807960510254
+      ],
+      [
+        1618.0,
+        300.201416015625
+      ],
+      [
+        1649.0,
+        334.6562385559082
+      ],
+      [
+        1659.0,
+        301.8207550048828
+      ]
+    ],
+    "step_ms": 11.6,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [
+    {
+      "eou_ms": 300.35924911499023,
+      "transcription_delay_ms": 224.75457191467285,
+      "turn_index": 1
+    },
+    {
+      "eou_ms": 300.26841163635254,
+      "transcription_delay_ms": 226.15408897399902,
+      "turn_index": 2
+    },
+    {
+      "eou_ms": 300.2629280090332,
+      "transcription_delay_ms": 229.68673706054688,
+      "turn_index": 3
+    },
+    {
+      "eou_ms": 300.1425266265869,
+      "transcription_delay_ms": 224.11084175109863,
+      "turn_index": 4
+    },
+    {
+      "eou_ms": 301.1207580566406,
+      "transcription_delay_ms": 275.1197814941406,
+      "turn_index": 5
+    },
+    {
+      "eou_ms": 300.28319358825684,
+      "llm_ttft_ms": 630.8205999666825,
+      "prompt_tokens": 1425,
+      "transcription_delay_ms": 176.6674518585205,
+      "turn_index": 6
+    },
+    {
+      "eou_ms": 300.08482933044434,
+      "transcription_delay_ms": 229.63285446166992,
+      "turn_index": 7
+    },
+    {
+      "eou_ms": 300.90856552124023,
+      "transcription_delay_ms": 274.57165718078613,
+      "turn_index": 8
+    },
+    {
+      "eou_ms": 381.65855407714844,
+      "llm_ttft_ms": 782.3810000554658,
+      "prompt_tokens": 1510,
+      "transcription_delay_ms": 380.9220790863037,
+      "turn_index": 9
+    },
+    {
+      "eou_ms": 300.9059429168701,
+      "llm_ttft_ms": 639.5947000128217,
+      "prompt_tokens": 1520,
+      "transcription_delay_ms": 277.3306369781494,
+      "turn_index": 10
+    },
+    {
+      "eou_ms": 300.0466823577881,
+      "llm_ttft_ms": 635.1847999612801,
+      "prompt_tokens": 1551,
+      "transcription_delay_ms": 224.2567539215088,
+      "turn_index": 11
+    },
+    {
+      "eou_ms": 331.1598300933838,
+      "llm_ttft_ms": 473.58529997291043,
+      "prompt_tokens": 1579,
+      "transcription_delay_ms": 330.3418159484863,
+      "turn_index": 12
+    },
+    {
+      "eou_ms": 301.42807960510254,
+      "llm_ttft_ms": 700.9233999997377,
+      "prompt_tokens": 1589,
+      "transcription_delay_ms": 282.5045585632324,
+      "turn_index": 13
+    },
+    {
+      "eou_ms": 300.201416015625,
+      "llm_ttft_ms": 433.6046999669634,
+      "prompt_tokens": 1618,
+      "transcription_delay_ms": 277.6529788970947,
+      "turn_index": 14
+    },
+    {
+      "eou_ms": 334.6562385559082,
+      "llm_ttft_ms": 565.4689000220969,
+      "prompt_tokens": 1649,
+      "transcription_delay_ms": 333.8911533355713,
+      "turn_index": 15
+    },
+    {
+      "eou_ms": 301.8207550048828,
+      "llm_ttft_ms": 1681.8585000000894,
+      "prompt_tokens": 1659,
+      "transcription_delay_ms": 291.93973541259766,
+      "turn_index": 16
+    }
+  ],
+  "intelligence": {
+    "arm": "eou-stt-control",
+    "context_retention_rate": 1.0,
+    "failures": [
+      "missing:pricing_trap"
+    ],
+    "general_arena_score": 0.3351,
+    "grounded_arena_score": 0.85,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 0.75,
+    "interruption_accuracy": 0.3333,
+    "latency_p50_ms": 829.7,
+    "latency_p95_ms": 3432.7,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 4,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": false,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": 585.5,
+    "f1": 0.0,
+    "false_trigger_rate": 0.5
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": null,
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "It is 3:22 PM Pacific.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-01",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1071.6
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: risk-on.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "pulse",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 797.6
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: risk-on.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-03",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 788.6
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Latest scan picks: NVDA, AAPL.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "scans",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_scans"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 837.7
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Good morning - mock brief. Top priority: review scans.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-05",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_brief"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 819.3
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Recent research summary: a focus on market trends and tech stocks, with insights into growth potential.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "research_recall",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_research"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 3432.7
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "There are no recorded trades to report.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "account_trap",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_trades"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 829.7
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "Opening Rainmaker.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-08",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 801.6
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": 585.5,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "interrupt-stop",
+      "heard_audio": false,
+      "kind": "barge_in",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1599.9
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": true,
+      "fixture_id": "decoy-mmhmm",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1677.8
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "decoy-yeah",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 2685.8
+    }
+  ],
+  "room": "sam-wave8-embedded-472f441c182b",
+  "sam_brain": null,
+  "turn_mode": "stt"
+}

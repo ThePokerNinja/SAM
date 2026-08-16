@@ -34,9 +34,28 @@ def test_router_is_high_confidence_and_fails_complex_to_llm() -> None:
     assert router.classify("What time is it?").route == "time"
     assert router.classify("Open the Rainmaker dashboard").route == "open_dashboard"
     assert router.classify("Check Rainmaker pulse").route == "rainmaker_pulse"
+    assert router.classify("What is the market pulse right now?").route == "rainmaker_pulse"
+    assert router.classify("What are today's top scans?").route == "rainmaker_scans"
+    assert router.classify("Read my brief.").route == "rainmaker_brief"
+    assert router.classify("What is my account balance and open P&L?").route == "rainmaker_trades"
+    assert router.classify("What did I queue in research yesterday?").route == "rainmaker_research"
+    assert router.classify("How much does Rainmaker cost per month?").direct is False
     complex_route = router.classify("Explain whether I should buy NVDA right now")
     assert complex_route.direct is False
     assert complex_route.route == "llm"
+
+
+def test_scan_route_executes_named_tool() -> None:
+    class _Client:
+        async def get_scans(self, limit: int = 5):
+            return {"ok": True, "symbols": ["NVDA", "AAPL"]}
+
+    router = FastIntentRouter()
+    decision = router.classify("What are today's top scans?")
+    result = asyncio.run(router.execute(decision, rainmaker_client=_Client()))
+    assert decision.route == "rainmaker_scans"
+    assert result.tool_name == "get_scans"
+    assert "NVDA" in result.spoken
 
 
 def test_time_route_executes_without_client() -> None:

@@ -102,7 +102,7 @@ def prewarm(proc: JobProcess) -> None:
 
 def _build_llm(s: Settings):
     brain = s.sam_brain  # explicit override wins
-    if brain == "groq" or (not brain and s.groq_api_key and not s.openai_api_key):
+    if brain in {"groq", "hybrid"} or (not brain and s.groq_api_key and not s.openai_api_key):
         return openai.LLM(model=s.groq_model, base_url=s.groq_base_url, api_key=s.groq_api_key)
     # Default: OpenAI (higher TPM, tool calling, strict schema support).
     return openai.LLM(model=s.openai_model, base_url=s.openai_base_url, api_key=s.openai_api_key)
@@ -115,7 +115,9 @@ async def entrypoint(ctx: JobContext) -> None:
         _log.info("Skipping embedded benchmark room dispatch")
         return
     s = Settings.from_env()
-    _use_groq = s.sam_brain == "groq" or (not s.sam_brain and s.groq_api_key and not s.openai_api_key)
+    _use_groq = s.sam_brain in {"groq", "hybrid"} or (
+        not s.sam_brain and s.groq_api_key and not s.openai_api_key
+    )
     brain = ("groq:" + s.groq_model) if _use_groq else ("openai:" + s.openai_model)
     stt = build_stt(s)
     stt_label = s.stt_model if not s.deepgram_api_key else f"deepgram/{s.stt_model.removeprefix('deepgram/')}"
@@ -143,6 +145,8 @@ async def entrypoint(ctx: JobContext) -> None:
     # unchanged; TurnProfile records the full per-stage breakdown and, when SAM_LATENCY_LOG=1,
     # appends a JSONL row for offline tier analysis (see bench/latency_profile.py).
     turns: dict[str, TurnProfile] = {}
+    turn_counter = {"n": 0}
+    last_transcript_chars: dict[str, int | None] = {"value": None}
     perf_state: dict[str, float | str | None] = {
         "route_ms": None,
         "route": None,
@@ -163,13 +167,26 @@ async def entrypoint(ctx: JobContext) -> None:
             return
         t = turns.setdefault(sid, TurnProfile(speech_id=sid, turn_mode=s.turn_mode))
         if isinstance(m, metrics.EOUMetrics):
+            turn_counter["n"] += 1
             t.eou_ms = m.end_of_utterance_delay * 1000
+            t.turn_index = turn_counter["n"]
+            t.transcript_chars = last_transcript_chars["value"]
             td = getattr(m, "transcription_delay", None)
             if td is not None:
                 t.transcription_delay_ms = td * 1000
             callback = getattr(m, "on_user_turn_completed_delay", None)
             if callback is not None:
                 t.turn_callback_ms = callback * 1000
+            _log.info(
+                "EOU_DIAG turn_index=%s eou_ms=%.0f transcription_delay_ms=%s "
+                "turn_callback_ms=%s transcript_chars=%s turn_mode=%s",
+                t.turn_index,
+                t.eou_ms,
+                None if t.transcription_delay_ms is None else round(t.transcription_delay_ms),
+                None if t.turn_callback_ms is None else round(t.turn_callback_ms),
+                t.transcript_chars,
+                s.turn_mode,
+            )
         elif isinstance(m, metrics.STTMetrics):
             dur = getattr(m, "duration", None)
             if dur is not None:
@@ -179,6 +196,15 @@ async def entrypoint(ctx: JobContext) -> None:
             dur = getattr(m, "duration", None)
             if dur is not None:
                 t.llm_duration_ms = dur * 1000
+            prompt_tokens = getattr(m, "prompt_tokens", None)
+            if prompt_tokens is not None:
+                t.prompt_tokens = int(prompt_tokens)
+                _log.info(
+                    "EOU_DIAG turn_index=%s prompt_tokens=%s eou_ms=%s",
+                    t.turn_index,
+                    t.prompt_tokens,
+                    None if t.eou_ms is None else round(t.eou_ms),
+                )
         elif isinstance(m, metrics.TTSMetrics):
             t.tts_ttfb_ms = m.ttfb * 1000
             dur = getattr(m, "duration", None)
@@ -300,6 +326,13 @@ async def entrypoint(ctx: JobContext) -> None:
                 asyncio.ensure_future(
                     _publish_bench_event({"type": "tool_calls", "names": names})
                 )
+
+    @session.on("user_input_transcribed")
+    def _note_transcript_chars(ev) -> None:
+        if not getattr(ev, "is_final", False):
+            return
+        text = str(getattr(ev, "transcript", "") or "")
+        last_transcript_chars["value"] = len(text.strip())
 
     if episode_store is not None:
         @session.on("user_input_transcribed")
@@ -453,6 +486,7 @@ async def entrypoint(ctx: JobContext) -> None:
         publish_command=_publish_command,
         context_provider=_context_provider,
         performance_report=_route_timing,
+        publish_bench=_publish_bench_event,
         instructions=instructions,
         tools=rm_tools,
     )

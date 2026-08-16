@@ -1,0 +1,417 @@
+{
+  "analysis": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 8,
+        "tier": "none",
+        "v2v_p50_ms": 852.9,
+        "v2v_p95_ms": 2386.2
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 8,
+      "tier": "none",
+      "v2v_p50_ms": 852.9,
+      "v2v_p95_ms": 2386.2
+    },
+    "stages": {
+      "v2v_ms": {
+        "n": 8.0,
+        "p50": 852.9,
+        "p90": 2386.2,
+        "p95": 2386.2
+      }
+    },
+    "turns": 8
+  },
+  "captured_at": "2026-08-16T22:39:41Z",
+  "cut_off_rate": 0.0,
+  "endpoint_max": 0.6,
+  "endpoint_min": 0.25,
+  "eou_drift": {
+    "by_turn_index": {
+      "1": 251.3,
+      "10": 250.1,
+      "11": 276.3,
+      "12": 250.5,
+      "13": 250.4,
+      "14": 279.0,
+      "15": 250.1,
+      "2": 250.0,
+      "3": 250.2,
+      "4": 250.8,
+      "5": 250.5,
+      "6": 250.4,
+      "7": 250.2,
+      "8": 250.1,
+      "9": 250.2
+    },
+    "early_eou_ms": 250.5,
+    "late_eou_ms": 254.9,
+    "n": 15,
+    "prompt_token_pairs": [
+      [
+        1425.0,
+        250.39005279541016
+      ],
+      [
+        1515.0,
+        250.21028518676758
+      ],
+      [
+        1547.0,
+        250.13113021850586
+      ],
+      [
+        1574.0,
+        276.2906551361084
+      ],
+      [
+        1584.0,
+        250.45418739318848
+      ],
+      [
+        1613.0,
+        250.38719177246094
+      ],
+      [
+        1651.0,
+        278.9945602416992
+      ],
+      [
+        1661.0,
+        250.09942054748535
+      ]
+    ],
+    "step_ms": 4.4,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [
+    {
+      "eou_ms": 251.33323669433594,
+      "transcription_delay_ms": 221.19927406311035,
+      "turn_index": 1
+    },
+    {
+      "eou_ms": 250.0460147857666,
+      "transcription_delay_ms": 172.14727401733398,
+      "turn_index": 2
+    },
+    {
+      "eou_ms": 250.17547607421875,
+      "transcription_delay_ms": 123.39234352111816,
+      "turn_index": 3
+    },
+    {
+      "eou_ms": 250.81110000610352,
+      "transcription_delay_ms": 171.600341796875,
+      "turn_index": 4
+    },
+    {
+      "eou_ms": 250.4599094390869,
+      "transcription_delay_ms": 219.36678886413574,
+      "turn_index": 5
+    },
+    {
+      "eou_ms": 250.39005279541016,
+      "llm_ttft_ms": 498.5785000026226,
+      "prompt_tokens": 1425,
+      "transcription_delay_ms": 168.92766952514648,
+      "turn_index": 6
+    },
+    {
+      "eou_ms": 250.23913383483887,
+      "transcription_delay_ms": 173.26641082763672,
+      "turn_index": 7
+    },
+    {
+      "eou_ms": 250.07867813110352,
+      "transcription_delay_ms": 124.5112419128418,
+      "turn_index": 8
+    },
+    {
+      "eou_ms": 250.21028518676758,
+      "llm_ttft_ms": 475.50420003244653,
+      "prompt_tokens": 1515,
+      "transcription_delay_ms": 178.53665351867676,
+      "turn_index": 9
+    },
+    {
+      "eou_ms": 250.13113021850586,
+      "llm_ttft_ms": 497.1732000121847,
+      "prompt_tokens": 1547,
+      "transcription_delay_ms": 172.1935272216797,
+      "turn_index": 10
+    },
+    {
+      "eou_ms": 276.2906551361084,
+      "llm_ttft_ms": 531.8110000225715,
+      "prompt_tokens": 1574,
+      "transcription_delay_ms": 275.4685878753662,
+      "turn_index": 11
+    },
+    {
+      "eou_ms": 250.45418739318848,
+      "llm_ttft_ms": 604.2841000016779,
+      "prompt_tokens": 1584,
+      "transcription_delay_ms": 228.8060188293457,
+      "turn_index": 12
+    },
+    {
+      "eou_ms": 250.38719177246094,
+      "llm_ttft_ms": 495.09699997724965,
+      "prompt_tokens": 1613,
+      "transcription_delay_ms": 217.3917293548584,
+      "turn_index": 13
+    },
+    {
+      "eou_ms": 278.9945602416992,
+      "llm_ttft_ms": 528.1885999720544,
+      "prompt_tokens": 1651,
+      "transcription_delay_ms": 277.7557373046875,
+      "turn_index": 14
+    },
+    {
+      "eou_ms": 250.09942054748535,
+      "llm_ttft_ms": 492.22670000744984,
+      "prompt_tokens": 1661,
+      "transcription_delay_ms": 180.26328086853027,
+      "turn_index": 15
+    }
+  ],
+  "intelligence": {
+    "arm": "openai-4o-mini",
+    "context_retention_rate": 1.0,
+    "failures": [
+      "missing:pricing_trap"
+    ],
+    "general_arena_score": 0.4902,
+    "grounded_arena_score": 0.85,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 0.75,
+    "interruption_accuracy": 0.6667,
+    "latency_p50_ms": 852.9,
+    "latency_p95_ms": 2386.2,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 4,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": false,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": 215.9,
+    "f1": 0.6666666666666666,
+    "false_trigger_rate": 0.5
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": "gpt-4o-mini",
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "It is 3:36 PM Pacific.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-01",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1008.3
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: risk-on.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "pulse",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 809.4
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: risk-on.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-03",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 852.9
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Latest scan picks: NVDA, AAPL.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "scans",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_scans"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 827.4
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Good morning - mock brief. Top priority: review scans.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-05",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_brief"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 807.1
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Yesterday's research focused on market trends and performance indicators. Did you want more specific details?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "research_recall",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_research"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 2386.2
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "There are no recorded trades to report.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "account_trap",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_trades"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 855.7
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "Opening Rainmaker.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-08",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 797.9
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": 215.9,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "interrupt-stop",
+      "heard_audio": false,
+      "kind": "barge_in",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1460.7
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": true,
+      "fixture_id": "decoy-mmhmm",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1513.8
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "decoy-yeah",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1535.0
+    }
+  ],
+  "room": "sam-wave8-embedded-06ba701c2200",
+  "sam_brain": "openai",
+  "turn_mode": "stt"
+}

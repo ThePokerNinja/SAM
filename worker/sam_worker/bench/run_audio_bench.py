@@ -14,17 +14,23 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from livekit import api, rtc
-from livekit.agents import Agent, AgentSession
+from livekit.agents import AgentSession, MetricsCollectedEvent, function_tool, metrics
 from livekit.agents.utils import http_context
 from livekit.plugins import elevenlabs, silero
 
 from ..agent import _build_llm
 from ..config import Settings
+from ..personas import SAMUEL
+from ..router import FastIntentRouter, RoutedSamuelAgent
 from ..stt import build_stt
+from ..tool_latency import ToolLatencyManager
+from ..tools.handlers import build_rainmaker_client
+from ..tools.rainmaker_registry import register_rainmaker_tools
+from ..tools.registry import ToolRegistry
 from ..turns import build_turn_handling
 from .evaluation import TaskObservation, evaluate_observations
 from .fixtures import GROUNDED_TASKS
-from .latency_profile import analyze
+from .latency_profile import analyze, analyze_eou_drift
 from .livekit_audio import LiveKitAudioDriver, load_manifest, mint_token
 
 
@@ -36,12 +42,29 @@ async def _start_embedded_agent(
     room_name: str,
     turn_mode: str,
     interruption_mode: str,
+    sam_brain: str = "",
+    llm_model: str = "",
+    endpoint_min: float | None = None,
+    endpoint_max: float | None = None,
 ) -> tuple[rtc.Room, AgentSession]:
-    settings = replace(
-        Settings.from_env(),
-        turn_mode=turn_mode,
-        interruption_mode=interruption_mode,
-    )
+    settings = Settings.from_env()
+    updates: dict[str, object] = {
+        "turn_mode": turn_mode,
+        "interruption_mode": interruption_mode,
+    }
+    if sam_brain:
+        updates["sam_brain"] = sam_brain
+    if llm_model:
+        if (sam_brain or settings.sam_brain) in {"groq", "hybrid"}:
+            updates["groq_model"] = llm_model
+        else:
+            updates["openai_model"] = llm_model
+    if endpoint_min is not None:
+        updates["endpoint_min"] = endpoint_min
+    if endpoint_max is not None:
+        updates["endpoint_max"] = endpoint_max
+    updates["sam_mock_rm"] = True
+    settings = replace(settings, **updates)
     token = mint_token(
         api_key,
         api_secret,
@@ -61,16 +84,92 @@ async def _start_embedded_agent(
         vad=silero.VAD.load(),
         turn_handling=build_turn_handling(settings),
     )
-    await session.start(
-        agent=Agent(
-            instructions=(
-                "You are Samuel. Answer each benchmark prompt directly, accurately, and briefly. "
-                "For a request for a long explanation, continue speaking until interrupted."
+    registry = ToolRegistry()
+    register_rainmaker_tools(registry)
+    tools = registry.build_livekit_tools(
+        build_rainmaker_client(settings),
+        lambda: True,
+        function_tool=function_tool,
+        owner_refusal="Owner only.",
+        deps={"tool_latency_manager": ToolLatencyManager()},
+    )
+    router = FastIntentRouter()
+
+    async def _direct(decision):
+        return await router.execute(decision, rainmaker_client=build_rainmaker_client(settings))
+
+    async def _publish_command(_command: dict) -> None:
+        return None
+
+    async def _publish_bench(payload: dict) -> None:
+        try:
+            await room.local_participant.publish_data(
+                json.dumps(payload),
+                reliable=True,
+                topic="sam-bench",
             )
+        except Exception:  # noqa: BLE001
+            return
+
+    @session.on("conversation_item_added")
+    def _bench_message(ev) -> None:
+        item = getattr(ev, "item", None)
+        if getattr(item, "role", None) != "assistant":
+            return
+        text = str(getattr(item, "text_content", "") or "").strip()
+        if text:
+            asyncio.ensure_future(_publish_bench({"type": "assistant_message", "text": text}))
+
+    eou_rows: list[dict] = []
+    turn_index = {"n": 0}
+
+    @session.on("metrics_collected")
+    def _on_metrics(ev: MetricsCollectedEvent) -> None:
+        collected = ev.metrics
+        if isinstance(collected, metrics.EOUMetrics):
+            turn_index["n"] += 1
+            eou_rows.append(
+                {
+                    "turn_index": turn_index["n"],
+                    "eou_ms": collected.end_of_utterance_delay * 1000.0,
+                    "transcription_delay_ms": (
+                        collected.transcription_delay * 1000.0
+                        if getattr(collected, "transcription_delay", None) is not None
+                        else None
+                    ),
+                }
+            )
+        elif isinstance(collected, metrics.LLMMetrics):
+            if eou_rows:
+                eou_rows[-1]["prompt_tokens"] = getattr(collected, "prompt_tokens", None)
+                eou_rows[-1]["llm_ttft_ms"] = collected.ttft * 1000.0
+
+    @session.on("function_tools_executed")
+    def _bench_tools(ev) -> None:
+        names = [
+            str(getattr(call, "name", "") or "")
+            for call in (getattr(ev, "function_calls", None) or [])
+            if getattr(call, "name", None)
+        ]
+        if names:
+            asyncio.ensure_future(_publish_bench({"type": "tool_calls", "names": names}))
+
+    await session.start(
+        agent=RoutedSamuelAgent(
+            router=router,
+            direct_execute=_direct,
+            publish_command=_publish_command,
+            publish_bench=_publish_bench,
+            instructions=(
+                SAMUEL.system_hint
+                + " Answer each benchmark prompt directly, accurately, and briefly. "
+                "For a request for a long explanation, continue speaking until interrupted."
+            ),
+            tools=tools,
         ),
         room=room,
     )
-    return room, session
+    return room, session, eou_rows
 
 
 async def _run(args) -> dict:
@@ -110,16 +209,21 @@ async def _run(args) -> dict:
             await livekit_api.aclose()
     embedded_room: rtc.Room | None = None
     embedded_session: AgentSession | None = None
+    eou_rows: list[dict] = []
     results = []
     try:
         if args.embedded_agent:
-            embedded_room, embedded_session = await _start_embedded_agent(
+            embedded_room, embedded_session, eou_rows = await _start_embedded_agent(
                 url=url,
                 api_key=api_key,
                 api_secret=api_secret,
                 room_name=room_name,
                 turn_mode=args.turn_mode,
                 interruption_mode=args.interruption_mode,
+                sam_brain=args.sam_brain,
+                llm_model=args.llm_model,
+                endpoint_min=args.endpoint_min,
+                endpoint_max=args.endpoint_max,
             )
         await driver.connect()
         await driver.wait_ready(timeout_s=args.agent_timeout)
@@ -223,13 +327,17 @@ async def _run(args) -> dict:
         v2v_ms=[row["v2v_ms"] for row in profile_rows if row["v2v_ms"] is not None],
         barge_in_f1=barge_f1,
         interruption_accuracy=interruption_accuracy,
-        arm="samuel",
+        arm=args.arm or "samuel",
     )
     return {
         "method": "livekit_external_audio_v1",
         "room": room_name,
         "turn_mode": args.turn_mode,
         "interruption_mode": args.interruption_mode,
+        "sam_brain": args.sam_brain or None,
+        "llm_model": args.llm_model or None,
+        "endpoint_min": args.endpoint_min,
+        "endpoint_max": args.endpoint_max,
         "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "results": rows,
         "cut_off_rate": (
@@ -248,6 +356,8 @@ async def _run(args) -> dict:
             "f1": barge_f1,
         },
         "intelligence": intelligence.summary(),
+        "eou_drift": analyze_eou_drift(eou_rows),
+        "eou_rows": eou_rows,
     }
 
 
@@ -272,6 +382,11 @@ def main() -> int:
     parser.add_argument("--turn-timeout", type=float, default=15.0)
     parser.add_argument("--max-turns", type=int)
     parser.add_argument("--skip-barge", action="store_true")
+    parser.add_argument("--sam-brain", default="", help="openai | groq | hybrid")
+    parser.add_argument("--llm-model", default="", help="Override OPENAI_MODEL or GROQ_MODEL")
+    parser.add_argument("--endpoint-min", type=float)
+    parser.add_argument("--endpoint-max", type=float)
+    parser.add_argument("--arm", default="", help="Scorecard arm label")
     parser.add_argument(
         "--debug-audio",
         action="store_true",

@@ -142,6 +142,60 @@ def analyze(rows: list[dict], targets: dict | None = None) -> dict:
     }
 
 
+def analyze_eou_drift(rows: list[dict]) -> dict:
+    """Correlate EOU with turn index, prompt size, and transcript length.
+
+    The production stall we keep seeing is EOU stepping from ~300ms to ~780ms
+    mid-session. This report says whether that step tracks turn order (context
+    growth) or utterance length.
+    """
+    indexed = [
+        row
+        for row in rows
+        if isinstance(row.get("eou_ms"), (int, float))
+        and isinstance(row.get("turn_index"), int)
+    ]
+    by_index: dict[int, list[float]] = {}
+    for row in indexed:
+        by_index.setdefault(int(row["turn_index"]), []).append(float(row["eou_ms"]))
+    early = [float(row["eou_ms"]) for row in indexed if int(row["turn_index"]) <= 3]
+    late = [float(row["eou_ms"]) for row in indexed if int(row["turn_index"]) >= 4]
+    token_pairs = [
+        (float(row["prompt_tokens"]), float(row["eou_ms"]))
+        for row in indexed
+        if isinstance(row.get("prompt_tokens"), (int, float))
+    ]
+    char_pairs = [
+        (float(row["transcript_chars"]), float(row["eou_ms"]))
+        for row in indexed
+        if isinstance(row.get("transcript_chars"), (int, float))
+    ]
+
+    def _mean(values: list[float]) -> float | None:
+        return round(sum(values) / len(values), 1) if values else None
+
+    return {
+        "n": len(indexed),
+        "early_eou_ms": _mean(early),
+        "late_eou_ms": _mean(late),
+        "step_ms": (
+            round(_mean(late) - _mean(early), 1)
+            if early and late and _mean(late) is not None and _mean(early) is not None
+            else None
+        ),
+        "by_turn_index": {
+            str(index): round(sum(values) / len(values), 1)
+            for index, values in sorted(by_index.items())
+        },
+        "prompt_token_pairs": token_pairs,
+        "transcript_char_pairs": char_pairs,
+        "tracks_turn_index": bool(
+            early and late and _mean(late) is not None and _mean(early) is not None
+            and (_mean(late) or 0) - (_mean(early) or 0) >= 200
+        ),
+    }
+
+
 def analyze_file(path: str | Path, targets: dict | None = None) -> dict:
     """Convenience: read a JSONL profile file and analyze it."""
     from ..latency import read_profiles
