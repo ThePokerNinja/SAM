@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
 """SAM-035: shared tool registry - registration, flags, owner gate, subset."""
 
 from __future__ import annotations
 
 import asyncio
+import inspect
 import unittest
 from typing import Any
 
@@ -78,6 +78,16 @@ class RegistryBuildTests(unittest.TestCase):
         )
         out = asyncio.run(tools[0](None))
         self.assertEqual(out, self.owner_refusal)
+
+    def test_owner_gate_exposes_only_context_parameter(self) -> None:
+        tools = self.registry.build_livekit_tools(
+            client=object(),
+            is_owner=lambda: True,
+            function_tool=_identity_decorator,
+            owner_refusal=self.owner_refusal,
+            only=["run_scan"],
+        )
+        self.assertEqual(list(inspect.signature(tools[0]).parameters), ["context"])
 
     def test_builder_invokes_handler(self) -> None:
         class Spy:

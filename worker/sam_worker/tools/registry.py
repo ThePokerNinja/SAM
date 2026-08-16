@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """SAM-035: shared tool registry - schema, handler, read_only, requires_approval."""
 
 from __future__ import annotations
@@ -84,12 +83,15 @@ class ToolRegistry:
             if spec.requires_approval:
                 original = raw
 
-                async def _gated(context: Any, _orig=original) -> str:
-                    if not is_owner():
-                        return owner_refusal
-                    return await _orig(context)
+                def _owner_gated(handler: Callable[..., Awaitable[str]]):
+                    async def _gated(context: Any) -> str:
+                        if not is_owner():
+                            return owner_refusal
+                        return await handler(context)
 
-                raw = _gated
+                    return _gated
+
+                raw = _owner_gated(original)
 
             raw.__doc__ = spec.description
             raw.__name__ = spec.name

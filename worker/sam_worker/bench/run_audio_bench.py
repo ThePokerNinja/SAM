@@ -13,7 +13,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from dotenv import load_dotenv
-from livekit import rtc
+from livekit import api, rtc
 from livekit.agents import Agent, AgentSession
 from livekit.agents.utils import http_context
 from livekit.plugins import elevenlabs, silero
@@ -97,6 +97,14 @@ async def _run(args) -> dict:
         token=token,
         participant_identity_prefix="embedded-agent-" if args.embedded_agent else "",
     )
+    if args.agent_name:
+        livekit_api = api.LiveKitAPI(url=url, api_key=api_key, api_secret=api_secret)
+        try:
+            await livekit_api.agent_dispatch.create_dispatch(
+                api.CreateAgentDispatchRequest(agent_name=args.agent_name, room=room_name)
+            )
+        finally:
+            await livekit_api.aclose()
     embedded_room: rtc.Room | None = None
     embedded_session: AgentSession | None = None
     results = []
@@ -252,6 +260,11 @@ def main() -> int:
     )
     parser.add_argument("--room", default="")
     parser.add_argument("--embedded-agent", action="store_true")
+    parser.add_argument(
+        "--agent-name",
+        default="",
+        help="Explicitly dispatch a named LiveKit agent (useful for isolated worker validation)",
+    )
     parser.add_argument("--agent-timeout", type=float, default=45.0)
     parser.add_argument("--turn-timeout", type=float, default=15.0)
     parser.add_argument("--max-turns", type=int)
