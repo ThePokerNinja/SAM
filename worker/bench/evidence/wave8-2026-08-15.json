@@ -1,6 +1,6 @@
 {
   "method": "livekit_external_audio_v1",
-  "captured_at_utc": "2026-08-16T02:20:23Z",
+  "captured_at_utc": "2026-08-16T03:23:24Z",
   "predeploy_production": {
     "turn_mode_label": "cloud",
     "samples": 0,
@@ -40,14 +40,59 @@
     "selected_default": "adaptive",
     "premium_miss": "Adaptive missed <250ms; VAD was rejected as unstable and unsafe"
   },
+  "production_deploy": {
+    "commit": "b54a532",
+    "method": "SAM_AGENT_DEPLOY_HOOK_URL",
+    "hook_status": 200,
+    "turn_mode_label": "stt",
+    "interruption_mode": "adaptive"
+  },
+  "production_audio": {
+    "room_prefix": "sam-wave8-",
+    "full_matrix": {
+      "requested_turns": 20,
+      "successful_samples": 1,
+      "timeouts": 19,
+      "cut_off_rate": 0.0,
+      "first_turn": {
+        "fixture_id": "short-01",
+        "assistant_text": "It is 8:02 PM Pacific.",
+        "v2v_ms": 1702.5
+      },
+      "barge_in_ms": null,
+      "false_trigger_rate": 0.0,
+      "classification": "none"
+    },
+    "isolated_direct_routes": {
+      "short-01_time_v2v_ms": 1836.9,
+      "short-08_dashboard_v2v_ms": 998.6,
+      "dashboard_text": "Opening Rainmaker."
+    },
+    "isolated_llm_tool_pulse": {
+      "attempts": 2,
+      "result": "TimeoutError",
+      "assistant_text": "",
+      "tool_calls": []
+    }
+  },
   "intelligence": {
     "embedded_runs": "unscored because they intentionally used a tool-free test agent",
-    "production_scorecard": null
+    "production_scorecard": {
+      "n_turns": 5,
+      "intent_accuracy": 0.2,
+      "hallucination_rate": 0.0,
+      "interruption_accuracy": 0.6667,
+      "grounded_arena_score": 0.41,
+      "general_arena_score": 0.0,
+      "passes_latency_kpi": false,
+      "notes": "Only the direct time route produced scored audio; pulse/scans/research/pricing/account fixtures timed out or were empty"
+    }
   },
   "notes": [
     "Raw local result JSON is intentionally gitignored.",
     "No customer recordings were used; all fixture audio was generated from versioned text.",
-    "Production results must replace null fields after the new worker deploy.",
-    "GitHub master contains the Wave 8 commits, but this workstation has no SAM_AGENT_DEPLOY_HOOK_URL or Render API service credentials; repeated production smokes still reached the old worker behavior."
+    "sam-agent deployed from the Wave 8 commits. Direct high-confidence routes answer in production.",
+    "LLM/tool user turns did not return detectable audio within 45-60s, including an isolated pulse room. Production barge-in is therefore unmeasured.",
+    "Remediation remains open: diagnose why production LLM/tool turns stall after a successful greeting and direct route."
   ]
 }
