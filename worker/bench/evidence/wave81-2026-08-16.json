@@ -94,6 +94,28 @@
     "SAM_INTERRUPTION_MODE": "adaptive"
   },
   "production_verify": {
-    "pending": true
+    "pending": false,
+    "commit": "c8a0aea",
+    "deploy_id": "dep-da146fm7bikc738akmg0",
+    "turns": 20,
+    "cut_off_rate": 0.0,
+    "errors": 0,
+    "v2v_p50_ms": 1425.4,
+    "v2v_p95_ms": 1684.1,
+    "barge_in_ms": 103.6,
+    "decoy_false_triggers": 0,
+    "direct_route_v2v_ms": [1043.5, 1047.0, 943.9, 1006.9, 863.5, 970.2, 968.0],
+    "tier": {
+      "barge_in": "premium",
+      "v2v": "none",
+      "note": "Barge-in <250ms. Full-matrix v2v misses Minimum Enterprise because long/LLM turns stay at gpt-4o-mini TTFT (~500-600ms) plus transport. Groq is faster but unsafe at 6K/12K TPM."
+    },
+    "pre_cap_run": {
+      "commit": "17ec961",
+      "v2v_p50_ms": 1512.1,
+      "v2v_p95_ms": 2152.1,
+      "barge_in_ms": 674.9,
+      "note": "Render still had SAM_ENDPOINTING_MAX=1.2 until the code-side cap shipped."
+    }
   }
 }

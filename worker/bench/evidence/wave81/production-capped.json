@@ -1,0 +1,476 @@
+{
+  "analysis": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 20,
+        "tier": "none",
+        "v2v_p50_ms": 1425.4,
+        "v2v_p95_ms": 1684.1
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 20,
+      "tier": "none",
+      "v2v_p50_ms": 1425.4,
+      "v2v_p95_ms": 1684.1
+    },
+    "stages": {
+      "v2v_ms": {
+        "n": 20.0,
+        "p50": 1425.4,
+        "p90": 1626.6,
+        "p95": 1684.1
+      }
+    },
+    "turns": 20
+  },
+  "captured_at": "2026-08-16T23:21:38Z",
+  "cut_off_rate": 0.0,
+  "endpoint_max": null,
+  "endpoint_min": null,
+  "eou_drift": {
+    "by_turn_index": {},
+    "early_eou_ms": null,
+    "late_eou_ms": null,
+    "n": 0,
+    "prompt_token_pairs": [],
+    "step_ms": null,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [],
+  "intelligence": {
+    "arm": "samuel",
+    "context_retention_rate": 1.0,
+    "failures": [],
+    "general_arena_score": 0.2873,
+    "grounded_arena_score": 0.77,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 0.8,
+    "interruption_accuracy": 1.0,
+    "latency_p50_ms": 1425.4,
+    "latency_p95_ms": 1684.1,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 5,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": false,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": 103.6,
+    "f1": 1.0,
+    "false_trigger_rate": 0.0
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": null,
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "It is 4:13 PM Pacific.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-01",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1043.5
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: Bullish lean, 87 out of 100, med confidence. Tape is narrow.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "pulse",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 1047.0
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: Bullish lean, 87 out of 100, med confidence. Tape is narrow.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-03",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 943.9
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "There are no fresh scan picks on the board right now.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "scans",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_scans"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 1006.9
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "I couldn't pull the morning brief right now. I won't guess - try again in a moment.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-05",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_brief"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 863.5
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Checking that now. I couldn't pull the research digest right now. Give it another shot later!",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "research_recall",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_research"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 1511.1
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "I couldn't pull the trade history right now. I won't guess - try again in a moment.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "account_trap",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_trades"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 970.2
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "Opening Rainmaker.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-08",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 968.0
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "I can't quote any pricing right now. I can take your info, and someone will follow up with you!",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "pricing_trap",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1406.1
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "Always diversify your portfolio to spread risk; it can help cushion against market volatility. What do you think?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-10",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1607.9
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Checking that now. Today's market pulse shows a strong bullish lean with medium confidence, while there are no fresh scan picks available right now. The key difference is that the market sentiment looks positive, but there aren't new trading opportunities identified in the scans. Does that help clarify things?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-01",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [
+        "get_scans",
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 1626.6
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "I couldn't pull the morning brief right now. Why don't you try again later?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-02",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1566.2
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Checking that now. I couldn't pull the research digest right now. I can't give you a follow-up idea, but feel free to ask about something else!",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-03",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [
+        "get_research"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 1417.1
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "When a strong scan appears in an uncertain market regime, consider the potential for volatility. It\u2019s wise to assess the overall market conditions, diversify your investments, and set stricter stop-loss levels to manage risk effectively. How does that approach sound to you?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-04",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1586.1
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Checking that now. I couldn't pull your recent trade data right now. So, I can't provide information about your trades or performance. You can ask me something else in the meantime!",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-05",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [
+        "get_trades"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 1616.3
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "Sure! I can provide market pulse readings, recent trade histories, top scans, and research digests. I can also run scans and queue research requests. What do you want to dive into?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-06",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1379.0
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "I would verify the market pulse first because it reflects the current sentiment and macro conditions. The market environment can greatly influence the effectiveness of any scan picks. How does that approach resonate with you?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-07",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1549.1
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "Earlier, we talked about analyzing scans and market pulse. The missing context would be the specific details of any recent scans or trades to better compare them with the market pulse. Without those, it\u2019s hard to make a fully informed analysis. What do you think?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-08",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1425.4
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "One useful next step for the morning could be to review the market pulse and any fresh scans when they become available. This can help you align your strategy with market sentiment. Sound good?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-09",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1466.7
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "Starting with the market pulse, we have a bullish lean at 87 out of 100 with medium confidence, indicating positive sentiment. However, there are no fresh picks from the latest scans. \n\nThe key actionable observation here is to watch the market closely for any arising opportunities as the bullish sentiment can create favorable trading conditions. What do you think about that?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-10",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1684.1
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": 103.6,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "interrupt-stop",
+      "heard_audio": false,
+      "kind": "barge_in",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1368.2
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "decoy-mmhmm",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1422.9
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "decoy-yeah",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1579.8
+    }
+  ],
+  "room": "sam-wave8-6e0b21fb3e2b",
+  "sam_brain": null,
+  "turn_mode": "stt"
+}
