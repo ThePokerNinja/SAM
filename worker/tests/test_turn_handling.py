@@ -30,6 +30,15 @@ def test_invalid_turn_mode_falls_back_to_cloud(monkeypatch) -> None:
         assert turn_mode_from_env() == "cloud"
 
 
+def test_stale_endpoint_max_is_capped(monkeypatch) -> None:
+    monkeypatch.setenv("SAM_ENDPOINTING_MIN", "0.3")
+    monkeypatch.setenv("SAM_ENDPOINTING_MAX", "1.2")
+    settings = Settings.from_env()
+    assert settings.endpoint_max == 0.6
+    options = build_turn_handling(settings)
+    assert options["endpointing"]["max_delay"] == 0.6
+
+
 def test_invalid_endpoint_range_fails() -> None:
     with pytest.raises(ValueError, match="endpoint"):
         build_turn_handling(Settings(endpoint_min=1.0, endpoint_max=0.5))

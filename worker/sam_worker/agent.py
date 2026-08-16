@@ -122,10 +122,12 @@ async def entrypoint(ctx: JobContext) -> None:
     stt = build_stt(s)
     stt_label = s.stt_model if not s.deepgram_api_key else f"deepgram/{s.stt_model.removeprefix('deepgram/')}"
     _log.info(
-        "Samuel starting | brain=%s | stt=%s | turn=%s | voice=%s",
+        "Samuel starting | brain=%s | stt=%s | turn=%s | endpoint=%.2f/%.2f | voice=%s",
         brain,
         stt_label,
         s.turn_mode,
+        s.endpoint_min,
+        s.endpoint_max,
         s.voice_ids["samuel"][:6],
     )
 

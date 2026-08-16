@@ -126,7 +126,7 @@ class Settings:
             stt_model=os.getenv("SAM_STT_MODEL", "deepgram/nova-3"),
             turn_mode=turn_mode_from_env(),
             endpoint_min=float(os.getenv("SAM_ENDPOINTING_MIN", "0.25") or 0.25),
-            endpoint_max=float(os.getenv("SAM_ENDPOINTING_MAX", "0.6") or 0.6),
+            endpoint_max=min(float(os.getenv("SAM_ENDPOINTING_MAX", "0.6") or 0.6), 0.6),
             interruption_min_duration=float(
                 os.getenv("SAM_INTERRUPT_MIN_DURATION", "0.25") or 0.25
             ),
