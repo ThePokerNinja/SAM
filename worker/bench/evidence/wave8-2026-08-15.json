@@ -41,15 +41,17 @@
     "premium_miss": "Adaptive missed <250ms; VAD was rejected as unstable and unsafe"
   },
   "production_deploy": {
-    "commit": "b54a532",
+    "commit": "74d048d",
     "method": "SAM_AGENT_DEPLOY_HOOK_URL",
     "hook_status": 200,
+    "deploy_id": "dep-da12lvu7bikc7387urq0",
+    "verified": true,
     "turn_mode_label": "stt",
     "interruption_mode": "adaptive"
   },
   "production_audio": {
     "room_prefix": "sam-wave8-",
-    "full_matrix": {
+    "pre_fix_full_matrix": {
       "requested_turns": 20,
       "successful_samples": 1,
       "timeouts": 19,
@@ -60,6 +62,18 @@
         "v2v_ms": 1702.5
       },
       "barge_in_ms": null,
+      "false_trigger_rate": 0.0,
+      "classification": "none"
+    },
+    "full_matrix": {
+      "captured_at": "2026-08-16T21:40:36Z",
+      "requested_turns": 20,
+      "successful_samples": 20,
+      "timeouts": 0,
+      "cut_off_rate": 0.0,
+      "v2v_p50_ms": 1516.7,
+      "v2v_p95_ms": 1845.4,
+      "barge_in_ms": 1081.0,
       "false_trigger_rate": 0.0,
       "classification": "none"
     },
@@ -76,7 +90,7 @@
       "diagnosis": "The LiveKit/OpenAI request was rejected before inference because the owner-gate wrapper exposed context: Any; OpenAI reported invalid schema for run_scan because context had no JSON-schema type."
     },
     "post_fix_named_worker": {
-      "scope": "same full RoutedSamuelAgent path through LiveKit Cloud, isolated named worker; Render production deploy still pending",
+      "scope": "same full RoutedSamuelAgent path through LiveKit Cloud, isolated named worker before Render deploy",
       "requested_turns": 20,
       "successful_samples": 20,
       "timeouts": 0,
@@ -93,13 +107,13 @@
     "embedded_runs": "unscored because they intentionally used a tool-free test agent",
     "production_scorecard": {
       "n_turns": 5,
-      "intent_accuracy": 0.2,
+      "intent_accuracy": 0.6,
       "hallucination_rate": 0.0,
       "interruption_accuracy": 0.6667,
-      "grounded_arena_score": 0.41,
+      "grounded_arena_score": 0.65,
       "general_arena_score": 0.0,
       "passes_latency_kpi": false,
-      "notes": "Only the direct time route produced scored audio; pulse/scans/research/pricing/account fixtures timed out or were empty"
+      "notes": "All 20 production fixtures returned audible output with zero cutoffs; latency and adaptive barge-in remain below target."
     }
   },
   "notes": [
@@ -108,7 +122,7 @@
     "sam-agent deployed from the Wave 8 commits. Direct high-confidence routes answer in production.",
     "The recorded production LLM/tool stall was not an LLM or rm_api timeout: OpenAI rejected the malformed run_scan schema before inference.",
     "The owner-gate wrapper now preserves LiveKit RunContext so context is excluded from the public tool schema; the fixed named-worker matrix completed 20/20 turns with no cutoffs.",
-    "Render production still runs the previous commit until the targeted fix is committed, pushed, and deployed; do not relabel the named-worker result as production.",
-    "The remaining measured misses are latency (1685.5ms p50 / 2276.5ms p95) and interruption safety (481.5ms barge-in; both decoys falsely triggered)."
+    "Render production commit 74d048d completed 20/20 turns with no timeouts or cutoffs, confirming the schema-path repair.",
+    "The remaining production misses are latency (1516.7ms p50 / 1845.4ms p95) and adaptive barge-in (1081.0ms); neither decoy falsely triggered in the production run."
   ]
 }
