@@ -4,8 +4,17 @@
   "predeploy_production": {
     "turn_mode_label": "cloud",
     "samples": 0,
-    "result": "worker published an audio track but produced no greeting or fixture replies",
+    "result": "worker published an audio track and greeted, but produced no fixture replies",
     "classification": "none"
+  },
+  "isolated_named_worker_validation": {
+    "commit": "388950c",
+    "fixture": "short-01",
+    "samples": 1,
+    "v2v_ms": 1677.9,
+    "cut_off_rate": 0.0,
+    "classification": "none",
+    "result": "full RoutedSamuelAgent path returned audio; strict tool schema parsed without the former hidden _orig parameter failure"
   },
   "embedded_turn_mode_matrix": {
     "turns_per_mode": 20,
@@ -38,6 +47,7 @@
   "notes": [
     "Raw local result JSON is intentionally gitignored.",
     "No customer recordings were used; all fixture audio was generated from versioned text.",
-    "Production results must replace null fields after the new worker deploy."
+    "Production results must replace null fields after the new worker deploy.",
+    "GitHub master contains the Wave 8 commits, but this workstation has no SAM_AGENT_DEPLOY_HOOK_URL or Render API service credentials; repeated production smokes still reached the old worker behavior."
   ]
 }
