@@ -58,6 +58,10 @@ services:
     plan: standard
     region: oregon
     maxShutdownDelaySeconds: 300
+    disk:
+      name: sam-agent-data
+      mountPath: /var/data
+      sizeGB: 1
     # No scaling block - autoscaling requires a paid workspace (not Hobby).
     envVars:
       - key: LIVEKIT_URL
@@ -80,10 +84,22 @@ services:
         sync: false
       - key: SAM_STT_MODEL
         value: deepgram/nova-3
+      - key: SAM_TURN_MODE
+        value: stt
+      - key: SAM_PREEMPTIVE_TTS
+        value: "1"
+      - key: SAM_LATENCY_LOG
+        value: "1"
+      - key: SAM_MEMORY_ENABLED
+        value: "1"
+      - key: SAM_CACHE_DIR
+        value: /var/data
       - key: SAM_INTERRUPT_MIN_DURATION
-        value: "0.8"
+        value: "0.25"
       - key: SAM_INTERRUPT_MIN_WORDS
-        value: "2"
+        value: "1"
+      - key: SAM_INTERRUPTION_MODE
+        value: adaptive
       - key: SAM_ENDPOINTING_MIN
         value: "0.3"
       - key: SAM_ENDPOINTING_MAX

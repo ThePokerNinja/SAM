@@ -19,11 +19,17 @@ from .scorecard import percentile
 _STAGES = (
     "eou_ms",
     "transcription_delay_ms",
+    "turn_callback_ms",
     "stt_ms",
     "llm_ttft_ms",
     "llm_duration_ms",
     "tts_ttfb_ms",
     "tts_duration_ms",
+    "tts_audio_ms",
+    "playback_start_ms",
+    "route_ms",
+    "context_ms",
+    "tool_ms",
     "barge_in_ms",
     "v2v_ms",
 )
@@ -82,10 +88,8 @@ def _meets(tier: dict, v2v_p50: float | None, v2v_p95: float | None, barge_p95: 
         return False
     if v2v_p50 >= tier["v2v_p50_ms"] or v2v_p95 >= tier["v2v_p95_ms"]:
         return False
-    # Barge-in is only judged when we have measurements; absence does not auto-pass nor auto-fail v2v.
-    if barge_p95 is not None and barge_p95 >= tier["barge_in_ms"]:
-        return False
-    return True
+    # Every canonical tier includes a barge-in target. Missing evidence cannot pass.
+    return barge_p95 is not None and barge_p95 < tier["barge_in_ms"]
 
 
 def classify_tier(
@@ -124,10 +128,17 @@ def classify_tier(
 
 def analyze(rows: list[dict], targets: dict | None = None) -> dict:
     """Full summary: per-stage percentiles + tier classification."""
+    modes = sorted({str(row.get("turn_mode")) for row in rows if row.get("turn_mode")})
     return {
         "stages": stage_percentiles(rows),
         "classification": classify_tier(rows, targets),
         "turns": len(rows),
+        "by_turn_mode": {
+            mode: classify_tier(
+                [row for row in rows if str(row.get("turn_mode")) == mode], targets
+            )
+            for mode in modes
+        },
     }
 
 

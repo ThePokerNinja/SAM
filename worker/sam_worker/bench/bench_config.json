@@ -2,7 +2,7 @@
   "method_version": "0.1.0",
   "kpi": {
     "v2v_p50_ms": 800,
-    "v2v_p95_ms": 1500,
+    "v2v_p95_ms": 1200,
     "grounded_task_success_min": 0.90,
     "hallucination_rate_max": 0.02
   },
@@ -22,16 +22,17 @@
   "sample": {
     "min_turns_per_arm_per_scenario": 30,
     "min_sessions": 3,
-    "network_profiles": ["wifi", "throttled_mobile"]
+    "network_profiles": ["wifi", "throttled_mobile"],
+    "turn_mode_experiment": { "short_turns": 10, "long_turns": 10 }
   },
   "arms": [
     {
       "id": "samuel",
-      "label": "Samuel (prod cascade, Hermes brain)",
-      "enabled": false,
+      "label": "Samuel (production LiveKit worker)",
+      "enabled": true,
       "transport": "livekit",
       "brain": "hermes",
-      "note": "Enable after Wave 1 (HermesBrain + read-only tools) lands."
+      "note": "Runnable through run_audio_bench.py; grounded tools are live."
     },
     {
       "id": "samuel-groq",

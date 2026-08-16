@@ -9,7 +9,14 @@ description = "S.A.M. (Samuel) agent worker - LiveKit realtime pipeline + Hermes
 requires-python = ">=3.10"
 
 [tool.setuptools]
-packages = ["sam_worker", "sam_worker.tools", "server"]
+packages = [
+  "sam_worker",
+  "sam_worker.bench",
+  "sam_worker.memory",
+  "sam_worker.skillbuilder",
+  "sam_worker.tools",
+  "server",
+]
 
 [tool.setuptools.package-data]
 "sam_worker" = ["prompts/*.txt"]

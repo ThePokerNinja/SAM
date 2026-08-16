@@ -1,16 +1,16 @@
-"""Versioned benchmark fixtures (scaffold).
+"""Versioned benchmark fixtures.
 
 These are the reproducible test suites referenced by sam-benchmark-methodology.md sec 5.
-Ground-truth answers are intentionally placeholders here; fill them from the prod-session
-ground-truth table and real rm_api responses before a scored run. Keeping them in code (not prose)
-makes runs replayable.
+Dynamic Rainmaker answers are grounded by the named tool and its captured rm_api response; static
+refusal cases carry their exact non-invention requirement. Keeping those contracts in code makes
+runs replayable without freezing market data into the fixture.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-FIXTURE_VERSION = "0.1.0"
+FIXTURE_VERSION = "1.0.0"
 
 
 @dataclass

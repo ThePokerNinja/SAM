@@ -20,6 +20,8 @@ venv/
 *.egg-info/
 .mypy_cache/
 .ruff_cache/
+worker/bench/audio/*.wav
+worker/bench/results/
 
 # Editor / OS
 .DS_Store

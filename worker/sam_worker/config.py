@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 import os
+import warnings
 from dataclasses import dataclass, field
+from typing import Literal
+
+TurnMode = Literal["cloud", "mini", "vad", "stt"]
+InterruptionMode = Literal["adaptive", "vad"]
+TURN_MODES: frozenset[str] = frozenset({"cloud", "mini", "vad", "stt"})
 
 # Per-tier brain model map. Mirrors the client presets; placeholders until Hermes
 # confirms model selection. The worker applies memory depth + model per the tier the
@@ -27,7 +33,7 @@ def memory_turns_for_tier(tier: int) -> int:
     return TIER_MEMORY_TURNS.get(tier, 12)
 
 
-def effective_model_for_tier(tier: int, settings: "Settings") -> str:
+def effective_model_for_tier(tier: int, settings: Settings) -> str:
     """Resolve tier brain id to the model string for the active SAM_BRAIN."""
     mapped = model_for_tier(tier)
     brain = (settings.sam_brain or "").strip().lower()
@@ -54,6 +60,18 @@ def rainmaker_api_base_url() -> str:
     return "https://rainmaker-api-waqs.onrender.com"
 
 
+def turn_mode_from_env() -> TurnMode:
+    raw = os.getenv("SAM_TURN_MODE", "cloud").strip().lower()
+    if raw not in TURN_MODES:
+        warnings.warn(
+            f"invalid SAM_TURN_MODE {raw!r}; falling back to cloud",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return "cloud"
+    return raw  # type: ignore[return-value]
+
+
 @dataclass
 class Settings:
     livekit_url: str = ""
@@ -62,6 +80,14 @@ class Settings:
     deepgram_api_key: str = ""
     # STT via LiveKit Inference (string model, billed through LiveKit Cloud).
     stt_model: str = "deepgram/nova-3"
+    turn_mode: TurnMode = "cloud"
+    endpoint_min: float = 0.3
+    endpoint_max: float = 1.2
+    interruption_min_duration: float = 0.25
+    interruption_min_words: int = 1
+    interruption_mode: InterruptionMode = "adaptive"
+    preemptive_tts: bool = True
+    memory_enabled: bool = False
     elevenlabs_api_key: str = ""
     elevenlabs_model: str = "eleven_flash_v2_5"
     # Brain for the POC: OpenAI gpt-4o-mini directly (ADR-2 allows converging on Hermes later).
@@ -90,13 +116,28 @@ class Settings:
     voice_ids: dict[str, str] = field(default_factory=dict)
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         return cls(
             livekit_url=os.getenv("LIVEKIT_URL", ""),
             livekit_api_key=os.getenv("LIVEKIT_API_KEY", ""),
             livekit_api_secret=os.getenv("LIVEKIT_API_SECRET", ""),
             deepgram_api_key=os.getenv("DEEPGRAM_API_KEY", ""),
             stt_model=os.getenv("SAM_STT_MODEL", "deepgram/nova-3"),
+            turn_mode=turn_mode_from_env(),
+            endpoint_min=float(os.getenv("SAM_ENDPOINTING_MIN", "0.3") or 0.3),
+            endpoint_max=float(os.getenv("SAM_ENDPOINTING_MAX", "1.2") or 1.2),
+            interruption_min_duration=float(
+                os.getenv("SAM_INTERRUPT_MIN_DURATION", "0.25") or 0.25
+            ),
+            interruption_min_words=int(os.getenv("SAM_INTERRUPT_MIN_WORDS", "1") or 1),
+            interruption_mode=(
+                "vad" if os.getenv("SAM_INTERRUPTION_MODE", "adaptive").strip().lower() == "vad"
+                else "adaptive"
+            ),
+            preemptive_tts=os.getenv("SAM_PREEMPTIVE_TTS", "1").strip().lower()
+            in {"1", "true", "yes", "on"},
+            memory_enabled=os.getenv("SAM_MEMORY_ENABLED", "").strip().lower()
+            in {"1", "true", "yes", "on"},
             elevenlabs_api_key=os.getenv("ELEVENLABS_API_KEY", ""),
             elevenlabs_model=os.getenv("ELEVENLABS_MODEL", "eleven_flash_v2_5"),
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),

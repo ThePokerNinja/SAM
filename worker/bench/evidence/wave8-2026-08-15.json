@@ -1,0 +1,43 @@
+{
+  "method": "livekit_external_audio_v1",
+  "captured_at_utc": "2026-08-16T02:20:23Z",
+  "predeploy_production": {
+    "turn_mode_label": "cloud",
+    "samples": 0,
+    "result": "worker published an audio track but produced no greeting or fixture replies",
+    "classification": "none"
+  },
+  "embedded_turn_mode_matrix": {
+    "turns_per_mode": 20,
+    "cut_off_rate": {
+      "cloud": 0.0,
+      "mini": 0.0,
+      "vad": 0.0,
+      "stt": 0.0
+    },
+    "cloud": {"v2v_p50_ms": 1635.6, "v2v_p95_ms": 2049.3},
+    "mini": {"v2v_p50_ms": 1540.9, "v2v_p95_ms": 1878.3},
+    "vad": {"v2v_p50_ms": 1612.1, "v2v_p95_ms": 2041.6},
+    "stt": {"v2v_p50_ms": 1503.4, "v2v_p95_ms": 1853.1},
+    "selected_default": "stt",
+    "tier": "none",
+    "minimum_enterprise_miss": "STT missed p50<1000 and p95<1500"
+  },
+  "interruption": {
+    "adaptive_stt_barge_in_ms": 2016.3,
+    "vad_stt_best_single_barge_in_ms": 213.2,
+    "vad_repeat_barge_in_ms": 5539.3,
+    "vad_decoy_false_trigger_rate": 1.0,
+    "selected_default": "adaptive",
+    "premium_miss": "Adaptive missed <250ms; VAD was rejected as unstable and unsafe"
+  },
+  "intelligence": {
+    "embedded_runs": "unscored because they intentionally used a tool-free test agent",
+    "production_scorecard": null
+  },
+  "notes": [
+    "Raw local result JSON is intentionally gitignored.",
+    "No customer recordings were used; all fixture audio was generated from versioned text.",
+    "Production results must replace null fields after the new worker deploy."
+  ]
+}

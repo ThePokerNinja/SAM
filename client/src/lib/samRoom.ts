@@ -1,6 +1,6 @@
 // Connects the browser to a fresh LiveKit room and publishes the mic. The agent worker
 // (registered with no agent_name) auto-dispatches Samuel into whatever room we join.
-import { Room } from "livekit-client";
+import { Room, RoomEvent } from "livekit-client";
 import {
   getPortalAccessKey,
   PORTAL_ACCESS_HEADER,
@@ -16,6 +16,33 @@ export class PortalAccessDeniedError extends Error {
     super("access_denied");
     this.name = "PortalAccessDeniedError";
   }
+}
+
+const COMMAND_TOPIC = "sam-command";
+const ALLOWED_COMMAND_URLS = new Set([
+  "https://thepokerninja.github.io/rainmaker-morning/latest.html",
+  "http://127.0.0.1:8787/latest.html",
+]);
+
+export function installSamCommands(room: Room): void {
+  room.on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
+    if (topic !== COMMAND_TOPIC || !participant) return;
+    try {
+      const command = JSON.parse(new TextDecoder().decode(payload)) as {
+        type?: string;
+        url?: string;
+      };
+      if (
+        command.type === "open_url" &&
+        command.url &&
+        ALLOWED_COMMAND_URLS.has(command.url)
+      ) {
+        window.open(command.url, "_blank", "noopener,noreferrer");
+      }
+    } catch {
+      // Malformed or untrusted data-channel commands are ignored.
+    }
+  });
 }
 
 /** Base URL of the token server. Set VITE_TOKEN_URL in prod; defaults to local dev. */
@@ -68,6 +95,7 @@ export async function connectSam(): Promise<SamSession> {
 
   const room = new Room({ adaptiveStream: true, dynacast: true });
   await room.connect(data.url, data.token);
+  installSamCommands(room);
   await room.localParticipant.setMicrophoneEnabled(true);
   return { room, roomName: data.room };
 }

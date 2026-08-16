@@ -36,6 +36,7 @@ class TurnProfile:
     # End-of-speech / turn detection.
     eou_ms: float | None = None                 # end_of_utterance_delay (dominant cost today)
     transcription_delay_ms: float | None = None  # late-STT-final diagnostic (from EOUMetrics)
+    turn_callback_ms: float | None = None
     # STT.
     stt_ms: float | None = None
     # LLM.
@@ -44,10 +45,20 @@ class TurnProfile:
     # TTS.
     tts_ttfb_ms: float | None = None
     tts_duration_ms: float | None = None
+    tts_audio_ms: float | None = None
+    playback_start_ms: float | None = None
+    # Performance layers added in Wave 8.
+    route_ms: float | None = None
+    context_ms: float | None = None
+    tool_ms: float | None = None
+    route: str | None = None
+    turn_mode: str | None = None
     # Interruption.
     barge_in_ms: float | None = None            # user speaks over TTS -> playback stops
     # Bookkeeping.
     created_ms: float = field(default_factory=_now_ms)
+    completed_ms: float | None = None
+    _written: bool = field(default=False, init=False, repr=False, compare=False)
 
     # --- the three components that make up the headline v2v number ---
     def v2v_ms(self) -> float:
@@ -59,6 +70,7 @@ class TurnProfile:
 
     def to_dict(self) -> dict:
         d = asdict(self)
+        d.pop("_written", None)
         d["v2v_ms"] = round(self.v2v_ms(), 1) if self.v2v_ready() else None
         return d
 
@@ -87,10 +99,14 @@ def write_profile(profile: TurnProfile, *, path: Path | None = None) -> bool:
     """
     if not latency_log_enabled():
         return False
+    if profile._written:
+        return False
     try:
         dest = path or latency_log_path()
+        profile.completed_ms = profile.completed_ms or _now_ms()
         with dest.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(profile.to_dict(), sort_keys=True) + "\n")
+        profile._written = True
         return True
     except Exception:  # noqa: BLE001 - instrumentation must never break the turn
         return False

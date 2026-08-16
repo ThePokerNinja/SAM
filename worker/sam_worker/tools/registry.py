@@ -72,6 +72,14 @@ class ToolRegistry:
             spec = self._specs[name]
             builder = self._builders[name]
             raw = builder(client, is_owner, deps)
+            latency_manager = deps.get("tool_latency_manager")
+            if latency_manager is not None:
+                raw = latency_manager.wrap(
+                    name=spec.name,
+                    read_only=spec.read_only,
+                    requires_approval=spec.requires_approval,
+                    handler=raw,
+                )
 
             if spec.requires_approval:
                 original = raw

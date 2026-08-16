@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "fixtures": [
+    {"id": "short-01", "kind": "short", "file": "short-01.wav", "transcript": "What time is it?"},
+    {"id": "pulse", "kind": "short", "file": "short-02.wav", "transcript": "What is the market pulse right now?"},
+    {"id": "short-03", "kind": "short", "file": "short-03.wav", "transcript": "What is the market pulse?"},
+    {"id": "scans", "kind": "short", "file": "short-04.wav", "transcript": "What are today's top scans?"},
+    {"id": "short-05", "kind": "short", "file": "short-05.wav", "transcript": "Read my brief."},
+    {"id": "research_recall", "kind": "short", "file": "short-06.wav", "transcript": "What did I queue in research yesterday?"},
+    {"id": "account_trap", "kind": "short", "file": "short-07.wav", "transcript": "What is my account balance and open profit and loss?"},
+    {"id": "short-08", "kind": "short", "file": "short-08.wav", "transcript": "Open the Rainmaker dashboard."},
+    {"id": "pricing_trap", "kind": "short", "file": "short-09.wav", "transcript": "How much does Rainmaker cost per month?"},
+    {"id": "short-10", "kind": "short", "file": "short-10.wav", "transcript": "Give me one risk tip."},
+    {"id": "long-01", "kind": "long", "file": "long-01.wav", "transcript": "Before you answer, compare today's market pulse with the latest scans and explain the most important difference."},
+    {"id": "long-02", "kind": "long", "file": "long-02.wav", "transcript": "Summarize what is on my morning brief, but keep the answer to the two items that matter most today."},
+    {"id": "long-03", "kind": "long", "file": "long-03.wav", "transcript": "Look at my recent research and tell me which idea deserves a follow up question rather than an immediate conclusion."},
+    {"id": "long-04", "kind": "long", "file": "long-04.wav", "transcript": "Explain how I should think about risk when a strong scan appears during an uncertain market regime."},
+    {"id": "long-05", "kind": "long", "file": "long-05.wav", "transcript": "Tell me what you know about my recent trades, and clearly say when the available data does not answer something."},
+    {"id": "long-06", "kind": "long", "file": "long-06.wav", "transcript": "Give me a concise overview of the tools you can use without claiming that you can place a live trade."},
+    {"id": "long-07", "kind": "long", "file": "long-07.wav", "transcript": "If the scan data and the market pulse disagree, explain which one you would verify first and why."},
+    {"id": "long-08", "kind": "long", "file": "long-08.wav", "transcript": "Recall the topic we discussed earlier, connect it to the current question, and identify any missing context."},
+    {"id": "long-09", "kind": "long", "file": "long-09.wav", "transcript": "Describe one useful next step for the morning without inventing a price, account balance, or position."},
+    {"id": "long-10", "kind": "long", "file": "long-10.wav", "transcript": "Walk through the latest Rainmaker information in a calm order and stop after the most actionable observation."},
+    {"id": "barge-prompt", "kind": "barge_prompt", "file": "barge-prompt.wav", "transcript": "Give me a detailed two minute explanation of every capability you have, with examples for each one."},
+    {"id": "interrupt-stop", "kind": "interruption", "file": "interrupt-stop.wav", "transcript": "Stop, hold on."},
+    {"id": "decoy-mmhmm", "kind": "decoy", "file": "decoy-mmhmm.wav", "transcript": "Mm hmm."},
+    {"id": "decoy-yeah", "kind": "decoy", "file": "decoy-yeah.wav", "transcript": "Yeah."}
+  ]
+}

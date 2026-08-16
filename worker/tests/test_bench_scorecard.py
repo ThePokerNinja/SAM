@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from sam_worker.bench.fixtures import GROUNDED_TASKS, fixture_manifest
 from sam_worker.bench.scorecard import (
     GeneralArena,
     GroundedArena,
@@ -11,7 +12,6 @@ from sam_worker.bench.scorecard import (
     grounded_arena_score,
     percentile,
 )
-from sam_worker.bench.fixtures import GROUNDED_TASKS, fixture_manifest
 
 
 def test_percentile_nearest_rank() -> None:
@@ -28,6 +28,10 @@ def test_latency_score_and_kpi_gate() -> None:
     over = LatencyStats(v2v_ms=[1091] * 10)  # current p50 ~1091ms
     assert 0.0 < over.latency_score() < 1.0
     assert over.passes_kpi() is False
+
+    p95_miss = LatencyStats(v2v_ms=[700] * 19 + [1300])
+    assert p95_miss.p50 < 800
+    assert p95_miss.passes_kpi() is False
 
     broken = LatencyStats(v2v_ms=[1600] * 5)
     assert broken.latency_score() == 0.0

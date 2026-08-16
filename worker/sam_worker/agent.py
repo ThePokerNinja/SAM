@@ -18,7 +18,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import sys
 import time
 
@@ -31,10 +30,8 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 from dotenv import load_dotenv
-
-import livekit.rtc as rtc
+from livekit import rtc
 from livekit.agents import (
-    Agent,
     AgentSession,
     JobContext,
     JobProcess,
@@ -44,19 +41,29 @@ from livekit.agents import (
     function_tool,
     metrics,
 )
-from livekit.plugins import deepgram, elevenlabs, openai, silero  # noqa: F401 — register on main thread
+from livekit.plugins import (  # noqa: F401 — register on main thread
+    deepgram,
+    elevenlabs,
+    openai,
+    silero,
+)
 
 from .config import Settings
+from .context import assemble_context
 from .latency import TurnProfile, latency_log_enabled, write_profile
-from .session_log import SessionLogger
+from .memory import Episode, EpisodicMemoryStore, MemoryRetriever, ProfileStore
+from .owner_gate import build_owner_gate, wire_owner_gate_listeners
 from .personas import SAMUEL
+from .router import FastIntentRouter, RoutedSamuelAgent
+from .session_log import SessionLogger
 from .stt import build_stt
+from .tier import TierState
+from .tier_session import apply_tier_to_session, parse_tier_payload
+from .tool_latency import ToolLatencyManager
 from .tools.handlers import build_rainmaker_client
 from .tools.rainmaker_registry import register_rainmaker_tools
 from .tools.registry import ToolRegistry
-from .tier import TierState
-from .tier_session import apply_tier_to_session, parse_tier_payload
-from .owner_gate import build_owner_gate, wire_owner_gate_listeners
+from .turns import build_turn_handling
 from .voice_verify import VoiceVerifier
 
 # Spoken refusal when a Tier-T (trigger) tool is called by a non-owner session.
@@ -102,26 +109,23 @@ def _build_llm(s: Settings):
 
 
 async def entrypoint(ctx: JobContext) -> None:
+    # Dedicated full-audio mode experiments run an in-process agent in these rooms.
+    # The production worker must not create a second Samuel participant there.
+    if (ctx.room.name or "").startswith("sam-wave8-embedded-"):
+        _log.info("Skipping embedded benchmark room dispatch")
+        return
     s = Settings.from_env()
     _use_groq = s.sam_brain == "groq" or (not s.sam_brain and s.groq_api_key and not s.openai_api_key)
     brain = ("groq:" + s.groq_model) if _use_groq else ("openai:" + s.openai_model)
     stt = build_stt(s)
     stt_label = s.stt_model if not s.deepgram_api_key else f"deepgram/{s.stt_model.removeprefix('deepgram/')}"
-    _log.info("Samuel starting | brain=%s | stt=%s | voice=%s", brain, stt_label, s.voice_ids["samuel"][:6])
-
-    # Barge-in sensitivity. Defaults are deliberately less twitchy than LiveKit's
-    # (0.5s / 0 words): require ~0.8s of sustained speech AND >=2 recognized words
-    # before cutting Sam off, so coughs, "uh", room noise, and speaker echo don't
-    # interrupt mid-sentence. Tune from .env without code changes.
-    interrupt_dur = float(os.getenv("SAM_INTERRUPT_MIN_DURATION", "0.8"))
-    interrupt_words = int(os.getenv("SAM_INTERRUPT_MIN_WORDS", "2"))
-
-    # Endpointing = how long Sam waits in silence before deciding you're done and
-    # replying. This dominates perceived latency (brain+TTS are ~450ms; the default
-    # turn detector was sitting on ~2.5s of EOU). min = floor after a confident
-    # end-of-turn; max = ceiling when it's unsure you've finished. Tune from .env.
-    endpoint_min = float(os.getenv("SAM_ENDPOINTING_MIN", "0.3"))
-    endpoint_max = float(os.getenv("SAM_ENDPOINTING_MAX", "1.2"))
+    _log.info(
+        "Samuel starting | brain=%s | stt=%s | turn=%s | voice=%s",
+        brain,
+        stt_label,
+        s.turn_mode,
+        s.voice_ids["samuel"][:6],
+    )
 
     session = AgentSession(
         stt=stt,
@@ -132,20 +136,23 @@ async def entrypoint(ctx: JobContext) -> None:
             api_key=s.elevenlabs_api_key,
         ),
         vad=ctx.proc.userdata["vad"],
-        preemptive_generation=True,
-        min_interruption_duration=interrupt_dur,
-        min_interruption_words=interrupt_words,
-        min_endpointing_delay=endpoint_min,
-        max_endpointing_delay=endpoint_max,
+        turn_handling=build_turn_handling(s),
     )
 
     # Per-turn latency profiles (PDF Phase 1 / ADR-24). The headline v2v log line below is
     # unchanged; TurnProfile records the full per-stage breakdown and, when SAM_LATENCY_LOG=1,
     # appends a JSONL row for offline tier analysis (see bench/latency_profile.py).
     turns: dict[str, TurnProfile] = {}
-    # Best-effort barge-in capture: when the user starts speaking while Sam is talking, stamp t0;
-    # the delay is attached to the next completed profile. None when never triggered (never faked).
-    barge_state = {"t0_ms": None}  # type: dict[str, float | None]
+    perf_state: dict[str, float | str | None] = {
+        "route_ms": None,
+        "route": None,
+        "context_ms": None,
+        "tool_ms": None,
+    }
+    # Barge-in is measured from overlapping user speech until playback leaves the
+    # speaking state. It is attached to the next completed profile; absent events
+    # remain None rather than fabricating a zero.
+    barge_state = {"t0_ms": None, "measured_ms": None}  # type: dict[str, float | None]
 
     @session.on("metrics_collected")
     def _on_metrics(ev: MetricsCollectedEvent) -> None:
@@ -154,12 +161,15 @@ async def entrypoint(ctx: JobContext) -> None:
         sid = getattr(m, "speech_id", None)
         if not sid:
             return
-        t = turns.setdefault(sid, TurnProfile(speech_id=sid))
+        t = turns.setdefault(sid, TurnProfile(speech_id=sid, turn_mode=s.turn_mode))
         if isinstance(m, metrics.EOUMetrics):
             t.eou_ms = m.end_of_utterance_delay * 1000
             td = getattr(m, "transcription_delay", None)
             if td is not None:
                 t.transcription_delay_ms = td * 1000
+            callback = getattr(m, "on_user_turn_completed_delay", None)
+            if callback is not None:
+                t.turn_callback_ms = callback * 1000
         elif isinstance(m, metrics.STTMetrics):
             dur = getattr(m, "duration", None)
             if dur is not None:
@@ -174,19 +184,36 @@ async def entrypoint(ctx: JobContext) -> None:
             dur = getattr(m, "duration", None)
             if dur is not None:
                 t.tts_duration_ms = dur * 1000
+            audio_duration = getattr(m, "audio_duration", None)
+            if audio_duration is not None:
+                t.tts_audio_ms = audio_duration * 1000
         if t.v2v_ready():
+            t.route_ms = (
+                float(perf_state["route_ms"]) if perf_state["route_ms"] is not None else None
+            )
+            t.route = str(perf_state["route"]) if perf_state["route"] is not None else None
+            t.context_ms = (
+                float(perf_state["context_ms"])
+                if perf_state["context_ms"] is not None
+                else None
+            )
+            t.tool_ms = (
+                float(perf_state["tool_ms"]) if perf_state["tool_ms"] is not None else None
+            )
             v = t.v2v_ms()
-            flag = "PASS<800" if v <= 800 else ("p95<1500" if v <= 1500 else "OVER")
+            flag = "PASS<800" if v < 800 else "OVER"
             _log.info(
                 "V2V turn %s: eou=%.0fms + ttft=%.0fms + ttfb=%.0fms = %.0fms  [%s]",
                 sid, t.eou_ms, t.llm_ttft_ms, t.tts_ttfb_ms, v, flag,
             )
-            # Attach any pending barge-in delay, then persist the full profile when enabled.
-            if barge_state["t0_ms"] is not None:
-                t.barge_in_ms = max(0.0, (time.time() * 1000.0) - barge_state["t0_ms"])
-                barge_state["t0_ms"] = None
-            write_profile(t)
+            if barge_state["measured_ms"] is not None:
+                t.barge_in_ms = barge_state["measured_ms"]
+                barge_state["measured_ms"] = None
+            if write_profile(t):
+                _log.info("LATENCY_PROFILE %s", json.dumps(t.to_dict(), sort_keys=True))
             turns.pop(sid, None)
+            for key in perf_state:
+                perf_state[key] = None
 
     if latency_log_enabled():
         # Stamp when the user begins speaking over Sam (agent speaking). Guarded so an unknown
@@ -200,9 +227,27 @@ async def entrypoint(ctx: JobContext) -> None:
                     if new == "speaking" and agent_state == "speaking":
                         barge_state["t0_ms"] = time.time() * 1000.0
                 except Exception:  # noqa: BLE001
-                    pass
+                    _log.debug("barge-in user-state event unavailable", exc_info=True)
         except Exception:  # noqa: BLE001
             _log.debug("barge-in capture not available on this livekit-agents version")
+
+        try:
+            @session.on("agent_state_changed")
+            def _on_agent_state(ev) -> None:  # type: ignore[no-redef]
+                try:
+                    if (
+                        getattr(ev, "old_state", None) == "speaking"
+                        and getattr(ev, "new_state", None) != "speaking"
+                        and barge_state["t0_ms"] is not None
+                    ):
+                        barge_state["measured_ms"] = max(
+                            0.0, (time.time() * 1000.0) - barge_state["t0_ms"]
+                        )
+                        barge_state["t0_ms"] = None
+                except Exception:  # noqa: BLE001
+                    _log.debug("barge-in agent-state event unavailable", exc_info=True)
+        except Exception:  # noqa: BLE001
+            _log.debug("agent playback-state capture unavailable")
 
     rm_client = build_rainmaker_client(s)
 
@@ -210,6 +255,70 @@ async def entrypoint(ctx: JobContext) -> None:
     # attribute on the token (fallback). Verifier is None when voice verify isn't configured.
     verifier = VoiceVerifier.from_settings(s)
     _session_is_owner, owner_gate = build_owner_gate(ctx, verifier)
+    episode_store = EpisodicMemoryStore() if s.memory_enabled else None
+    profile_store = ProfileStore() if s.memory_enabled else None
+    memory_retriever = (
+        MemoryRetriever(episode_store, profile_store)
+        if episode_store is not None and profile_store is not None
+        else None
+    )
+    session_id = ctx.room.name or ctx.job.id
+    bench_events_enabled = session_id.startswith("sam-wave8-")
+
+    async def _publish_bench_event(payload: dict) -> None:
+        if not bench_events_enabled:
+            return
+        try:
+            await ctx.room.local_participant.publish_data(
+                json.dumps(payload),
+                reliable=True,
+                topic="sam-bench",
+            )
+        except Exception:  # noqa: BLE001 - benchmark telemetry never affects speech
+            _log.debug("benchmark event publish failed", exc_info=True)
+
+    if bench_events_enabled:
+        @session.on("conversation_item_added")
+        def _bench_message(ev) -> None:
+            item = getattr(ev, "item", None)
+            if getattr(item, "role", None) != "assistant":
+                return
+            text = str(getattr(item, "text_content", "") or "").strip()
+            if text:
+                asyncio.ensure_future(
+                    _publish_bench_event({"type": "assistant_message", "text": text})
+                )
+
+        @session.on("function_tools_executed")
+        def _bench_tools(ev) -> None:
+            names = [
+                str(getattr(call, "name", "") or "")
+                for call in (getattr(ev, "function_calls", None) or [])
+                if getattr(call, "name", None)
+            ]
+            if names:
+                asyncio.ensure_future(
+                    _publish_bench_event({"type": "tool_calls", "names": names})
+                )
+
+    if episode_store is not None:
+        @session.on("user_input_transcribed")
+        def _remember_user_turn(ev) -> None:
+            if not getattr(ev, "is_final", False) or not _session_is_owner():
+                return
+            text = str(getattr(ev, "transcript", "") or "").strip()
+            if text:
+                asyncio.ensure_future(
+                    episode_store.append_async(
+                        Episode(
+                            session_id=session_id,
+                            kind="transcript",
+                            content=text,
+                            speaker_id=getattr(ev, "speaker_id", None),
+                            provenance=f"livekit:{session_id}",
+                        )
+                    )
+                )
 
     session_logger = SessionLogger(
         room_name=ctx.room.name or ctx.job.id,
@@ -256,12 +365,19 @@ async def entrypoint(ctx: JobContext) -> None:
                 pass
 
     tool_registry = _build_tool_registry()
+    def _tool_timing(_name: str, elapsed_ms: float, _cached: bool) -> None:
+        perf_state["tool_ms"] = float(perf_state["tool_ms"] or 0.0) + elapsed_ms
+
+    tool_latency_manager = ToolLatencyManager(on_timing=_tool_timing)
     rm_tools = tool_registry.build_livekit_tools(
         rm_client,
         _session_is_owner,
         function_tool=function_tool,
         owner_refusal=_OWNER_ONLY,
-        deps={"run_scan_bg": _run_scan_bg},
+        deps={
+            "run_scan_bg": _run_scan_bg,
+            "tool_latency_manager": tool_latency_manager,
+        },
     )
     rm_mode = "mock" if (s.sam_mock_rm or not s.rm_api_base_url) else "http:" + s.rm_api_base_url
     _log.info(
@@ -286,7 +402,61 @@ async def entrypoint(ctx: JobContext) -> None:
         "Speak only what the tool returns."
     )
 
-    await session.start(agent=Agent(instructions=instructions, tools=rm_tools), room=ctx.room)
+    fast_router = FastIntentRouter()
+
+    async def _direct_execute(decision):
+        return await fast_router.execute(decision, rainmaker_client=rm_client)
+
+    async def _publish_command(command: dict) -> None:
+        await ctx.room.local_participant.publish_data(
+            json.dumps(command),
+            reliable=True,
+            topic="sam-command",
+        )
+
+    async def _context_provider(text: str):
+        if memory_retriever is None or profile_store is None or not _session_is_owner():
+            return await assemble_context(
+                memory=list,
+                profile=dict,
+                tools=tool_registry.names,
+                permissions=lambda: {"owner": _session_is_owner()},
+            )
+        snapshot = await assemble_context(
+            memory=lambda: memory_retriever.retrieve_async(
+                text,
+                session_id=session_id,
+                profile_id="owner",
+                token_budget=600,
+            ),
+            profile=lambda: asyncio.to_thread(profile_store.facts, "owner"),
+            tools=tool_registry.names,
+            permissions=lambda: {"owner": True},
+            timeout_s=0.75,
+        )
+        _log.info(
+            "CONTEXT_LATENCY total_ms=%.1f stages=%s errors=%s",
+            snapshot.total_ms,
+            json.dumps(snapshot.timings_ms, sort_keys=True),
+            json.dumps(snapshot.errors, sort_keys=True),
+        )
+        perf_state["context_ms"] = snapshot.total_ms
+        return snapshot
+
+    def _route_timing(decision, elapsed_ms: float) -> None:
+        perf_state["route"] = decision.route
+        perf_state["route_ms"] = elapsed_ms
+
+    routed_agent = RoutedSamuelAgent(
+        router=fast_router,
+        direct_execute=_direct_execute,
+        publish_command=_publish_command,
+        context_provider=_context_provider,
+        performance_report=_route_timing,
+        instructions=instructions,
+        tools=rm_tools,
+    )
+    await session.start(agent=routed_agent, room=ctx.room)
     await ctx.connect()
 
     tier_state = TierState(tier=2)
@@ -297,9 +467,7 @@ async def entrypoint(ctx: JobContext) -> None:
             await session.wait_for_idle()
         except Exception:  # noqa: BLE001
             pass
-        if tier_state.update(tier):
-            apply_tier_to_session(session, tier_state, s)
-        elif reason == "init":
+        if tier_state.update(tier) or reason == "init":
             apply_tier_to_session(session, tier_state, s)
 
     wire_owner_gate_listeners(ctx.room, owner_gate)

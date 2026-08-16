@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from sam_worker.latency import TurnProfile, read_profiles, write_profile
 from sam_worker.bench.latency_profile import (
     DEFAULT_TIERED_TARGETS,
     analyze,
     classify_tier,
     stage_percentiles,
 )
+from sam_worker.latency import TurnProfile, read_profiles, write_profile
 
 
 def _profile(sid: str, eou: float, ttft: float, ttfb: float, **extra) -> TurnProfile:
@@ -45,6 +45,15 @@ def test_jsonl_round_trip_when_enabled(tmp_path: Path, monkeypatch: pytest.Monke
     assert len(rows) == 2
     assert {r["speech_id"] for r in rows} == {"a", "b"}
     assert rows[0]["v2v_ms"] == 700.0
+
+
+def test_profile_is_written_only_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SAM_LATENCY_LOG", "1")
+    dest = tmp_path / "once.jsonl"
+    profile = _profile("once", 300, 100, 100)
+    assert write_profile(profile, path=dest) is True
+    assert write_profile(profile, path=dest) is False
+    assert len(read_profiles(dest)) == 1
 
 
 def test_jsonl_noop_when_disabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -94,6 +103,11 @@ def test_barge_in_failure_demotes_tier() -> None:
     rows = [_profile(f"s{i}", 450, 130, 170, barge_in_ms=600).to_dict() for i in range(10)]
     out = classify_tier(rows)
     assert out["per_tier"]["premium"] is False
+
+
+def test_missing_barge_in_evidence_cannot_pass_a_tier() -> None:
+    rows = [_profile(f"s{i}", 300, 100, 100).to_dict() for i in range(10)]
+    assert classify_tier(rows)["tier"] == "none"
 
 
 def test_analyze_shape_and_defaults_match() -> None:

@@ -57,10 +57,10 @@ class LatencyStats:
         return _clamp01((bad_ms - self.p50) / (bad_ms - good_ms))
 
     def passes_kpi(self) -> bool:
-        """ADR-8 gate: v2v <= 800ms p50 and <= 1500ms p95. No samples => not passing."""
+        """Premium gate: v2v p50 <800ms and p95 <1200ms. No samples => not passing."""
         if not self.v2v_ms:
             return False
-        return self.p50 <= 800.0 and self.p95 <= 1500.0
+        return self.p50 < 800.0 and self.p95 < 1200.0
 
 
 @dataclass
