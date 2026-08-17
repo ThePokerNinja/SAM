@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
 import time
 
@@ -480,6 +481,18 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     await session.start(agent=routed_agent, room=ctx.room)
     await ctx.connect()
+    await _publish_bench_event(
+        {
+            "type": "worker_info",
+            "brain": brain,
+            "sam_brain_env": s.sam_brain or "",
+            "resolved_brain": resolved,
+            "endpoint_min": s.endpoint_min,
+            "endpoint_max": s.endpoint_max,
+            "history_token_cap": s.history_token_cap,
+            "git": (os.getenv("RENDER_GIT_COMMIT") or "")[:12],
+        }
+    )
 
     tier_state = TierState(tier=2)
     apply_tier_to_session(session, tier_state, s)

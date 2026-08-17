@@ -360,6 +360,14 @@ async def _run(args) -> dict:
         "intelligence": intelligence.summary(),
         "eou_drift": analyze_eou_drift(eou_rows),
         "eou_rows": eou_rows,
+        "worker_info": next(
+            (
+                event
+                for event in driver.bench_events
+                if event.get("type") == "worker_info"
+            ),
+            None,
+        ),
     }
 
 
