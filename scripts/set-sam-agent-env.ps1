@@ -4,7 +4,7 @@
 # Usage (from SAM repo root):
 #   .\scripts\set-sam-agent-env.ps1 -Key SAM_BRAIN -Value groq
 #
-# Requires RENDER_API_KEY + SAM_AGENT_SERVICE_ID.
+# Requires RENDER_API_KEY and either SAM_AGENT_SERVICE_ID or SAM_AGENT_DEPLOY_HOOK_URL.
 # Updates a single key only — never replaces the full env set.
 
 param(
@@ -13,17 +13,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$apiKey = ($(if ($env:RENDER_API_KEY) { $env:RENDER_API_KEY } else { "" })).Trim()
-$serviceId = ($(if ($env:SAM_AGENT_SERVICE_ID) { $env:SAM_AGENT_SERVICE_ID } else { "" })).Trim()
-if (-not $apiKey -or -not $serviceId) {
-    throw "RENDER_API_KEY and SAM_AGENT_SERVICE_ID are required"
-}
-
-$headers = @{
-    Authorization  = "Bearer $apiKey"
-    Accept         = "application/json"
-    "Content-Type" = "application/json"
-}
+. (Join-Path $PSScriptRoot "_render_sam_agent.ps1")
+$creds = Assert-SamAgentRenderCredentials
+$serviceId = $creds.ServiceId
+$headers = $creds.Headers
 $uri = "https://api.render.com/v1/services/$serviceId/env-vars/$Key"
 $body = @{ value = $Value } | ConvertTo-Json
 $res = Invoke-RestMethod -Method PUT -Uri $uri -Headers $headers -Body $body -TimeoutSec 30

@@ -5,7 +5,7 @@
 #   .\scripts\verify-sam-agent.ps1 -Wait
 #   .\scripts\verify-sam-agent.ps1 -Wait -ExpectedCommit (git rev-parse HEAD)
 #
-# Requires RENDER_API_KEY + SAM_AGENT_SERVICE_ID.
+# Requires RENDER_API_KEY and either SAM_AGENT_SERVICE_ID or SAM_AGENT_DEPLOY_HOOK_URL.
 
 param(
     [switch]$Wait,
@@ -14,45 +14,17 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$apiKey = ($(if ($env:RENDER_API_KEY) { $env:RENDER_API_KEY } else { "" })).Trim()
-$serviceId = ($(if ($env:SAM_AGENT_SERVICE_ID) { $env:SAM_AGENT_SERVICE_ID } else { "" })).Trim()
-if (-not $apiKey -or -not $serviceId) {
-    throw "RENDER_API_KEY and SAM_AGENT_SERVICE_ID are required"
-}
-
-$headers = @{
-    Authorization  = "Bearer $apiKey"
-    Accept         = "application/json"
-    "Content-Type" = "application/json"
-}
-
-function Invoke-RenderGet {
-    param([string]$Uri)
-    try {
-        return Invoke-RestMethod -Method GET -Uri $Uri -Headers $headers -TimeoutSec 60
-    } catch {
-        $resp = $_.Exception.Response
-        if (-not $resp) {
-            throw "No HTTP response - request never reached Render: $($_.Exception.Message)"
-        }
-        $sr = New-Object System.IO.StreamReader($resp.GetResponseStream())
-        $body = $sr.ReadToEnd()
-        throw "Render GET $Uri failed HTTP $([int]$resp.StatusCode): $body"
-    }
-}
+. (Join-Path $PSScriptRoot "_render_sam_agent.ps1")
+$creds = Assert-SamAgentRenderCredentials
+$serviceId = $creds.ServiceId
+$headers = $creds.Headers
 
 function Get-LatestDeploy {
-    $rows = Invoke-RenderGet "https://api.render.com/v1/services/$serviceId/deploys?limit=1"
-    if (-not $rows -or $rows.Count -lt 1) {
-        throw "No deploy rows returned for service $serviceId"
-    }
-    $row = $rows[0]
-    if ($row.deploy) { return $row.deploy }
-    return $row
+    Get-SamAgentLatestDeploy -ServiceId $serviceId -Headers $headers
 }
 
 function Get-EnvMap {
-    $rows = Invoke-RenderGet "https://api.render.com/v1/services/$serviceId/env-vars?limit=100"
+    $rows = Invoke-RenderGet -Uri "https://api.render.com/v1/services/$serviceId/env-vars?limit=100" -Headers $headers
     $map = @{}
     foreach ($row in $rows) {
         $env = $row.envVar
@@ -79,6 +51,8 @@ do {
         break
     }
     if ($status -in @("build_failed", "update_failed", "canceled", "deactivated")) {
+        Write-Host ""
+        Write-Host "Build log: https://dashboard.render.com/web/$serviceId/deploys/$deployId" -ForegroundColor Red
         throw "sam-agent deploy $deployId ended in status=$status"
     }
     if (-not $Wait) {

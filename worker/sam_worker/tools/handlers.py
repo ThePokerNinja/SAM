@@ -172,6 +172,51 @@ async def handle_send_brief(client: RainmakerClient) -> str:
     return f"I couldn't text the brief right now ({reason})."
 
 
+async def handle_list_studio_runs(client: RainmakerClient) -> str:
+    res = await client.list_studio_runs()
+    if not res.get("ok"):
+        return _fail("studio runs")
+    runs = res.get("runs") or []
+    if not runs:
+        return "There are no studio runs yet."
+    parts = [str(r.get("name") or r.get("id")) for r in runs[:5]]
+    return ("Studio runs: " + ", ".join(parts) + ".")[:_MAX_SPOKEN]
+
+
+async def handle_studio_asset_status(client: RainmakerClient, asset_id: str) -> str:
+    res = await client.studio_asset_status(asset_id)
+    if not res.get("ok"):
+        return _fail("asset status")
+    a = res.get("asset") or {}
+    return f"Asset {a.get('id')}: {a.get('status')}, ${float(a.get('cost_usd') or 0):.2f}."[:_MAX_SPOKEN]
+
+
+async def handle_studio_campaign_report(client: RainmakerClient, run_id: str) -> str:
+    res = await client.studio_campaign_report(run_id)
+    if not res.get("ok"):
+        return _fail("campaign report")
+    run = res.get("run") or {}
+    n = len(res.get("assets") or [])
+    return f"Report {run.get('name') or run_id}: {n} assets, ${float(res.get('cost_usd') or 0):.2f}."[:_MAX_SPOKEN]
+
+
+async def handle_make_studio_deliverable(client: RainmakerClient, type: str, run_id: str = "") -> str:
+    res = await client.make_studio_deliverable(type, run_id=run_id)
+    if res.get("needs_approval"):
+        return f"Make paused: {res.get('reason') or 'that step would spend money'}."[:_MAX_SPOKEN]
+    if not res.get("ok"):
+        return _fail("studio make")
+    a = res.get("asset") or {}
+    return f"Drafted {a.get('type') or type} as {a.get('id')}. Open Studio to review."[:_MAX_SPOKEN]
+
+
+async def handle_record_studio_publish(client: RainmakerClient, asset_id: str, url: str) -> str:
+    res = await client.record_studio_publish(asset_id, url)
+    if not res.get("ok"):
+        return _fail("publish record")
+    return f"Recorded publish for {asset_id}."[:_MAX_SPOKEN]
+
+
 async def handle_send_hero(client: RainmakerClient) -> str:
     res = await client.send_hero()
     if not res.get("ok"):

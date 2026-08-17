@@ -70,6 +70,11 @@ class RainmakerClient(Protocol):
     async def get_brief(self) -> dict: ...
     async def send_brief(self) -> dict: ...
     async def send_hero(self) -> dict: ...
+    async def list_studio_runs(self, limit: int = 8) -> dict: ...
+    async def studio_asset_status(self, asset_id: str) -> dict: ...
+    async def studio_campaign_report(self, run_id: str) -> dict: ...
+    async def make_studio_deliverable(self, type: str, run_id: str = "") -> dict: ...
+    async def record_studio_publish(self, asset_id: str, url: str) -> dict: ...
 
 
 class MockRainmakerClient:
@@ -112,6 +117,21 @@ class MockRainmakerClient:
     async def send_hero(self) -> dict:
         return {"ok": True, "sent": True, "reason": "mock_mms"}
 
+    async def list_studio_runs(self, limit: int = 8) -> dict:
+        return {"ok": True, "runs": [{"id": "pov-01", "name": "pov-01", "asset_count": 2}]}
+
+    async def studio_asset_status(self, asset_id: str) -> dict:
+        return {"ok": True, "asset": {"id": asset_id, "status": "published", "cost_usd": 0.05}}
+
+    async def studio_campaign_report(self, run_id: str) -> dict:
+        return {"ok": True, "run": {"id": run_id, "name": run_id}, "assets": [], "cost_usd": 0}
+
+    async def make_studio_deliverable(self, type: str, run_id: str = "") -> dict:
+        return {"ok": True, "asset": {"id": f"{type}-mock", "type": type, "status": "draft"}}
+
+    async def record_studio_publish(self, asset_id: str, url: str) -> dict:
+        return {"ok": True, "publish": {"asset_id": asset_id, "url": url, "channel": "web"}}
+
 
 class HttpRainmakerClient:
     """Read-only rm_api client (SAM-005). httpx + ``X-RM-CRON-TOKEN``.
@@ -131,6 +151,11 @@ class HttpRainmakerClient:
     BRIEF_PREVIEW_PATH = "/notify/owner-brief/preview"
     BRIEF_SEND_PATH = "/notify/owner-brief"
     HERO_SEND_PATH = "/notify/test-hero"
+    STUDIO_RUNS_PATH = "/studio/runs"
+    STUDIO_ASSET_PATH = "/studio/asset"
+    STUDIO_REPORT_PATH = "/studio/campaign/report"
+    STUDIO_MAKE_PATH = "/studio/make"
+    STUDIO_PUBLISH_PATH = "/studio/publish"
     _LONG_TIMEOUT = 30.0
 
     def __init__(
@@ -336,3 +361,39 @@ class HttpRainmakerClient:
             "reason": data.get("reason"),
             "ascii": bool(data.get("ascii")),
         }
+
+    async def list_studio_runs(self, limit: int = 8) -> dict:
+        res = await self._get(self.STUDIO_RUNS_PATH, params={"limit": limit})
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": True, "runs": data.get("runs") or []}
+
+    async def studio_asset_status(self, asset_id: str) -> dict:
+        res = await self._get(f"{self.STUDIO_ASSET_PATH}/{asset_id}")
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": True, "asset": data.get("asset") or data}
+
+    async def studio_campaign_report(self, run_id: str) -> dict:
+        res = await self._get(self.STUDIO_REPORT_PATH, params={"run_id": run_id})
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        return {"ok": True, **(res.get("data") or {})}
+
+    async def make_studio_deliverable(self, type: str, run_id: str = "") -> dict:
+        body: dict[str, Any] = {"type": type}
+        if run_id:
+            body["run_id"] = run_id
+        res = await self._post(self.STUDIO_MAKE_PATH, body=body)
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        return {"ok": True, **(res.get("data") or {})}
+
+    async def record_studio_publish(self, asset_id: str, url: str) -> dict:
+        res = await self._post(self.STUDIO_PUBLISH_PATH, body={"asset_id": asset_id, "url": url})
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": True, "publish": data.get("publish") or data}
