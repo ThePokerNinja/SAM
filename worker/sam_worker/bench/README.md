@@ -55,6 +55,10 @@ Measure anytime:
 
 `python -m sam_worker.bench.token_budget --output bench/evidence/wave82-token-budget.json`
 
+Production rooms should echo `worker_info` on `sam-bench` (`brain`, `endpoint_min/max`,
+`git`). If that field is null, the running worker is older than the Wave 8.2 announce
+commit — hook 200 is not proof the new brain is live.
+
 ## Barge-in t=0 (do not regress)
 
 The 1081ms Wave 8 production barge-in number was mostly harness error. `measure_barge_in` must:

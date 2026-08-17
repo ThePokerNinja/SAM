@@ -76,7 +76,22 @@
   "ship_gate": {
     "premium_v2v_p50_ms": 800,
     "embedded_8b_p50_ms": 805.0,
-    "classification": "Minimum Enterprise on embedded p50 if production holds 800-1000; Premium if production p50 lands under 800. Do not quietly miss the gate.",
-    "barge_in_still_under_250": true
+    "classification": "Embedded 8b 8-turn p50 is 805ms (at the Premium line). Production 20-turn is 1382.1/1822.1ms — still misses Minimum Enterprise. Do not quietly call this Premium.",
+    "barge_in_still_under_250": true,
+    "note": "Embedded barge-in 13.1ms. Production barge-in measured 2127ms on this run; Wave 8.1 production was 103.6ms on the same harness. Do not treat 2127 as a worker regression until the live brain cutover is confirmed."
+  },
+  "production_20_turn": {
+    "v2v_p50_ms": 1382.1,
+    "v2v_p95_ms": 1822.1,
+    "turns": 20,
+    "cut_off_rate": 0.0,
+    "errors": 0,
+    "hallucination_rate": 0.0,
+    "grounded_arena_score": 0.77,
+    "intent_accuracy": 0.8,
+    "tpm_429s": 0,
+    "worker_info": null,
+    "live_brain_confirmed": false,
+    "note": "Hook 200 is not env proof. worker_info never arrived after two redeploys. Production LLM-turn v2v still looks like gpt-4o-mini TTFT. Confirm Render logs: Samuel starting | brain=groq:llama-3.1-8b-instant | endpoint=0.25/0.60"
   }
 }
