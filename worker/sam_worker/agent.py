@@ -116,8 +116,6 @@ async def entrypoint(ctx: JobContext) -> None:
     s = Settings.from_env()
     resolved = resolve_brain(s)
     brain = (resolved + ":" + (s.groq_model if resolved == "groq" else s.openai_model))
-    if (s.sam_brain or "").strip().lower() == "openai" and resolved == "groq":
-        _log.info("SAM_BRAIN=openai treated as stale Wave 8.1 pin; live default is groq")
     stt = build_stt(s)
     stt_label = s.stt_model if not s.deepgram_api_key else f"deepgram/{s.stt_model.removeprefix('deepgram/')}"
     _log.info(
@@ -141,6 +139,21 @@ async def entrypoint(ctx: JobContext) -> None:
         vad=ctx.proc.userdata["vad"],
         turn_handling=build_turn_handling(s),
     )
+
+    session_id = ctx.room.name or ctx.job.id
+    bench_events_enabled = session_id.startswith("sam-wave8-")
+
+    async def _publish_bench_event(payload: dict) -> None:
+        if not bench_events_enabled:
+            return
+        try:
+            await ctx.room.local_participant.publish_data(
+                json.dumps(payload),
+                reliable=True,
+                topic="sam-bench",
+            )
+        except Exception:  # noqa: BLE001 - benchmark telemetry never affects speech
+            _log.debug("benchmark event publish failed", exc_info=True)
 
     # Per-turn latency profiles (PDF Phase 1 / ADR-24). The headline v2v log line below is
     # unchanged; TurnProfile records the full per-stage breakdown and, when SAM_LATENCY_LOG=1,
@@ -236,6 +249,10 @@ async def entrypoint(ctx: JobContext) -> None:
             if barge_state["measured_ms"] is not None:
                 t.barge_in_ms = barge_state["measured_ms"]
                 barge_state["measured_ms"] = None
+            if bench_events_enabled:
+                asyncio.ensure_future(
+                    _publish_bench_event({"type": "turn_profile", **t.to_dict()})
+                )
             if write_profile(t):
                 _log.info("LATENCY_PROFILE %s", json.dumps(t.to_dict(), sort_keys=True))
             turns.pop(sid, None)
@@ -289,20 +306,6 @@ async def entrypoint(ctx: JobContext) -> None:
         if episode_store is not None and profile_store is not None
         else None
     )
-    session_id = ctx.room.name or ctx.job.id
-    bench_events_enabled = session_id.startswith("sam-wave8-")
-
-    async def _publish_bench_event(payload: dict) -> None:
-        if not bench_events_enabled:
-            return
-        try:
-            await ctx.room.local_participant.publish_data(
-                json.dumps(payload),
-                reliable=True,
-                topic="sam-bench",
-            )
-        except Exception:  # noqa: BLE001 - benchmark telemetry never affects speech
-            _log.debug("benchmark event publish failed", exc_info=True)
 
     if bench_events_enabled:
         @session.on("conversation_item_added")

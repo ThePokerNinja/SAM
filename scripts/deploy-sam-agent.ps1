@@ -1,5 +1,14 @@
-# Push is assumed already done. Fire the sam-agent deploy hook only.
+# Fire the sam-agent deploy hook. Optionally wait until Render reports live.
 # Does not print the hook URL.
+#
+# Usage (from SAM repo root):
+#   .\scripts\deploy-sam-agent.ps1
+#   .\scripts\deploy-sam-agent.ps1 -Wait
+
+param(
+    [switch]$Wait,
+    [int]$WaitTimeoutSec = 900
+)
 
 $ErrorActionPreference = "Stop"
 $hook = ($(if ($env:SAM_AGENT_DEPLOY_HOOK_URL) { $env:SAM_AGENT_DEPLOY_HOOK_URL } else { "" })).Trim()
@@ -11,4 +20,9 @@ try {
     $resp = $_.Exception.Response
     if (-not $resp) { throw "No HTTP response - request never reached Render: $($_.Exception.Message)" }
     throw "sam-agent deploy hook HTTP $([int]$resp.StatusCode)"
+}
+
+if ($Wait) {
+    & (Join-Path $PSScriptRoot "verify-sam-agent.ps1") -Wait -TimeoutSec $WaitTimeoutSec
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }

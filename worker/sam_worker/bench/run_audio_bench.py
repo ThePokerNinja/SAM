@@ -20,6 +20,7 @@ from livekit.plugins import elevenlabs, silero
 
 from ..agent import _build_llm
 from ..config import Settings
+from ..context import assemble_context
 from ..prompt_budget import samuel_instructions
 from ..router import FastIntentRouter, RoutedSamuelAgent
 from ..stt import build_stt
@@ -32,6 +33,22 @@ from .evaluation import TaskObservation, evaluate_observations
 from .fixtures import GROUNDED_TASKS
 from .latency_profile import analyze, analyze_eou_drift
 from .livekit_audio import LiveKitAudioDriver, load_manifest, mint_token
+
+
+def _bench_turn_profiles(bench_events: list[dict]) -> list[dict]:
+    """Extract agent-internal TurnProfile rows published on sam-bench."""
+    rows: list[dict] = []
+    for event in bench_events:
+        if event.get("type") != "turn_profile":
+            continue
+        row = {
+            k: v
+            for k, v in event.items()
+            if k not in {"type", "received_at"} and v is not None
+        }
+        if row:
+            rows.append(row)
+    return rows
 
 
 async def _start_embedded_agent(
@@ -101,6 +118,14 @@ async def _start_embedded_agent(
     async def _publish_command(_command: dict) -> None:
         return None
 
+    async def _context_provider(_text: str):
+        return await assemble_context(
+            memory=list,
+            profile=dict,
+            tools=registry.names,
+            permissions=lambda: {"owner": True},
+        )
+
     async def _publish_bench(payload: dict) -> None:
         try:
             await room.local_participant.publish_data(
@@ -159,6 +184,7 @@ async def _start_embedded_agent(
             router=router,
             direct_execute=_direct,
             publish_command=_publish_command,
+            context_provider=_context_provider,
             publish_bench=_publish_bench,
             history_token_cap=settings.history_token_cap,
             instructions=samuel_instructions(
@@ -331,6 +357,8 @@ async def _run(args) -> dict:
         interruption_accuracy=interruption_accuracy,
         arm=args.arm or "samuel",
     )
+    worker_rows = _bench_turn_profiles(driver.bench_events)
+    worker_profile = analyze(worker_rows) if worker_rows else None
     return {
         "method": "livekit_external_audio_v1",
         "room": room_name,
@@ -346,6 +374,8 @@ async def _run(args) -> dict:
             sum(1 for row in cutoffs if row["cut_off"]) / len(cutoffs) if cutoffs else None
         ),
         "analysis": analyze(profile_rows),
+        "worker_profile": worker_profile,
+        "worker_turn_profiles": worker_rows,
         "interruption": {
             "barge_in_p95_ms": (
                 max(row["barge_in_ms"] for row in barge_rows if row["barge_in_ms"] is not None)

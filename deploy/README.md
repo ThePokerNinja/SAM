@@ -115,6 +115,10 @@ After changing a non-secret in `render.yaml`:
 Wave 8.2: dashboard ``SAM_BRAIN=openai`` is treated as a stale 8.1 pin. The worker
 uses Groq 8b whenever ``GROQ_API_KEY`` is set. Roll back with ``SAM_BRAIN=openai-legacy``.
 
+Wave 8.3: use ``.\scripts\verify-sam-agent.ps1 -Wait`` (needs ``RENDER_API_KEY`` +
+``SAM_AGENT_SERVICE_ID``). Hook 200 is not proof the build is live or that env changed.
+``deploy-sam-agent.ps1 -Wait`` polls until status is ``live`` and prints live env.
+
 ### Deploy hook env vars (optional)
 
 Copy the **full** URL from Render -> **that service** -> **Settings** -> **Deploy Hook** (must include `?key=...`).

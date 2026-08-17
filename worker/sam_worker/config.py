@@ -34,24 +34,22 @@ def memory_turns_for_tier(tier: int) -> int:
 
 
 def resolve_brain(settings: Settings) -> str:
-    """Pick the live brain. Wave 8.2 default is Groq 8b when a Groq key exists.
-
-    Render deploy hooks do not overwrite dashboard ``SAM_BRAIN=openai`` (Wave 8.1).
-    After the prompt shrink that value is stale. Roll back with ``SAM_BRAIN=openai-legacy``.
-    """
+    """Pick the live brain from ``SAM_BRAIN`` and available API keys."""
     raw = (settings.sam_brain or "").strip().lower()
     if raw in {"openai-legacy", "openai-control"}:
         return "openai"
     if raw == "hermes" and settings.hermes_base_url:
         return "hermes"
-    if settings.groq_api_key and raw in {"", "groq", "hybrid", "openai"}:
-        return "groq"
-    if raw in {"groq", "hybrid"} and settings.groq_api_key:
-        return "groq"
-    if settings.openai_api_key:
+    if raw == "openai":
+        return "openai"
+    if raw in {"groq", "hybrid"}:
+        if settings.groq_api_key:
+            return "groq"
         return "openai"
     if settings.groq_api_key:
         return "groq"
+    if settings.openai_api_key:
+        return "openai"
     return "openai"
 
 

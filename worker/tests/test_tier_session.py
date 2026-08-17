@@ -38,14 +38,15 @@ class EffectiveModelTests(unittest.TestCase):
         s = Settings(sam_brain="groq", groq_model="llama-3.1-8b-instant", groq_api_key="g")
         self.assertEqual(effective_model_for_tier(2, s), "llama-3.1-8b-instant")
 
-    def test_stale_openai_pin_uses_groq_when_key_present(self) -> None:
+    def test_openai_respects_env_when_groq_key_present(self) -> None:
         s = Settings(
             sam_brain="openai",
             groq_api_key="g",
             groq_model="llama-3.1-8b-instant",
+            openai_model="gpt-4o-mini",
             openai_api_key="o",
         )
-        self.assertEqual(effective_model_for_tier(2, s), "llama-3.1-8b-instant")
+        self.assertEqual(effective_model_for_tier(2, s), "gpt-4o-mini")
 
     def test_openai_legacy_rollback(self) -> None:
         s = Settings(
