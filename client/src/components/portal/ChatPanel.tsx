@@ -1,39 +1,93 @@
 import { useEffect, useRef, useState } from "react";
-import { useVoiceAssistant } from "@livekit/components-react";
+import { useRoomContext } from "@livekit/components-react";
+import { ConnectionState, RoomEvent } from "livekit-client";
 import { IconAttach, IconSend } from "./PortalIcons";
 
-interface LocalMsg {
+interface Msg {
   id: string;
-  role: "you";
+  role: "sam" | "you";
   text: string;
+  at: number; // Date.now() for ordering
 }
 
 interface Props {
   open: boolean;
 }
 
+const ENCODER = new TextEncoder();
+const CHAT_TOPIC = "sam-chat";
+
 /**
- * Expandable chat panel — text UI only for now (worker text turns later).
- * Attach is a visual placeholder (paperclip, not wired).
+ * Expandable chat panel — typed messages are sent to Samuel over the LiveKit
+ * data channel (SAM-007). Text replies return on the same channel without TTS.
  */
 export function ChatPanel({ open }: Props) {
-  const { agentTranscriptions } = useVoiceAssistant();
+  const room = useRoomContext();
   const [text, setText] = useState("");
-  const [local, setLocal] = useState<LocalMsg[]>([]);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const seenIds = useRef(new Set<string>());
   const inputRef = useRef<HTMLInputElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const connected = room.state === ConnectionState.Connected;
+
+  useEffect(() => {
+    const onData = (payload: Uint8Array, _participant: unknown, _kind: unknown, topic?: string) => {
+      if (topic !== CHAT_TOPIC) return;
+      try {
+        const message = JSON.parse(new TextDecoder().decode(payload)) as {
+          type?: string;
+          request_id?: string;
+          text?: string;
+        };
+        if (message.type !== "assistant_text" || !message.text) return;
+        const id = message.request_id ? `reply-${message.request_id}` : crypto.randomUUID();
+        if (seenIds.current.has(id)) return;
+        seenIds.current.add(id);
+        const incoming: Msg = {
+          id,
+          role: "sam",
+          text: message.text,
+          at: Date.now(),
+        };
+        setMessages((prev) => [...prev, incoming].sort((a, b) => a.at - b.at));
+      } catch {
+        // Malformed data-channel messages are ignored.
+      }
+    };
+    room.on(RoomEvent.DataReceived, onData);
+    return () => {
+      room.off(RoomEvent.DataReceived, onData);
+    };
+  }, [room]);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
 
-  const agentLines = agentTranscriptions?.map((t) => t.text).filter(Boolean) ?? [];
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const send = () => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    setLocal((prev) => [...prev, { id: crypto.randomUUID(), role: "you", text: trimmed }]);
+    if (!trimmed || !connected) return;
+
+    const msg: Msg = { id: crypto.randomUUID(), role: "you", text: trimmed, at: Date.now() };
+    setMessages((prev) => [...prev, msg]);
     setText("");
     inputRef.current?.focus();
+
+    try {
+      const payload = ENCODER.encode(JSON.stringify({
+        type: "text_input",
+        request_id: msg.id,
+        text: trimmed,
+      }));
+      room.localParticipant.publishData(payload, { reliable: true, topic: CHAT_TOPIC });
+    } catch (err) {
+      console.warn("[ChatPanel] publishData failed:", err);
+    }
   };
 
   if (!open) return null;
@@ -41,15 +95,13 @@ export function ChatPanel({ open }: Props) {
   return (
     <div className="chat-panel" role="region" aria-label="Chat with Samuel">
       <div className="chat-transcript">
-        {agentLines.length === 0 && local.length === 0 && (
+        {messages.length === 0 && (
           <p className="chat-empty">Voice or type a message for Samuel.</p>
         )}
-        {agentLines.map((line, i) => (
-          <p key={`sam-${i}`} className="chat-line chat-line--sam">{line}</p>
+        {messages.map((m) => (
+          <p key={m.id} className={`chat-line chat-line--${m.role}`}>{m.text}</p>
         ))}
-        {local.map((m) => (
-          <p key={m.id} className="chat-line chat-line--you">{m.text}</p>
-        ))}
+        <div ref={bottomRef} />
       </div>
       <form
         className="chat-compose"
@@ -71,12 +123,18 @@ export function ChatPanel({ open }: Props) {
           ref={inputRef}
           type="text"
           className="chat-input"
-          placeholder="Message Samuel…"
+          placeholder={connected ? "Message Samuel…" : "Connecting…"}
           value={text}
           onChange={(e) => setText(e.target.value)}
           aria-label="Message Samuel"
+          disabled={!connected}
         />
-        <button type="submit" className="chat-send" aria-label="Send" disabled={!text.trim()}>
+        <button
+          type="submit"
+          className="chat-send"
+          aria-label="Send"
+          disabled={!text.trim() || !connected}
+        >
           <IconSend />
         </button>
       </form>
