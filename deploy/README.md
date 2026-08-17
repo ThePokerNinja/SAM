@@ -11,7 +11,8 @@ Deploys three services from this repo:
 ## Prerequisites
 
 - LiveKit Cloud project (e.g. `atlas`) with API key + secret
-- Groq API key (brain: `llama-3.1-8b-instant`)
+- Groq API key (brain: `openai/gpt-oss-20b`; the former 8b model is no longer available)
+- Deepgram API key (direct Nova/Flux STT; avoids LiveKit Inference inactivity closure)
 - ElevenLabs API key + Samuel `SAM_VOICE_ID`
 - GitHub repo: `ThePokerNinja/SAM`
 - DNS access for `voice.michaelstewman.com`
@@ -37,6 +38,7 @@ On **sam-token** and **sam-agent** (Environment):
 | `LIVEKIT_URL` | yes | `wss://�.livekit.cloud` |
 | `LIVEKIT_API_KEY` | yes | |
 | `LIVEKIT_API_SECRET` | yes | |
+| `DEEPGRAM_API_KEY` | yes | agent only |
 | `GROQ_API_KEY` | yes | agent only |
 | `ELEVENLABS_API_KEY` | yes | agent only |
 | `SAM_VOICE_ID` | yes | agent only |

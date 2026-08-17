@@ -24,6 +24,12 @@ def build_stt(s: Settings):
         if not s.deepgram_api_key:
             raise RuntimeError("SAM_STT=deepgram but DEEPGRAM_API_KEY is not set in worker/.env")
         model = s.stt_model.removeprefix("deepgram/") if s.stt_model.startswith("deepgram/") else "nova-3"
+        if model.startswith("flux-"):
+            return deepgram.STTv2(
+                model=model,
+                eot_timeout_ms=s.stt_eot_timeout_ms,
+                api_key=s.deepgram_api_key,
+            )
         return deepgram.STT(model=model, api_key=s.deepgram_api_key)
 
     return inference.STT(model=s.stt_model)

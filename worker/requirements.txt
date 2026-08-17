@@ -6,7 +6,7 @@ livekit-agents>=1.6.1,<2.0          # TurnHandlingOptions + built-in v1/v1-mini 
 livekit-plugins-elevenlabs>=1.6.1   # ElevenLabs streaming TTS (our key)
 livekit-plugins-openai>=1.6.1       # OpenAI-compatible LLM client -> pointed at Groq for the live tier
 livekit-plugins-silero>=1.6.1       # VAD
-livekit-plugins-deepgram>=1.6.1     # Direct STT when DEEPGRAM_API_KEY set (bypasses LiveKit Inference 429s)
+livekit-plugins-deepgram>=1.6.10    # Direct Nova-3 + Flux STTv2/eot_timeout_ms support
 # Default STT = LiveKit Inference (deepgram/nova-3 string model). Set DEEPGRAM_API_KEY + SAM_STT=deepgram to use direct.
 
 # Token server (only needed for a custom client; the Agents Playground does not require it)

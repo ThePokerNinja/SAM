@@ -3,7 +3,13 @@
 function Get-SamAgentServiceId {
     $serviceId = ($(if ($env:SAM_AGENT_SERVICE_ID) { $env:SAM_AGENT_SERVICE_ID } else { "" })).Trim()
     if ($serviceId) { return $serviceId }
-    $hook = ($(if ($env:SAM_AGENT_DEPLOY_HOOK_URL) { $env:SAM_AGENT_DEPLOY_HOOK_URL } else { "" })).Trim()
+    $hook = ($(if ($env:SAM_AGENT_DEPLOY_HOOK_URL) {
+        $env:SAM_AGENT_DEPLOY_HOOK_URL
+    } elseif ($env:RENDER_DEPLOY_HOOK_URL) {
+        $env:RENDER_DEPLOY_HOOK_URL
+    } else {
+        ""
+    })).Trim()
     if ($hook -match '/deploy/(srv-[a-z0-9]+)') {
         return $Matches[1]
     }

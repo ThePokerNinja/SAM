@@ -22,6 +22,18 @@ from sam_worker.bench.livekit_audio import (
     pcm_rms,
     read_pcm_frames,
 )
+from sam_worker.bench.run_audio_bench import _worker_info_mismatches
+
+
+def test_worker_info_gate_refuses_missing_or_mismatched_worker() -> None:
+    expected = ["turn_mode=stt", "resolved_brain=groq"]
+    assert _worker_info_mismatches(None, expected) == ["worker_info was not received"]
+    assert _worker_info_mismatches(
+        {"turn_mode": "cloud", "resolved_brain": "groq"}, expected
+    ) == ["turn_mode expected 'stt', received 'cloud'"]
+    assert not _worker_info_mismatches(
+        {"turn_mode": "stt", "resolved_brain": "groq"}, expected
+    )
 
 
 def test_pcm_fixture_reader_chunks_20ms(tmp_path) -> None:

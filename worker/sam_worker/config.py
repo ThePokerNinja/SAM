@@ -97,6 +97,9 @@ class Settings:
     deepgram_api_key: str = ""
     # STT via LiveKit Inference (string model, billed through LiveKit Cloud).
     stt_model: str = "deepgram/nova-3"
+    phone_stt_model: str = "deepgram/nova-2-phonecall"
+    stt_eot_timeout_ms: int = 500
+    sip_owner_numbers: tuple[str, ...] = ()
     turn_mode: TurnMode = "cloud"
     endpoint_min: float = 0.25
     endpoint_max: float = 0.6
@@ -114,7 +117,8 @@ class Settings:
     # Groq: OpenAI-compatible, ultra-low TTFT - candidate for the live/low tier brain.
     groq_api_key: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
-    groq_model: str = "llama-3.1-8b-instant"
+    groq_model: str = "openai/gpt-oss-20b"
+    llm_max_completion_tokens: int = 256
     # SAM_BRAIN: "openai" | "groq" | "hybrid" | "hermes" — explicit override (else auto-detect).
     # hybrid uses Groq for the session LLM; the fast router covers tool turns.
     sam_brain: str = ""
@@ -143,6 +147,17 @@ class Settings:
             livekit_api_secret=os.getenv("LIVEKIT_API_SECRET", ""),
             deepgram_api_key=os.getenv("DEEPGRAM_API_KEY", ""),
             stt_model=os.getenv("SAM_STT_MODEL", "deepgram/nova-3"),
+            phone_stt_model=os.getenv(
+                "SAM_PHONE_STT_MODEL", "deepgram/nova-2-phonecall"
+            ),
+            stt_eot_timeout_ms=max(
+                500, min(int(os.getenv("SAM_STT_EOT_TIMEOUT_MS", "500") or 500), 60_000)
+            ),
+            sip_owner_numbers=tuple(
+                value.strip()
+                for value in os.getenv("SAM_SIP_OWNER_NUMBERS", "").split(",")
+                if value.strip()
+            ),
             turn_mode=turn_mode_from_env(),
             endpoint_min=float(os.getenv("SAM_ENDPOINTING_MIN", "0.25") or 0.25),
             endpoint_max=min(float(os.getenv("SAM_ENDPOINTING_MAX", "0.6") or 0.6), 0.6),
@@ -165,7 +180,14 @@ class Settings:
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             groq_api_key=os.getenv("GROQ_API_KEY", ""),
             groq_base_url=os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
-            groq_model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
+            groq_model=os.getenv("GROQ_MODEL", "openai/gpt-oss-20b"),
+            llm_max_completion_tokens=max(
+                64,
+                min(
+                    int(os.getenv("SAM_LLM_MAX_COMPLETION_TOKENS", "256") or 256),
+                    1024,
+                ),
+            ),
             sam_brain=os.getenv("SAM_BRAIN", "").strip().lower(),
             hermes_base_url=os.getenv("HERMES_BASE_URL", ""),
             hermes_api_key=os.getenv("HERMES_API_KEY", ""),

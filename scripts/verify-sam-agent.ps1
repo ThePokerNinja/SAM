@@ -10,7 +10,9 @@
 param(
     [switch]$Wait,
     [int]$TimeoutSec = 900,
-    [string]$ExpectedCommit = ""
+    [string]$ExpectedCommit = "",
+    [string[]]$ExpectedEnv = @(),
+    [string[]]$RequiredEnv = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -74,6 +76,32 @@ foreach ($name in $watch) {
     } else {
         Write-Host "  $name=(unset)"
     }
+}
+
+$assertionErrors = [System.Collections.Generic.List[string]]::new()
+foreach ($spec in $ExpectedEnv) {
+    $split = $spec.IndexOf("=")
+    if ($split -lt 1) {
+        throw "Invalid -ExpectedEnv '$spec'; use KEY=VALUE"
+    }
+    $name = $spec.Substring(0, $split)
+    $expected = $spec.Substring($split + 1)
+    $actual = if ($envMap.ContainsKey($name)) { [string]$envMap[$name] } else { "" }
+    if ($actual -cne $expected) {
+        $assertionErrors.Add("$name expected '$expected' but live value is '$actual'")
+    } else {
+        Write-Host "env match: $name=$expected" -ForegroundColor Green
+    }
+}
+foreach ($name in $RequiredEnv) {
+    if (-not $envMap.ContainsKey($name) -or [string]::IsNullOrWhiteSpace([string]$envMap[$name])) {
+        $assertionErrors.Add("$name must be set")
+    } else {
+        Write-Host "env present: $name=(set)" -ForegroundColor Green
+    }
+}
+if ($assertionErrors.Count -gt 0) {
+    throw "sam-agent env assertion failed: $($assertionErrors -join '; ')"
 }
 
 if (-not $ExpectedCommit) {

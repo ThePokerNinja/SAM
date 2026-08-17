@@ -36,11 +36,11 @@
     },
     {
       "id": "samuel-groq",
-      "label": "Samuel (current, Groq llama-3.1-8b-instant)",
+      "label": "Samuel (candidate, Groq openai/gpt-oss-20b)",
       "enabled": false,
       "transport": "livekit",
       "brain": "groq",
-      "note": "Current live config; baseline arm."
+      "note": "Wave 8.4 replacement candidate; production verification required."
     },
     {
       "id": "chatgpt-voice",

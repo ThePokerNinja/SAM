@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from ..prompt_budget import (
-    GROQ_8B_TPM,
+    GROQ_TPM_BUDGET,
     TARGET_PROMPT_TOKENS,
     all_rainmaker_specs,
     breakdown,
@@ -66,7 +66,7 @@ def _report() -> dict:
         "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "method": "estimate_tokens_chars_div_4",
         "target_prompt_tokens": TARGET_PROMPT_TOKENS,
-        "groq_8b_tpm": GROQ_8B_TPM,
+        "groq_tpm_budget": GROQ_TPM_BUDGET,
         "full_14_tools": full.to_dict(),
         "voice_9_tools": voice.to_dict(),
         "typical_unrouted": typical_rows,
@@ -79,8 +79,8 @@ def _report() -> dict:
             ),
             "typical_max_tokens": typical_total,
             "typical_under_target": typical_total <= TARGET_PROMPT_TOKENS,
-            "typical_turns_per_minute_at_6k": (
-                round(GROQ_8B_TPM / typical_total, 2) if typical_total else 0
+            "typical_turns_per_minute_at_tpm_budget": (
+                round(GROQ_TPM_BUDGET / typical_total, 2) if typical_total else 0
             ),
         },
     }

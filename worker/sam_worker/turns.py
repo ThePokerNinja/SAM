@@ -27,13 +27,24 @@ def build_turn_handling(settings: Settings) -> dict[str, Any]:
     else:
         detector = mode
 
-    return {
-        "turn_detection": detector,
-        "endpointing": {
+    endpointing = (
+        {
+            "mode": "fixed",
+            "min_delay": 0.0,
+        }
+        if mode == "stt"
+        else {
             "mode": "dynamic",
             "min_delay": settings.endpoint_min,
             "max_delay": settings.endpoint_max,
-        },
+        }
+    )
+
+    return {
+        "turn_detection": detector,
+        # STT-native end-of-turn already includes the provider's endpointing
+        # delay. Any LiveKit min_delay is additive, while max_delay is ignored.
+        "endpointing": endpointing,
         "interruption": {
             "enabled": True,
             "mode": settings.interruption_mode,

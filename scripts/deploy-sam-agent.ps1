@@ -11,8 +11,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$hook = ($(if ($env:SAM_AGENT_DEPLOY_HOOK_URL) { $env:SAM_AGENT_DEPLOY_HOOK_URL } else { "" })).Trim()
-if (-not $hook) { throw "SAM_AGENT_DEPLOY_HOOK_URL is not set" }
+$hook = ($(if ($env:SAM_AGENT_DEPLOY_HOOK_URL) {
+    $env:SAM_AGENT_DEPLOY_HOOK_URL
+} elseif ($env:RENDER_DEPLOY_HOOK_URL) {
+    $env:RENDER_DEPLOY_HOOK_URL
+} else {
+    ""
+})).Trim()
+if (-not $hook) { throw "SAM_AGENT_DEPLOY_HOOK_URL or RENDER_DEPLOY_HOOK_URL is not set" }
 try {
     $res = Invoke-WebRequest -Method POST -Uri $hook -UseBasicParsing -TimeoutSec 90
     Write-Host "sam-agent deploy hook $($res.StatusCode)"

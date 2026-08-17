@@ -1,0 +1,470 @@
+{
+  "analysis": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 5,
+        "tier": "none",
+        "v2v_p50_ms": 731.2,
+        "v2v_p95_ms": 974.2
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 5,
+      "tier": "none",
+      "v2v_p50_ms": 731.2,
+      "v2v_p95_ms": 974.2
+    },
+    "stages": {
+      "v2v_ms": {
+        "n": 5.0,
+        "p50": 731.2,
+        "p90": 974.2,
+        "p95": 974.2
+      }
+    },
+    "turns": 5
+  },
+  "captured_at": "2026-08-17T23:03:41Z",
+  "cut_off_rate": 0.0,
+  "endpoint_max": null,
+  "endpoint_min": null,
+  "eou_drift": {
+    "by_turn_index": {
+      "1": 218.1,
+      "10": 330.2,
+      "11": 181.3,
+      "2": 174.7,
+      "3": 171.0,
+      "4": 129.0,
+      "5": 173.8,
+      "6": 398.2,
+      "7": 188.0,
+      "8": 226.9,
+      "9": 181.6
+    },
+    "early_eou_ms": 187.9,
+    "late_eou_ms": 226.1,
+    "n": 11,
+    "prompt_token_pairs": [
+      [
+        789.0,
+        398.1609344482422
+      ],
+      [
+        799.0,
+        188.03095817565918
+      ],
+      [
+        840.0,
+        226.94063186645508
+      ],
+      [
+        884.0,
+        181.5788745880127
+      ],
+      [
+        900.0,
+        330.1723003387451
+      ],
+      [
+        910.0,
+        181.28609657287598
+      ]
+    ],
+    "step_ms": 38.2,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [
+    {
+      "eou_ms": 218.08147430419922,
+      "transcription_delay_ms": 217.21196174621582,
+      "turn_index": 1
+    },
+    {
+      "eou_ms": 174.6690273284912,
+      "transcription_delay_ms": 173.93064498901367,
+      "turn_index": 2
+    },
+    {
+      "eou_ms": 170.96495628356934,
+      "transcription_delay_ms": 170.12453079223633,
+      "turn_index": 3
+    },
+    {
+      "eou_ms": 129.0268898010254,
+      "transcription_delay_ms": 128.0517578125,
+      "turn_index": 4
+    },
+    {
+      "eou_ms": 173.7816333770752,
+      "transcription_delay_ms": 172.9426383972168,
+      "turn_index": 5
+    },
+    {
+      "eou_ms": 398.1609344482422,
+      "llm_ttft_ms": 494.16040000505745,
+      "prompt_tokens": 789,
+      "transcription_delay_ms": 396.481990814209,
+      "turn_index": 6
+    },
+    {
+      "eou_ms": 188.03095817565918,
+      "llm_ttft_ms": 617.3141000326723,
+      "prompt_tokens": 799,
+      "transcription_delay_ms": 182.95693397521973,
+      "turn_index": 7
+    },
+    {
+      "eou_ms": 226.94063186645508,
+      "llm_ttft_ms": 236.08990001957864,
+      "prompt_tokens": 840,
+      "transcription_delay_ms": 222.49579429626465,
+      "turn_index": 8
+    },
+    {
+      "eou_ms": 181.5788745880127,
+      "llm_ttft_ms": -1000.0,
+      "prompt_tokens": 884,
+      "transcription_delay_ms": 180.55224418640137,
+      "turn_index": 9
+    },
+    {
+      "eou_ms": 330.1723003387451,
+      "llm_ttft_ms": 630.7422999525443,
+      "prompt_tokens": 900,
+      "transcription_delay_ms": 329.2868137359619,
+      "turn_index": 10
+    },
+    {
+      "eou_ms": 181.28609657287598,
+      "llm_ttft_ms": -1000.0,
+      "prompt_tokens": 910,
+      "transcription_delay_ms": 180.5410385131836,
+      "turn_index": 11
+    }
+  ],
+  "intelligence": {
+    "arm": "stt-nova3-groq",
+    "context_retention_rate": 1.0,
+    "failures": [
+      "missing:research_recall",
+      "missing:pricing_trap",
+      "missing:account_trap"
+    ],
+    "general_arena_score": 0.6,
+    "grounded_arena_score": 1.0,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 1.0,
+    "interruption_accuracy": 1.0,
+    "latency_p50_ms": 731.2,
+    "latency_p95_ms": 974.2,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 2,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": true,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": 24.3,
+    "f1": 1.0,
+    "false_trigger_rate": 0.0
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": "openai/gpt-oss-20b",
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "It is 3:59 PM Pacific.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-01",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 974.2
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: risk-on.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "pulse",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 707.1
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: risk-on.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-03",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 682.0
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Latest scan picks: NVDA, AAPL.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "scans",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_scans"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 740.1
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Good morning - mock brief. Top priority: review scans.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-05",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_brief"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 731.2
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": 24.3,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "interrupt-stop",
+      "heard_audio": false,
+      "kind": "barge_in",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1539.4
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": "TimeoutError",
+      "false_trigger": false,
+      "fixture_id": "decoy-mmhmm",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": null
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": "TimeoutError",
+      "false_trigger": false,
+      "fixture_id": "decoy-yeah",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": null
+    }
+  ],
+  "room": "sam-wave8-embedded-f10ceb17de5c",
+  "sam_brain": "groq",
+  "stt_model": "deepgram/nova-3",
+  "tier_claim": {
+    "allowed": true,
+    "refusal_reasons": []
+  },
+  "turn_mode": "stt",
+  "worker_info": null,
+  "worker_profile": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 3,
+        "tier": "none",
+        "v2v_p50_ms": 1029.8,
+        "v2v_p95_ms": 1192.5
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 3,
+      "tier": "none",
+      "v2v_p50_ms": 1029.8,
+      "v2v_p95_ms": 1192.5
+    },
+    "stages": {
+      "eou_ms": {
+        "n": 8.0,
+        "p50": 188.0,
+        "p90": 330.2,
+        "p95": 330.2
+      },
+      "llm_ttft_ms": {
+        "n": 3.0,
+        "p50": 617.3,
+        "p90": 630.7,
+        "p95": 630.7
+      },
+      "tts_ttfb_ms": {
+        "n": 8.0,
+        "p50": 231.6,
+        "p90": 428.7,
+        "p95": 428.7
+      },
+      "v2v_ms": {
+        "n": 3.0,
+        "p50": 1029.8,
+        "p90": 1192.5,
+        "p95": 1192.5
+      }
+    },
+    "turns": 8
+  },
+  "worker_turn_profiles": [
+    {
+      "created_ms": 1787007576941.8926,
+      "eou_ms": 218.08147430419922,
+      "speech_id": "speech_e8e0ca713ad9",
+      "tts_ttfb_ms": 245.04870001692325,
+      "turn_index": 1,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787007612346.7822,
+      "eou_ms": 174.6690273284912,
+      "speech_id": "speech_e7e3a6b06d3e",
+      "tts_ttfb_ms": 211.56820002943277,
+      "turn_index": 2,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787007647341.4114,
+      "eou_ms": 170.96495628356934,
+      "speech_id": "speech_321a8230218f",
+      "tts_ttfb_ms": 217.30020001996309,
+      "turn_index": 3,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787007682699.8352,
+      "eou_ms": 129.0268898010254,
+      "speech_id": "speech_f87f14f550f6",
+      "tts_ttfb_ms": 258.10350000392646,
+      "turn_index": 4,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787007717243.0662,
+      "eou_ms": 173.7816333770752,
+      "speech_id": "speech_1de30b5ed77c",
+      "tts_ttfb_ms": 223.0371999903582,
+      "turn_index": 5,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787007757246.4744,
+      "eou_ms": 188.03095817565918,
+      "llm_ttft_ms": 617.3141000326723,
+      "prompt_tokens": 799,
+      "speech_id": "speech_b7d5de57ef8e",
+      "tts_ttfb_ms": 224.46240001590922,
+      "turn_index": 7,
+      "turn_mode": "stt",
+      "v2v_ms": 1029.8
+    },
+    {
+      "created_ms": 1787007764499.2075,
+      "eou_ms": 226.94063186645508,
+      "llm_ttft_ms": 236.08990001957864,
+      "prompt_tokens": 840,
+      "speech_id": "speech_51de87fce14a",
+      "tts_ttfb_ms": 428.66269999649376,
+      "turn_index": 8,
+      "turn_mode": "stt",
+      "v2v_ms": 891.7
+    },
+    {
+      "created_ms": 1787007799898.0647,
+      "eou_ms": 330.1723003387451,
+      "llm_ttft_ms": 630.7422999525443,
+      "prompt_tokens": 900,
+      "speech_id": "speech_c223ebc458be",
+      "tts_ttfb_ms": 231.55460000270978,
+      "turn_index": 10,
+      "turn_mode": "stt",
+      "v2v_ms": 1192.5
+    }
+  ]
+}

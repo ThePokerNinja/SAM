@@ -21,8 +21,8 @@ from livekit.plugins import elevenlabs, silero
 from ..agent import _build_llm
 from ..config import Settings
 from ..context import assemble_context
-from ..prompt_budget import samuel_instructions
 from ..latency import TurnProfile
+from ..prompt_budget import samuel_instructions
 from ..router import FastIntentRouter, RoutedSamuelAgent
 from ..stt import build_stt
 from ..tool_latency import ToolLatencyManager
@@ -52,6 +52,22 @@ def _bench_turn_profiles(bench_events: list[dict]) -> list[dict]:
     return rows
 
 
+def _worker_info_mismatches(worker_info: dict | None, expected: list[str]) -> list[str]:
+    if not expected:
+        return []
+    if worker_info is None:
+        return ["worker_info was not received"]
+    mismatches: list[str] = []
+    for spec in expected:
+        key, separator, value = spec.partition("=")
+        if not separator or not key:
+            raise ValueError(f"invalid --expect-worker-info {spec!r}; use KEY=VALUE")
+        actual = worker_info.get(key)
+        if str(actual) != value:
+            mismatches.append(f"{key} expected {value!r}, received {actual!r}")
+    return mismatches
+
+
 async def _start_embedded_agent(
     *,
     url: str,
@@ -62,6 +78,7 @@ async def _start_embedded_agent(
     interruption_mode: str,
     sam_brain: str = "",
     llm_model: str = "",
+    stt_model: str = "",
     endpoint_min: float | None = None,
     endpoint_max: float | None = None,
 ) -> tuple[rtc.Room, AgentSession]:
@@ -77,6 +94,8 @@ async def _start_embedded_agent(
             updates["groq_model"] = llm_model
         else:
             updates["openai_model"] = llm_model
+    if stt_model:
+        updates["stt_model"] = stt_model
     if endpoint_min is not None:
         updates["endpoint_min"] = endpoint_min
     if endpoint_max is not None:
@@ -253,6 +272,7 @@ async def _run(args) -> dict:
         url=url,
         token=token,
         participant_identity_prefix="embedded-agent-" if args.embedded_agent else "",
+        sample_rate=args.sample_rate,
         debug_audio_path=(
             args.output.with_suffix(".audio.jsonl") if args.debug_audio else None
         ),
@@ -280,13 +300,14 @@ async def _run(args) -> dict:
                 interruption_mode=args.interruption_mode,
                 sam_brain=args.sam_brain,
                 llm_model=args.llm_model,
+                stt_model=args.stt_model,
                 endpoint_min=args.endpoint_min,
                 endpoint_max=args.endpoint_max,
             )
         await driver.connect()
         await driver.wait_ready(timeout_s=args.agent_timeout)
         await driver.wait_initial_greeting()
-        for fixture in turns:
+        for index, fixture in enumerate(turns):
             results.append(
                 await driver.measure_turn(
                     fixture,
@@ -294,6 +315,11 @@ async def _run(args) -> dict:
                     timeout_s=args.turn_timeout,
                 )
             )
+            more_requests_follow = index < len(turns) - 1 or (
+                not args.skip_barge and prompt is not None and interruption is not None
+            )
+            if args.inter_turn_delay > 0 and more_requests_follow:
+                await asyncio.sleep(args.inter_turn_delay)
         if not args.skip_barge and prompt is not None and interruption is not None:
             results.append(
                 await driver.measure_barge_in(
@@ -389,6 +415,17 @@ async def _run(args) -> dict:
     )
     worker_rows = _bench_turn_profiles(driver.bench_events)
     worker_profile = analyze(worker_rows) if worker_rows else None
+    worker_info = next(
+        (
+            event
+            for event in driver.bench_events
+            if event.get("type") == "worker_info"
+        ),
+        None,
+    )
+    worker_info_mismatches = _worker_info_mismatches(
+        worker_info, args.expect_worker_info
+    )
     return {
         "method": "livekit_external_audio_v1",
         "room": room_name,
@@ -396,6 +433,7 @@ async def _run(args) -> dict:
         "interruption_mode": args.interruption_mode,
         "sam_brain": args.sam_brain or None,
         "llm_model": args.llm_model or None,
+        "stt_model": args.stt_model or None,
         "endpoint_min": args.endpoint_min,
         "endpoint_max": args.endpoint_max,
         "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -420,14 +458,11 @@ async def _run(args) -> dict:
         "intelligence": intelligence.summary(),
         "eou_drift": analyze_eou_drift(eou_rows),
         "eou_rows": eou_rows,
-        "worker_info": next(
-            (
-                event
-                for event in driver.bench_events
-                if event.get("type") == "worker_info"
-            ),
-            None,
-        ),
+        "worker_info": worker_info,
+        "tier_claim": {
+            "allowed": not worker_info_mismatches,
+            "refusal_reasons": worker_info_mismatches,
+        },
     }
 
 
@@ -451,12 +486,33 @@ def main() -> int:
     parser.add_argument("--agent-timeout", type=float, default=45.0)
     parser.add_argument("--turn-timeout", type=float, default=15.0)
     parser.add_argument("--max-turns", type=int)
+    parser.add_argument(
+        "--sample-rate",
+        type=int,
+        choices=[8000, 16000, 24000, 48000],
+        default=16000,
+        help="Fixture and published audio sample rate.",
+    )
+    parser.add_argument(
+        "--inter-turn-delay",
+        type=float,
+        default=0.0,
+        help="Seconds between turns; use provider-appropriate pacing for TPM-limited models.",
+    )
     parser.add_argument("--skip-barge", action="store_true")
     parser.add_argument("--sam-brain", default="", help="openai | groq | hybrid")
     parser.add_argument("--llm-model", default="", help="Override OPENAI_MODEL or GROQ_MODEL")
+    parser.add_argument("--stt-model", default="", help="Override SAM_STT_MODEL for embedded runs")
     parser.add_argument("--endpoint-min", type=float)
     parser.add_argument("--endpoint-max", type=float)
     parser.add_argument("--arm", default="", help="Scorecard arm label")
+    parser.add_argument(
+        "--expect-worker-info",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Refuse a tier claim when production worker_info is missing or mismatched",
+    )
     parser.add_argument(
         "--debug-audio",
         action="store_true",
@@ -472,6 +528,10 @@ def main() -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(payload["analysis"]["classification"], sort_keys=True))
+    if not payload["tier_claim"]["allowed"]:
+        for reason in payload["tier_claim"]["refusal_reasons"]:
+            print(f"tier claim refused: {reason}")
+        return 3
     return 0 if not any(row["error"] for row in payload["results"]) else 2
 
 

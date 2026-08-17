@@ -10,8 +10,8 @@ Two measurement modes against real vendors:
 
 Both exclude STT finalization, turn-detection, and WebRTC transport (room-only, measured in 5b).
 
-Brains are OpenAI-compatible, so we A/B any configured provider (OpenAI gpt-4o-mini, Groq
-llama-3.1-8b-instant, ...) through the identical pipeline.
+Brains are OpenAI-compatible, so we A/B any configured provider (OpenAI gpt-4o-mini,
+Groq-hosted open models, ...) through the identical pipeline.
 
 Run:
   python -m sam_worker --bench --turns 10            # A/B all brains, ws + rest

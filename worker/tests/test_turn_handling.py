@@ -17,9 +17,12 @@ def test_all_turn_modes_use_new_turn_handling(mode) -> None:
         assert getattr(detector, "model", "").startswith("turn-detector-v1")
         if mode == "mini":
             assert detector.model == "turn-detector-v1-mini"
-    assert options["endpointing"]["mode"] == "dynamic"
-    assert options["endpointing"]["min_delay"] == 0.25
-    assert options["endpointing"]["max_delay"] == 0.6
+    if mode == "stt":
+        assert options["endpointing"] == {"mode": "fixed", "min_delay": 0.0}
+    else:
+        assert options["endpointing"]["mode"] == "dynamic"
+        assert options["endpointing"]["min_delay"] == 0.25
+        assert options["endpointing"]["max_delay"] == 0.6
     assert options["preemptive_generation"]["preemptive_tts"] is True
     assert options["interruption"]["enabled"] is True
 
@@ -31,12 +34,14 @@ def test_invalid_turn_mode_falls_back_to_cloud(monkeypatch) -> None:
 
 
 def test_stale_endpoint_max_is_capped(monkeypatch) -> None:
+    monkeypatch.setenv("SAM_TURN_MODE", "stt")
     monkeypatch.setenv("SAM_ENDPOINTING_MIN", "0.3")
     monkeypatch.setenv("SAM_ENDPOINTING_MAX", "1.2")
     settings = Settings.from_env()
     assert settings.endpoint_max == 0.6
     options = build_turn_handling(settings)
-    assert options["endpointing"]["max_delay"] == 0.6
+    # STT-native endpointing ignores max_delay and must not inherit stale values.
+    assert options["endpointing"] == {"mode": "fixed", "min_delay": 0.0}
 
 
 def test_invalid_endpoint_range_fails() -> None:

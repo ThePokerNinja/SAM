@@ -2,7 +2,7 @@
 
 Pipeline (ADR-1/3/4/5):
   STT : LiveKit Inference by default; Deepgram direct when DEEPGRAM_API_KEY is set (SAM_STT=deepgram).
-  LLM : OpenAI-compatible client pointed at Groq (live tier, llama-3.1-8b-instant).
+  LLM : OpenAI-compatible client pointed at Groq (live tier, openai/gpt-oss-20b).
   TTS : ElevenLabs Flash v2.5 streaming (our key), Samuel's voice.
   VAD : Silero (prewarmed). Preemptive generation on.
 
@@ -21,6 +21,7 @@ import logging
 import os
 import sys
 import time
+from dataclasses import replace
 
 # Windows consoles default to cp1252; LiveKit's CLI banner prints an emoji that crashes
 # the charmap codec. Force UTF-8 on our streams before any livekit import prints.
@@ -93,18 +94,53 @@ def _build_tool_registry() -> ToolRegistry:
     return registry
 
 
+def sip_caller_is_authorized(participants, owner_numbers: tuple[str, ...]) -> bool:
+    """Defense-in-depth caller gate behind LiveKit trunk ``allowed_numbers``."""
+    allowed = {
+        "".join(character for character in number if character.isdigit())
+        for number in owner_numbers
+    }
+    callers = {
+        "".join(
+            character
+            for character in str(
+                (getattr(participant, "attributes", None) or {}).get("sip.phoneNumber", "")
+            )
+            if character.isdigit()
+        )
+        for participant in participants
+    }
+    callers.discard("")
+    return bool(callers) and not callers.isdisjoint(allowed)
+
+
 load_dotenv()
 _log = logging.getLogger("sam.agent")
 
 
 def prewarm(proc: JobProcess) -> None:
     proc.userdata["vad"] = silero.VAD.load()
+    proc.userdata["phone_vad"] = silero.VAD.load(
+        sample_rate=8000,
+        min_silence_duration=0.35,
+        prefix_padding_duration=0.3,
+    )
 
 
 def _build_llm(s: Settings):
     if resolve_brain(s) == "groq":
-        return openai.LLM(model=s.groq_model, base_url=s.groq_base_url, api_key=s.groq_api_key)
-    return openai.LLM(model=s.openai_model, base_url=s.openai_base_url, api_key=s.openai_api_key)
+        return openai.LLM(
+            model=s.groq_model,
+            base_url=s.groq_base_url,
+            api_key=s.groq_api_key,
+            max_completion_tokens=s.llm_max_completion_tokens,
+        )
+    return openai.LLM(
+        model=s.openai_model,
+        base_url=s.openai_base_url,
+        api_key=s.openai_api_key,
+        max_completion_tokens=s.llm_max_completion_tokens,
+    )
 
 
 async def entrypoint(ctx: JobContext) -> None:
@@ -113,7 +149,11 @@ async def entrypoint(ctx: JobContext) -> None:
     if (ctx.room.name or "").startswith("sam-wave8-embedded-"):
         _log.info("Skipping embedded benchmark room dispatch")
         return
+    room_name = ctx.room.name or ""
+    is_phone = room_name.startswith("call-")
     s = Settings.from_env()
+    if is_phone:
+        s = replace(s, stt_model=s.phone_stt_model)
     resolved = resolve_brain(s)
     brain = (resolved + ":" + (s.groq_model if resolved == "groq" else s.openai_model))
     stt = build_stt(s)
@@ -136,12 +176,13 @@ async def entrypoint(ctx: JobContext) -> None:
             voice_id=s.voice_ids["samuel"],
             api_key=s.elevenlabs_api_key,
         ),
-        vad=ctx.proc.userdata["vad"],
+        vad=ctx.proc.userdata["phone_vad" if is_phone else "vad"],
         turn_handling=build_turn_handling(s),
     )
 
     session_id = ctx.room.name or ctx.job.id
-    bench_events_enabled = session_id.startswith("sam-wave8-")
+    surface = "phone" if is_phone else "portal"
+    bench_events_enabled = session_id.startswith(("sam-wave8-", "call-"))
 
     async def _publish_bench_event(payload: dict) -> None:
         if not bench_events_enabled:
@@ -374,7 +415,7 @@ async def entrypoint(ctx: JobContext) -> None:
             try:
                 session_logger.on_conversation_item(ev.item)
             except Exception:  # noqa: BLE001
-                pass
+                _log.debug("session conversation logging failed", exc_info=True)
 
         @session.on("user_input_transcribed")
         def _on_user_transcript(ev) -> None:  # type: ignore[no-redef]
@@ -385,14 +426,14 @@ async def entrypoint(ctx: JobContext) -> None:
                     speaker_id=getattr(ev, "speaker_id", None),
                 )
             except Exception:  # noqa: BLE001
-                pass
+                _log.debug("session transcript logging failed", exc_info=True)
 
         @session.on("function_tools_executed")
         def _on_tools_executed(ev) -> None:  # type: ignore[no-redef]
             try:
                 session_logger.on_tools_executed(ev)
             except Exception:  # noqa: BLE001
-                pass
+                _log.debug("session tool logging failed", exc_info=True)
 
         @session.on("close")
         def _on_session_close(ev) -> None:  # type: ignore[no-redef]
@@ -403,7 +444,7 @@ async def entrypoint(ctx: JobContext) -> None:
                     error=str(err) if err is not None else None,
                 )
             except Exception:  # noqa: BLE001
-                pass
+                _log.debug("session close logging failed", exc_info=True)
 
     tool_registry = _build_tool_registry()
     def _tool_timing(_name: str, elapsed_ms: float, _cached: bool) -> None:
@@ -489,15 +530,32 @@ async def entrypoint(ctx: JobContext) -> None:
     await session.start(agent=routed_agent, room=ctx.room)
     await ctx.connect()
 
+    if (
+        is_phone
+        and (
+            not s.sip_owner_numbers
+            or not sip_caller_is_authorized(
+                ctx.room.remote_participants.values(), s.sip_owner_numbers
+            )
+        )
+    ):
+        _log.warning("Rejected non-owner SIP caller")
+        ctx.shutdown("SIP caller is not owner-authorized")
+        return
+
     async def _announce_worker() -> None:
         payload = {
             "type": "worker_info",
             "brain": brain,
             "sam_brain_env": s.sam_brain or "",
             "resolved_brain": resolved,
+            "turn_mode": s.turn_mode,
+            "stt_model": stt_label,
+            "surface": surface,
             "endpoint_min": s.endpoint_min,
             "endpoint_max": s.endpoint_max,
             "history_token_cap": s.history_token_cap,
+            "llm_max_completion_tokens": s.llm_max_completion_tokens,
             "git": (os.getenv("RENDER_GIT_COMMIT") or "")[:12],
         }
         await _publish_bench_event(payload)
@@ -513,11 +571,55 @@ async def entrypoint(ctx: JobContext) -> None:
         try:
             await session.wait_for_idle()
         except Exception:  # noqa: BLE001
-            pass
+            _log.debug("session did not become idle before tier update", exc_info=True)
         if tier_state.update(tier) or reason == "init":
             apply_tier_to_session(session, tier_state, s)
 
     wire_owner_gate_listeners(ctx.room, owner_gate)
+    text_reply_lock = asyncio.Lock()
+
+    async def _generate_text_reply(text: str, request_id: str) -> None:
+        """Run the normal Samuel agent/tool path while suppressing TTS entirely."""
+        async with text_reply_lock:
+            audio_was_enabled = session.output.audio_enabled
+            session.output.set_audio_enabled(False)
+            try:
+                handle = session.generate_reply(user_input=text, input_modality="text")
+                await handle
+                reply = ""
+                for item in reversed(handle.chat_items):
+                    if getattr(item, "role", None) != "assistant":
+                        continue
+                    reply = str(getattr(item, "text_content", "") or "").strip()
+                    if reply:
+                        break
+                await ctx.room.local_participant.publish_data(
+                    json.dumps(
+                        {
+                            "type": "assistant_text",
+                            "request_id": request_id,
+                            "text": reply or "(no reply)",
+                        }
+                    ),
+                    reliable=True,
+                    topic=CHAT_TOPIC,
+                )
+            except Exception as exc:  # noqa: BLE001
+                _log.exception("chat panel text reply failed")
+                await ctx.room.local_participant.publish_data(
+                    json.dumps(
+                        {
+                            "type": "assistant_text",
+                            "request_id": request_id,
+                            "text": "Samuel could not answer that.",
+                            "error": str(exc)[:160],
+                        }
+                    ),
+                    reliable=True,
+                    topic=CHAT_TOPIC,
+                )
+            finally:
+                session.output.set_audio_enabled(audio_was_enabled)
 
     # Start scoring the human mic for the owner voiceprint (no-op when not configured).
     if verifier is not None:
@@ -529,7 +631,7 @@ async def entrypoint(ctx: JobContext) -> None:
         if packet.topic == TIER_TOPIC:
             try:
                 payload = json.loads(bytes(packet.data).decode("utf-8"))
-            except Exception:
+            except (json.JSONDecodeError, UnicodeDecodeError):
                 return
             tier = parse_tier_payload(payload)
             if tier is None:
@@ -543,15 +645,16 @@ async def entrypoint(ctx: JobContext) -> None:
             return
         try:
             payload = json.loads(bytes(packet.data).decode("utf-8"))
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             return
         if payload.get("type") != "text_input":
             return
         text = str(payload.get("text", "")).strip()
         if not text:
             return
+        request_id = str(payload.get("request_id") or "")
         _log.info("chat panel text input: %r", text[:80])
-        asyncio.ensure_future(session.generate_reply(user_input=text))
+        asyncio.ensure_future(_generate_text_reply(text, request_id))
 
     await session.generate_reply(
         instructions=(

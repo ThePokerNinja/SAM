@@ -1,4 +1,4 @@
-from sam_worker.config import rainmaker_api_base_url
+from sam_worker.config import Settings, rainmaker_api_base_url
 
 
 def test_rainmaker_api_base_url_prefers_render_private_host(monkeypatch):
@@ -27,3 +27,10 @@ def test_rainmaker_api_base_url_keeps_public_fallback(monkeypatch):
     monkeypatch.delenv("RM_API_HOSTPORT", raising=False)
 
     assert rainmaker_api_base_url() == "https://rainmaker-api-waqs.onrender.com"
+
+
+def test_llm_completion_budget_is_clamped(monkeypatch):
+    monkeypatch.setenv("SAM_LLM_MAX_COMPLETION_TOKENS", "10")
+    assert Settings.from_env().llm_max_completion_tokens == 64
+    monkeypatch.setenv("SAM_LLM_MAX_COMPLETION_TOKENS", "5000")
+    assert Settings.from_env().llm_max_completion_tokens == 1024

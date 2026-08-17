@@ -1,14 +1,15 @@
 """SAM-078: per-turn prompt token budget (system / tool-schema / history).
 
-The spoken canon is short. The TPM killer on Groq's 6K limit is the full tool-schema
+The spoken canon is short. The TPM killer on Groq's 8K owner-pilot limit is the full tool-schema
 dump plus growing chat. This module estimates that split without a live LLM call.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
-from typing import Any, Iterable
+from typing import Any
 
 from .personas import SAMUEL
 from .tools.rainmaker_registry import register_rainmaker_tools
@@ -16,7 +17,7 @@ from .tools.registry import ToolRegistry, ToolSpec
 
 # Target for a typical unrouted turn after Wave 8.2 shrink.
 TARGET_PROMPT_TOKENS = 800
-GROQ_8B_TPM = 6000
+GROQ_TPM_BUDGET = 8000
 
 # Hard cap on user/assistant history tokens sent to the LLM (on top of turn-count trim).
 DEFAULT_HISTORY_TOKEN_CAP = 250
@@ -118,7 +119,7 @@ class PromptBudget:
     tool_schema_chars: int = 0
     history_chars: int = 0
     dominant: str = ""
-    turns_per_minute_at_6k: float = 0.0
+    turns_per_minute_at_tpm_budget: float = 0.0
     under_target: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -145,7 +146,7 @@ def breakdown(
         "history": hist_tokens,
     }
     dominant = max(slices, key=slices.get) if total else "system"
-    tpm = (GROQ_8B_TPM / total) if total else 0.0
+    tpm = (GROQ_TPM_BUDGET / total) if total else 0.0
     return PromptBudget(
         system_tokens=system_tokens,
         tool_schema_tokens=tool_tokens,
@@ -157,7 +158,7 @@ def breakdown(
         tool_schema_chars=len(tools_text),
         history_chars=len(hist_text),
         dominant=dominant,
-        turns_per_minute_at_6k=round(tpm, 2),
+        turns_per_minute_at_tpm_budget=round(tpm, 2),
         under_target=total <= TARGET_PROMPT_TOKENS,
     )
 
