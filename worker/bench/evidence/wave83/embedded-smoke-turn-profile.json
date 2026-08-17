@@ -1,0 +1,204 @@
+{
+  "analysis": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 2,
+        "tier": "none",
+        "v2v_p50_ms": 983.6,
+        "v2v_p95_ms": 983.6
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 2,
+      "tier": "none",
+      "v2v_p50_ms": 983.6,
+      "v2v_p95_ms": 983.6
+    },
+    "stages": {
+      "v2v_ms": {
+        "n": 2.0,
+        "p50": 983.6,
+        "p90": 983.6,
+        "p95": 983.6
+      }
+    },
+    "turns": 2
+  },
+  "captured_at": "2026-08-17T03:41:37Z",
+  "cut_off_rate": 0.0,
+  "endpoint_max": 0.6,
+  "endpoint_min": 0.25,
+  "eou_drift": {
+    "by_turn_index": {
+      "1": 269.2,
+      "2": 261.9
+    },
+    "early_eou_ms": 265.5,
+    "late_eou_ms": null,
+    "n": 2,
+    "prompt_token_pairs": [],
+    "step_ms": null,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [
+    {
+      "eou_ms": 269.1683769226074,
+      "transcription_delay_ms": 267.8978443145752,
+      "turn_index": 1
+    },
+    {
+      "eou_ms": 261.92712783813477,
+      "transcription_delay_ms": 6.148099899291992,
+      "turn_index": 2
+    }
+  ],
+  "intelligence": {
+    "arm": "samuel",
+    "context_retention_rate": 1.0,
+    "failures": [
+      "missing:scans",
+      "missing:research_recall",
+      "missing:pricing_trap",
+      "missing:account_trap"
+    ],
+    "general_arena_score": 0.2582,
+    "grounded_arena_score": 1.0,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 1.0,
+    "interruption_accuracy": 0.0,
+    "latency_p50_ms": 983.6,
+    "latency_p95_ms": 983.6,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 1,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": false,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": null,
+    "f1": 0.0,
+    "false_trigger_rate": null
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": null,
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "It is 8:41 PM Pacific.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-01",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 983.6
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: risk-on.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "pulse",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 810.3
+    }
+  ],
+  "room": "sam-wave8-embedded-3d2a30c481eb",
+  "sam_brain": "groq",
+  "turn_mode": "stt",
+  "worker_info": null,
+  "worker_profile": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 0,
+        "tier": "none",
+        "v2v_p50_ms": null,
+        "v2v_p95_ms": null
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 0,
+      "tier": "none",
+      "v2v_p50_ms": null,
+      "v2v_p95_ms": null
+    },
+    "stages": {
+      "eou_ms": {
+        "n": 2.0,
+        "p50": 269.2,
+        "p90": 269.2,
+        "p95": 269.2
+      },
+      "tts_ttfb_ms": {
+        "n": 2.0,
+        "p50": 236.6,
+        "p90": 236.6,
+        "p95": 236.6
+      }
+    },
+    "turns": 2
+  },
+  "worker_turn_profiles": [
+    {
+      "created_ms": 1786938063645.7034,
+      "eou_ms": 269.1683769226074,
+      "speech_id": "speech_7b350d47773d",
+      "tts_ttfb_ms": 236.55000003054738,
+      "turn_index": 1,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1786938082039.9087,
+      "eou_ms": 261.92712783813477,
+      "speech_id": "speech_10f4235c1c9c",
+      "tts_ttfb_ms": 234.04569999547675,
+      "turn_index": 2,
+      "turn_mode": "stt"
+    }
+  ]
+}

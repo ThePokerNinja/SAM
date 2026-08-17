@@ -22,6 +22,7 @@ from ..agent import _build_llm
 from ..config import Settings
 from ..context import assemble_context
 from ..prompt_budget import samuel_instructions
+from ..latency import TurnProfile
 from ..router import FastIntentRouter, RoutedSamuelAgent
 from ..stt import build_stt
 from ..tool_latency import ToolLatencyManager
@@ -147,10 +148,12 @@ async def _start_embedded_agent(
 
     eou_rows: list[dict] = []
     turn_index = {"n": 0}
+    turn_profiles: dict[str, TurnProfile] = {}
 
     @session.on("metrics_collected")
     def _on_metrics(ev: MetricsCollectedEvent) -> None:
         collected = ev.metrics
+        sid = getattr(collected, "speech_id", None)
         if isinstance(collected, metrics.EOUMetrics):
             turn_index["n"] += 1
             eou_rows.append(
@@ -164,10 +167,37 @@ async def _start_embedded_agent(
                     ),
                 }
             )
+            if sid:
+                profile = turn_profiles.setdefault(
+                    sid, TurnProfile(speech_id=sid, turn_mode=turn_mode)
+                )
+                profile.eou_ms = collected.end_of_utterance_delay * 1000.0
+                profile.turn_index = turn_index["n"]
         elif isinstance(collected, metrics.LLMMetrics):
             if eou_rows:
                 eou_rows[-1]["prompt_tokens"] = getattr(collected, "prompt_tokens", None)
                 eou_rows[-1]["llm_ttft_ms"] = collected.ttft * 1000.0
+            if sid:
+                profile = turn_profiles.setdefault(
+                    sid, TurnProfile(speech_id=sid, turn_mode=turn_mode)
+                )
+                profile.llm_ttft_ms = collected.ttft * 1000.0
+                prompt_tokens = getattr(collected, "prompt_tokens", None)
+                if prompt_tokens is not None:
+                    profile.prompt_tokens = int(prompt_tokens)
+        elif isinstance(collected, metrics.TTSMetrics):
+            if sid:
+                profile = turn_profiles.setdefault(
+                    sid, TurnProfile(speech_id=sid, turn_mode=turn_mode)
+                )
+                profile.tts_ttfb_ms = collected.ttfb * 1000.0
+        if sid:
+            profile = turn_profiles.get(sid)
+            if profile is not None and profile.eou_ms is not None and profile.tts_ttfb_ms is not None:
+                asyncio.ensure_future(
+                    _publish_bench({"type": "turn_profile", **profile.to_dict()})
+                )
+                turn_profiles.pop(sid, None)
 
     @session.on("function_tools_executed")
     def _bench_tools(ev) -> None:

@@ -227,7 +227,10 @@ async def entrypoint(ctx: JobContext) -> None:
             audio_duration = getattr(m, "audio_duration", None)
             if audio_duration is not None:
                 t.tts_audio_ms = audio_duration * 1000
-        if t.v2v_ready():
+        ready_to_close = t.v2v_ready() or (
+            t.eou_ms is not None and t.tts_ttfb_ms is not None
+        )
+        if ready_to_close:
             t.route_ms = (
                 float(perf_state["route_ms"]) if perf_state["route_ms"] is not None else None
             )
@@ -240,12 +243,13 @@ async def entrypoint(ctx: JobContext) -> None:
             t.tool_ms = (
                 float(perf_state["tool_ms"]) if perf_state["tool_ms"] is not None else None
             )
-            v = t.v2v_ms()
-            flag = "PASS<800" if v < 800 else "OVER"
-            _log.info(
-                "V2V turn %s: eou=%.0fms + ttft=%.0fms + ttfb=%.0fms = %.0fms  [%s]",
-                sid, t.eou_ms, t.llm_ttft_ms, t.tts_ttfb_ms, v, flag,
-            )
+            if t.v2v_ready():
+                v = t.v2v_ms()
+                flag = "PASS<800" if v < 800 else "OVER"
+                _log.info(
+                    "V2V turn %s: eou=%.0fms + ttft=%.0fms + ttfb=%.0fms = %.0fms  [%s]",
+                    sid, t.eou_ms, t.llm_ttft_ms, t.tts_ttfb_ms, v, flag,
+                )
             if barge_state["measured_ms"] is not None:
                 t.barge_in_ms = barge_state["measured_ms"]
                 barge_state["measured_ms"] = None
