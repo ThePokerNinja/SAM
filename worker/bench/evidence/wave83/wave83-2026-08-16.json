@@ -1,0 +1,45 @@
+{
+  "wave": "8.3",
+  "captured_at": "2026-08-17T04:30:00Z",
+  "commits": ["30391d0", "ef3637e"],
+  "deploy_verified": false,
+  "deploy_blocker": "RENDER_API_KEY and SAM_AGENT_SERVICE_ID not set in agent shell; verify-sam-agent.ps1 could not poll Render",
+  "production_20turn": {
+    "status": "failed",
+    "attempts": 2,
+    "successful_turns": 1,
+    "failure_mode": "19/20 TimeoutError after turn 1; worker_info and worker_turn_profiles null on every run",
+    "interpretation": "Production worker is still pre-8.3 (worker_info/turn_profile absent) or unstable after deploy restart",
+    "evidence": "bench/evidence/wave83/production-20turn.json"
+  },
+  "production_smoke_1turn": {
+    "external_v2v_p50_ms": 1038.1,
+    "worker_info": null,
+    "worker_profile": null,
+    "evidence": "bench/evidence/wave83/production-smoke-1turn.json"
+  },
+  "embedded_20turn_worker_profile": {
+    "endpoint_min": 0.25,
+    "endpoint_max": 0.6,
+    "sam_brain": "groq",
+    "external_v2v_p50_ms": 1034.4,
+    "external_v2v_p95_ms": 1548.1,
+    "worker_v2v_p50_ms": 687.5,
+    "worker_v2v_p95_ms": 803.0,
+    "stage_p50_ms": {
+      "eou_ms": 250.5,
+      "llm_ttft_ms": 210.4,
+      "tts_ttfb_ms": 222.1
+    },
+    "stage_p95_ms": {
+      "eou_ms": 270.1,
+      "llm_ttft_ms": 255.8,
+      "tts_ttfb_ms": 238.9
+    },
+    "external_minus_worker_p50_ms": 346.9,
+    "barge_in_p95_ms": 2017.8,
+    "evidence": "bench/evidence/wave83/embedded-20turn-profile.json"
+  },
+  "dominant_stage": "balanced_eou_llm_tts",
+  "decision": "Wave 8.2 production 1382ms is not attributable to the Groq shrink build. Next: run verify-sam-agent.ps1 -Wait after setting RENDER_API_KEY + SAM_AGENT_SERVICE_ID, set SAM_BRAIN=groq via set-sam-agent-env.ps1, redeploy, then re-run production matrix for worker_profile. Embedded attribution shows ~250ms EOU + ~210ms LLM TTFT + ~222ms TTS TTFB with ~347ms external overhead; no single stage dominates at tight endpoint (0.25/0.6)."
+}
