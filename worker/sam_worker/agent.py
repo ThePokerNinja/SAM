@@ -481,8 +481,9 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     await session.start(agent=routed_agent, room=ctx.room)
     await ctx.connect()
-    await _publish_bench_event(
-        {
+
+    async def _announce_worker() -> None:
+        payload = {
             "type": "worker_info",
             "brain": brain,
             "sam_brain_env": s.sam_brain or "",
@@ -492,7 +493,11 @@ async def entrypoint(ctx: JobContext) -> None:
             "history_token_cap": s.history_token_cap,
             "git": (os.getenv("RENDER_GIT_COMMIT") or "")[:12],
         }
-    )
+        await _publish_bench_event(payload)
+        await asyncio.sleep(2.0)
+        await _publish_bench_event(payload)
+
+    asyncio.ensure_future(_announce_worker())
 
     tier_state = TierState(tier=2)
     apply_tier_to_session(session, tier_state, s)
