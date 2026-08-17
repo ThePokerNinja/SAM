@@ -65,6 +65,44 @@ def test_time_route_executes_without_client() -> None:
     assert result.command is None
 
 
+def test_llm_node_attaches_no_tools_for_pricing() -> None:
+    seen: dict[str, list[str]] = {}
+
+    def fake_parent(self, chat_ctx, tools, model_settings):
+        seen["tools"] = [getattr(tool, "__name__", "") for tool in (tools or [])]
+        return "priced"
+
+    async def direct(_decision):
+        raise AssertionError("pricing must not direct-route")
+
+    async def publish(_command):
+        return None
+
+    class _Tool:
+        def __init__(self, name: str) -> None:
+            self.__name__ = name
+
+    from livekit.agents import Agent
+
+    original = Agent.llm_node
+    Agent.llm_node = fake_parent
+    try:
+        agent = RoutedSamuelAgent(
+            router=FastIntentRouter(),
+            direct_execute=direct,
+            publish_command=publish,
+            instructions="test",
+        )
+        context = ChatContext.empty()
+        context.add_message(role="user", content="How much does Rainmaker cost per month?")
+        tools = [_Tool("get_pulse"), _Tool("get_scans"), _Tool("list_studio_runs")]
+        result = asyncio.run(agent.llm_node(context, tools, None))
+    finally:
+        Agent.llm_node = original
+    assert result == "priced"
+    assert seen["tools"] == []
+
+
 def test_direct_route_bypasses_primary_llm_node() -> None:
     calls = []
 

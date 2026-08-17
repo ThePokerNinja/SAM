@@ -1,0 +1,38 @@
+{
+  "wave": "8.2",
+  "phase": "before_shrink",
+  "captured_at": "2026-08-16T23:45:00Z",
+  "method": "estimate_tokens_chars_div_4",
+  "note": "Live files before Wave 8.2 shrink. Confirms the 14-tool schema dump is the dominant slice.",
+  "target_prompt_tokens": 800,
+  "groq_8b_tpm": 6000,
+  "slices": {
+    "canon_tokens": 726,
+    "tools_appendix_tokens": 145,
+    "system_tokens": 871,
+    "tool_schema_tokens": 978,
+    "history_tokens": 34,
+    "total_tokens": 1883,
+    "tool_count": 14,
+    "dominant": "tool_schema",
+    "tool_schema_share": 0.52,
+    "turns_per_minute_at_6k": 3.19
+  },
+  "per_tool_tokens": {
+    "get_scans": 74,
+    "get_pulse": 72,
+    "get_trades": 63,
+    "get_research": 78,
+    "run_scan": 74,
+    "queue_research": 87,
+    "get_brief": 68,
+    "send_brief": 68,
+    "send_hero": 71,
+    "list_studio_runs": 49,
+    "studio_asset_status": 58,
+    "studio_campaign_report": 59,
+    "make_studio_deliverable": 87,
+    "record_studio_publish": 74
+  },
+  "conclusion": "Tool schemas (978) beat system (871). Canon is 726 of system; the TOOLS brochure is another 145. Together the 14-tool dump plus duplicated tool copy is the TPM killer. History is small on turn 1 and becomes the second blowup on long sessions."
+}

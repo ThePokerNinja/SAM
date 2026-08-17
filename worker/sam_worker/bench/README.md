@@ -36,8 +36,24 @@ The driver requires `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET`. 
 and raw result files are gitignored. Repeat after selecting each deployed `SAM_TURN_MODE`; never
 label a mode from CLI differently from the worker configuration actually under test.
 
-Canonical evidence: `worker/bench/evidence/wave8-2026-08-15.json` (Wave 8) and
-`worker/bench/evidence/wave81-2026-08-16.json` (Wave 8.1).
+Canonical evidence: `worker/bench/evidence/wave8-2026-08-15.json` (Wave 8),
+`worker/bench/evidence/wave81-2026-08-16.json` (Wave 8.1), and
+`worker/bench/evidence/wave82-2026-08-16.json` (Wave 8.2).
+
+## Prompt token budget (Wave 8.2)
+
+The spoken canon is not the TPM killer. Before shrink, a typical turn was **1883**
+estimated tokens: tool schemas **978**, system (canon + TOOLS brochure) **871**,
+history **34**. That is why Groq 8b's 6K TPM died in 1-2 LLM turns.
+
+After shrink (per-turn tool subset, short descriptions, canon de-dupe, 250-token
+history cap) a typical unrouted turn is **637** estimated tokens (~9 turns/min at
+6K TPM). Live Groq 8b `prompt_tokens` landed **863-1222** on a 20-turn session
+with zero 429s.
+
+Measure anytime:
+
+`python -m sam_worker.bench.token_budget --output bench/evidence/wave82-token-budget.json`
 
 ## Barge-in t=0 (do not regress)
 

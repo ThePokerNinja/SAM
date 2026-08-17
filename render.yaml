@@ -104,6 +104,8 @@ services:
         value: "0.25"
       - key: SAM_ENDPOINTING_MAX
         value: "0.6"
+      - key: SAM_HISTORY_TOKEN_CAP
+        value: "250"
       # Same workspace + Oregon region: keep Samuel's command traffic on
       # Render's private network. config.py adds the http:// scheme.
       - key: RM_API_HOSTPORT
@@ -115,12 +117,11 @@ services:
       # Copy the value from Render → rainmaker-api → Environment → RM_CRON_TOKEN.
       - key: RM_API_TOKEN
         sync: false
-      # Use OpenAI for the brain — Groq llama-3.1-8b-instant has a 6K TPM cap that the
-      # canon prompt exhausts in 1-2 turns.
+      # Wave 8.2: shrunk prompt fits Groq 8b's 6K TPM. 70b stays a paid fallback.
       - key: OPENAI_API_KEY
         sync: false
       - key: SAM_BRAIN
-        value: openai
+        value: groq
       # Owner voice verification (Tier-T gate). Both must be set to arm the voice gate;
       # otherwise Tier-T falls back to the portal access-key owner attribute.
       - key: PICOVOICE_ACCESS_KEY

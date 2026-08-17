@@ -13,6 +13,9 @@ from zoneinfo import ZoneInfo
 
 from livekit.agents import Agent
 
+from .prompt_budget import DEFAULT_HISTORY_TOKEN_CAP
+from .tier_session import trim_chat_context_tokens
+from .tools.select import filter_tools, select_tools_for_utterance
 from .tools.handlers import (
     handle_get_brief,
     handle_get_pulse,
@@ -156,6 +159,7 @@ class RoutedSamuelAgent(Agent):
         context_provider: Callable[[str], Awaitable[Any]] | None = None,
         performance_report: Callable[[RouteDecision, float], None] | None = None,
         publish_bench: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+        history_token_cap: int = DEFAULT_HISTORY_TOKEN_CAP,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -165,6 +169,7 @@ class RoutedSamuelAgent(Agent):
         self._context_provider = context_provider
         self._performance_report = performance_report
         self._publish_bench = publish_bench
+        self._history_token_cap = history_token_cap
 
     async def on_user_turn_completed(self, turn_ctx, new_message) -> None:
         text = str(getattr(new_message, "text_content", "") or "")
@@ -212,4 +217,16 @@ class RoutedSamuelAgent(Agent):
             if result.tool_name and self._publish_bench is not None:
                 await self._publish_bench({"type": "tool_calls", "names": [result.tool_name]})
             return result.spoken
-        return super().llm_node(chat_ctx, tools, model_settings)
+        available = list(tools or [])
+        names = select_tools_for_utterance(text)
+        selected = filter_tools(available, names)
+        if self._history_token_cap:
+            removed = trim_chat_context_tokens(chat_ctx, self._history_token_cap)
+            if removed:
+                _log.info(
+                    "history token cap removed %d items (cap=%d)",
+                    removed,
+                    self._history_token_cap,
+                )
+        _log.info("LLM_TOOLS selected=%s of %d", names, len(available))
+        return super().llm_node(chat_ctx, selected, model_settings)

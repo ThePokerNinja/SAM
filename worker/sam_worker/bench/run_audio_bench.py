@@ -20,7 +20,7 @@ from livekit.plugins import elevenlabs, silero
 
 from ..agent import _build_llm
 from ..config import Settings
-from ..personas import SAMUEL
+from ..prompt_budget import samuel_instructions
 from ..router import FastIntentRouter, RoutedSamuelAgent
 from ..stt import build_stt
 from ..tool_latency import ToolLatencyManager
@@ -160,10 +160,12 @@ async def _start_embedded_agent(
             direct_execute=_direct,
             publish_command=_publish_command,
             publish_bench=_publish_bench,
-            instructions=(
-                SAMUEL.system_hint
-                + " Answer each benchmark prompt directly, accurately, and briefly. "
-                "For a request for a long explanation, continue speaking until interrupted."
+            history_token_cap=settings.history_token_cap,
+            instructions=samuel_instructions(
+                extra=(
+                    "Answer each benchmark prompt directly, accurately, and briefly. "
+                    "For a request for a long explanation, continue speaking until interrupted."
+                )
             ),
             tools=tools,
         ),

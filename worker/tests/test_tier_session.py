@@ -10,7 +10,12 @@ from livekit.agents import llm
 
 from sam_worker.config import Settings, effective_model_for_tier
 from sam_worker.tier import TierState
-from sam_worker.tier_session import apply_tier_to_session, parse_tier_payload, trim_chat_context
+from sam_worker.tier_session import (
+    apply_tier_to_session,
+    parse_tier_payload,
+    trim_chat_context,
+    trim_chat_context_tokens,
+)
 
 
 class TierPayloadTests(unittest.TestCase):
@@ -30,8 +35,27 @@ class EffectiveModelTests(unittest.TestCase):
         self.assertEqual(effective_model_for_tier(1, s), "gpt-4o-mini")
 
     def test_groq_uses_groq_model(self) -> None:
-        s = Settings(sam_brain="groq", groq_model="llama-3.1-8b-instant")
+        s = Settings(sam_brain="groq", groq_model="llama-3.1-8b-instant", groq_api_key="g")
         self.assertEqual(effective_model_for_tier(2, s), "llama-3.1-8b-instant")
+
+    def test_stale_openai_pin_uses_groq_when_key_present(self) -> None:
+        s = Settings(
+            sam_brain="openai",
+            groq_api_key="g",
+            groq_model="llama-3.1-8b-instant",
+            openai_api_key="o",
+        )
+        self.assertEqual(effective_model_for_tier(2, s), "llama-3.1-8b-instant")
+
+    def test_openai_legacy_rollback(self) -> None:
+        s = Settings(
+            sam_brain="openai-legacy",
+            groq_api_key="g",
+            groq_model="llama-3.1-8b-instant",
+            openai_model="gpt-4o-mini",
+            openai_api_key="o",
+        )
+        self.assertEqual(effective_model_for_tier(2, s), "gpt-4o-mini")
 
 
 class TrimChatContextTests(unittest.TestCase):
@@ -43,6 +67,19 @@ class TrimChatContextTests(unittest.TestCase):
         self.assertGreater(removed, 0)
         msgs = ctx.messages()
         self.assertLessEqual(len(msgs), 4)
+
+    def test_token_cap_keeps_latest_turn(self) -> None:
+        ctx = llm.ChatContext.empty()
+        for i in range(20):
+            ctx.add_message(
+                role="user" if i % 2 == 0 else "assistant",
+                content=("word " * 40) + f"{i}",
+            )
+        removed = trim_chat_context_tokens(ctx, 80)
+        self.assertGreater(removed, 0)
+        msgs = ctx.messages()
+        self.assertGreaterEqual(len(msgs), 1)
+        self.assertIn("19", msgs[-1].text_content or "")
 
 
 class ApplyTierSessionTests(unittest.TestCase):

@@ -33,16 +33,35 @@ def memory_turns_for_tier(tier: int) -> int:
     return TIER_MEMORY_TURNS.get(tier, 12)
 
 
+def resolve_brain(settings: Settings) -> str:
+    """Pick the live brain. Wave 8.2 default is Groq 8b when a Groq key exists.
+
+    Render deploy hooks do not overwrite dashboard ``SAM_BRAIN=openai`` (Wave 8.1).
+    After the prompt shrink that value is stale. Roll back with ``SAM_BRAIN=openai-legacy``.
+    """
+    raw = (settings.sam_brain or "").strip().lower()
+    if raw in {"openai-legacy", "openai-control"}:
+        return "openai"
+    if raw == "hermes" and settings.hermes_base_url:
+        return "hermes"
+    if settings.groq_api_key and raw in {"", "groq", "hybrid", "openai"}:
+        return "groq"
+    if raw in {"groq", "hybrid"} and settings.groq_api_key:
+        return "groq"
+    if settings.openai_api_key:
+        return "openai"
+    if settings.groq_api_key:
+        return "groq"
+    return "openai"
+
+
 def effective_model_for_tier(tier: int, settings: Settings) -> str:
     """Resolve tier brain id to the model string for the active SAM_BRAIN."""
     mapped = model_for_tier(tier)
-    brain = (settings.sam_brain or "").strip().lower()
-    use_groq = brain in {"groq", "hybrid"} or (
-        not brain and settings.groq_api_key and not settings.openai_api_key
-    )
-    if brain == "hermes" and settings.hermes_base_url:
+    brain = resolve_brain(settings)
+    if brain == "hermes":
         return mapped
-    if use_groq:
+    if brain == "groq":
         return settings.groq_model
     if mapped.startswith("gpt-"):
         return mapped
@@ -115,6 +134,8 @@ class Settings:
     owner_voiceprint_path: str = ""  # alt: path to a profile file
     voice_threshold: float = 0.5  # Eagle owner-confidence to clear the gate
     voice_ids: dict[str, str] = field(default_factory=dict)
+    # Hard cap on user/assistant history tokens sent to the LLM (Wave 8.2).
+    history_token_cap: int = 250
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -164,4 +185,5 @@ class Settings:
                 "design": os.getenv("DESIGN_VOICE_ID", ""),
                 "sales": os.getenv("SALES_VOICE_ID", ""),
             },
+            history_token_cap=int(os.getenv("SAM_HISTORY_TOKEN_CAP", "250") or 250),
         )

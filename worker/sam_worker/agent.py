@@ -48,12 +48,12 @@ from livekit.plugins import (  # noqa: F401 — register on main thread
     silero,
 )
 
-from .config import Settings
+from .config import Settings, resolve_brain
 from .context import assemble_context
 from .latency import TurnProfile, latency_log_enabled, write_profile
 from .memory import Episode, EpisodicMemoryStore, MemoryRetriever, ProfileStore
 from .owner_gate import build_owner_gate, wire_owner_gate_listeners
-from .personas import SAMUEL
+from .prompt_budget import samuel_instructions
 from .router import FastIntentRouter, RoutedSamuelAgent
 from .session_log import SessionLogger
 from .stt import build_stt
@@ -101,10 +101,8 @@ def prewarm(proc: JobProcess) -> None:
 
 
 def _build_llm(s: Settings):
-    brain = s.sam_brain  # explicit override wins
-    if brain in {"groq", "hybrid"} or (not brain and s.groq_api_key and not s.openai_api_key):
+    if resolve_brain(s) == "groq":
         return openai.LLM(model=s.groq_model, base_url=s.groq_base_url, api_key=s.groq_api_key)
-    # Default: OpenAI (higher TPM, tool calling, strict schema support).
     return openai.LLM(model=s.openai_model, base_url=s.openai_base_url, api_key=s.openai_api_key)
 
 
@@ -115,10 +113,10 @@ async def entrypoint(ctx: JobContext) -> None:
         _log.info("Skipping embedded benchmark room dispatch")
         return
     s = Settings.from_env()
-    _use_groq = s.sam_brain in {"groq", "hybrid"} or (
-        not s.sam_brain and s.groq_api_key and not s.openai_api_key
-    )
-    brain = ("groq:" + s.groq_model) if _use_groq else ("openai:" + s.openai_model)
+    resolved = resolve_brain(s)
+    brain = (resolved + ":" + (s.groq_model if resolved == "groq" else s.openai_model))
+    if (s.sam_brain or "").strip().lower() == "openai" and resolved == "groq":
+        _log.info("SAM_BRAIN=openai treated as stale Wave 8.1 pin; live default is groq")
     stt = build_stt(s)
     stt_label = s.stt_model if not s.deepgram_api_key else f"deepgram/{s.stt_model.removeprefix('deepgram/')}"
     _log.info(
@@ -422,20 +420,7 @@ async def entrypoint(ctx: JobContext) -> None:
         "on" if verifier is not None else "off",
     )
 
-    instructions = (
-        SAMUEL.system_hint
-        + "\n\nTOOLS (always call the tool; never answer from memory):\n"
-        "- Scans/picks/watchlist -> get_scans\n"
-        "- Market pulse/regime/mood -> get_pulse\n"
-        "- Trades/P&L/positions -> get_trades\n"
-        "- Research digest / what has been researched -> get_research\n"
-        "- Morning brief / what's on today -> get_brief\n"
-        "- Owner asks to RUN, REFRESH, or TRIGGER a scan -> run_scan (starts in background)\n"
-        "- Owner asks to RESEARCH or queue research on a topic/ticker -> queue_research\n"
-        "- Owner asks to TEXT/SEND the brief -> send_brief\n"
-        "- Owner asks for HERO/character/stats card -> send_hero\n"
-        "Speak only what the tool returns."
-    )
+    instructions = samuel_instructions()
 
     fast_router = FastIntentRouter()
 
@@ -489,6 +474,7 @@ async def entrypoint(ctx: JobContext) -> None:
         context_provider=_context_provider,
         performance_report=_route_timing,
         publish_bench=_publish_bench_event,
+        history_token_cap=s.history_token_cap,
         instructions=instructions,
         tools=rm_tools,
     )

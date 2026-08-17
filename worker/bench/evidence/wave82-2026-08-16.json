@@ -1,0 +1,82 @@
+{
+  "method": "livekit_external_audio_v1",
+  "wave": "8.2",
+  "captured_at_utc": "2026-08-16T23:58:00Z",
+  "diagnosis": {
+    "token_budget_before": {
+      "system_tokens": 871,
+      "canon_tokens": 726,
+      "tools_appendix_tokens": 145,
+      "tool_schema_tokens": 978,
+      "history_tokens": 34,
+      "total_tokens": 1883,
+      "tool_count": 14,
+      "dominant": "tool_schema",
+      "note": "Confirmed SAM-078: the 14-tool dump is the TPM killer, not the spoken canon."
+    },
+    "token_budget_after": {
+      "system_tokens": 603,
+      "tool_schema_tokens_full_14": 702,
+      "typical_unrouted_tokens": 637,
+      "typical_under_target": true,
+      "typical_turns_per_minute_at_6k": 9.42,
+      "live_prompt_tokens_8b": [876, 1023],
+      "note": "Per-turn tool subset + shorter descriptions + canon trim + 250-token history cap."
+    }
+  },
+  "brain_bakeoff": {
+    "endpointing": {"min": 0.25, "max": 0.6, "turn_mode": "stt"},
+    "turns_per_arm": 8,
+    "openai_gpt_4o_mini": {
+      "v2v_p50_ms": 935.4,
+      "v2v_p95_ms": 3170.2,
+      "ttft_ms_range": [429.7, 1348.7],
+      "grounded_arena_score": 0.85,
+      "intent_accuracy": 0.75,
+      "errors": 0,
+      "barge_in_ms": 927.5,
+      "false_trigger_rate": 0.5
+    },
+    "groq_llama_3_1_8b_instant": {
+      "v2v_p50_ms": 805.0,
+      "v2v_p95_ms": 1499.1,
+      "ttft_ms_range": [187.6, 249.2],
+      "grounded_arena_score": 0.85,
+      "intent_accuracy": 0.75,
+      "errors": 0,
+      "tpm_limit": 6000,
+      "barge_in_ms": 13.1,
+      "false_trigger_rate": 0.0,
+      "disqualified": null
+    },
+    "groq_llama_3_3_70b_versatile": {
+      "v2v_p50_ms": 839.7,
+      "v2v_p95_ms": 1393.8,
+      "ttft_ms_range": [201.5, 307.5],
+      "grounded_arena_score": 0.85,
+      "intent_accuracy": 0.75,
+      "errors": 0,
+      "tpm_limit": 12000,
+      "barge_in_ms": 2018.8,
+      "note": "Quality/cost reference only. More expensive than gpt-4o-mini. Not the live default."
+    },
+    "selected_brain": "groq",
+    "selected_model": "llama-3.1-8b-instant",
+    "reason": "After the prompt shrink, 8b had no 429s, identical grounded/intent scores to OpenAI, and v2v p50 moved to 805ms (from 935ms OpenAI / 1425ms production). 70b is slower than 8b on p50 and costs more than 4o-mini.",
+    "embedded_20_turn_groq_8b": {
+      "v2v_p50_ms": 1072.8,
+      "v2v_p95_ms": 1473.7,
+      "errors": 0,
+      "cut_off_rate": 0.0,
+      "tpm_429s": 0,
+      "prompt_tokens_range": [863, 1222],
+      "note": "Long turns pull p50 above the 8-turn bake-off. No TPM 429s. History cap held tokens under 1300."
+    }
+  },
+  "ship_gate": {
+    "premium_v2v_p50_ms": 800,
+    "embedded_8b_p50_ms": 805.0,
+    "classification": "Minimum Enterprise on embedded p50 if production holds 800-1000; Premium if production p50 lands under 800. Do not quietly miss the gate.",
+    "barge_in_still_under_250": true
+  }
+}

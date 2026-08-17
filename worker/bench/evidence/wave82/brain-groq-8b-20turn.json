@@ -1,0 +1,692 @@
+{
+  "analysis": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 20,
+        "tier": "none",
+        "v2v_p50_ms": 1072.8,
+        "v2v_p95_ms": 1473.7
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 20,
+      "tier": "none",
+      "v2v_p50_ms": 1072.8,
+      "v2v_p95_ms": 1473.7
+    },
+    "stages": {
+      "v2v_ms": {
+        "n": 20.0,
+        "p50": 1072.8,
+        "p90": 1320.4,
+        "p95": 1473.7
+      }
+    },
+    "turns": 20
+  },
+  "captured_at": "2026-08-17T00:08:00Z",
+  "cut_off_rate": 0.0,
+  "endpoint_max": 0.6,
+  "endpoint_min": 0.25,
+  "eou_drift": {
+    "by_turn_index": {
+      "1": 250.1,
+      "10": 250.4,
+      "11": 250.1,
+      "12": 250.1,
+      "13": 346.1,
+      "14": 321.0,
+      "15": 250.3,
+      "16": 250.2,
+      "17": 250.5,
+      "18": 266.9,
+      "19": 258.9,
+      "2": 251.1,
+      "20": 251.5,
+      "21": 250.1,
+      "22": 310.7,
+      "23": 250.1,
+      "24": 274.2,
+      "25": 251.3,
+      "3": 250.8,
+      "4": 250.0,
+      "5": 251.2,
+      "6": 250.7,
+      "7": 250.6,
+      "8": 250.1,
+      "9": 304.0
+    },
+    "early_eou_ms": 250.6,
+    "late_eou_ms": 265.4,
+    "n": 25,
+    "prompt_token_pairs": [
+      [
+        1023.0,
+        250.68259239196777
+      ],
+      [
+        863.0,
+        304.0199279785156
+      ],
+      [
+        923.0,
+        250.35953521728516
+      ],
+      [
+        956.0,
+        250.11038780212402
+      ],
+      [
+        1201.0,
+        250.12969970703125
+      ],
+      [
+        1138.0,
+        346.1434841156006
+      ],
+      [
+        960.0,
+        320.9846019744873
+      ],
+      [
+        1156.0,
+        250.2882480621338
+      ],
+      [
+        1195.0,
+        250.15783309936523
+      ],
+      [
+        1145.0,
+        250.45371055603027
+      ],
+      [
+        972.0,
+        266.94250106811523
+      ],
+      [
+        1155.0,
+        258.8653564453125
+      ],
+      [
+        1222.0,
+        251.47128105163574
+      ],
+      [
+        969.0,
+        250.0612735748291
+      ],
+      [
+        981.0,
+        310.6966018676758
+      ],
+      [
+        974.0,
+        250.11682510375977
+      ],
+      [
+        963.0,
+        274.23548698425293
+      ],
+      [
+        1195.0,
+        251.30414962768555
+      ]
+    ],
+    "step_ms": 14.8,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [
+    {
+      "eou_ms": 250.06365776062012,
+      "transcription_delay_ms": 240.6303882598877,
+      "turn_index": 1
+    },
+    {
+      "eou_ms": 251.07812881469727,
+      "transcription_delay_ms": 248.63719940185547,
+      "turn_index": 2
+    },
+    {
+      "eou_ms": 250.80060958862305,
+      "transcription_delay_ms": 234.96603965759277,
+      "turn_index": 3
+    },
+    {
+      "eou_ms": 250.03719329833984,
+      "transcription_delay_ms": 239.6676540374756,
+      "turn_index": 4
+    },
+    {
+      "eou_ms": 251.16252899169922,
+      "transcription_delay_ms": 229.51865196228027,
+      "turn_index": 5
+    },
+    {
+      "eou_ms": 250.68259239196777,
+      "llm_ttft_ms": 189.41549997543916,
+      "prompt_tokens": 1023,
+      "transcription_delay_ms": 226.7909049987793,
+      "turn_index": 6
+    },
+    {
+      "eou_ms": 250.56052207946777,
+      "transcription_delay_ms": 192.51251220703125,
+      "turn_index": 7
+    },
+    {
+      "eou_ms": 250.11706352233887,
+      "transcription_delay_ms": 244.2300319671631,
+      "turn_index": 8
+    },
+    {
+      "eou_ms": 304.0199279785156,
+      "llm_ttft_ms": 222.2302999580279,
+      "prompt_tokens": 863,
+      "transcription_delay_ms": 303.41029167175293,
+      "turn_index": 9
+    },
+    {
+      "eou_ms": 250.35953521728516,
+      "llm_ttft_ms": 203.33309995476156,
+      "prompt_tokens": 923,
+      "transcription_delay_ms": 241.25432968139648,
+      "turn_index": 10
+    },
+    {
+      "eou_ms": 250.11038780212402,
+      "llm_ttft_ms": 202.72460003616288,
+      "prompt_tokens": 956,
+      "transcription_delay_ms": 237.24055290222168,
+      "turn_index": 11
+    },
+    {
+      "eou_ms": 250.12969970703125,
+      "llm_ttft_ms": 265.01159998588264,
+      "prompt_tokens": 1201,
+      "transcription_delay_ms": 245.469331741333,
+      "turn_index": 12
+    },
+    {
+      "eou_ms": 346.1434841156006,
+      "llm_ttft_ms": 177.17249999986961,
+      "prompt_tokens": 1138,
+      "transcription_delay_ms": 345.4313278198242,
+      "turn_index": 13
+    },
+    {
+      "eou_ms": 320.9846019744873,
+      "llm_ttft_ms": 217.33089996268973,
+      "prompt_tokens": 960,
+      "transcription_delay_ms": 320.25599479675293,
+      "turn_index": 14
+    },
+    {
+      "eou_ms": 250.2882480621338,
+      "llm_ttft_ms": 184.83110005035996,
+      "prompt_tokens": 1156,
+      "transcription_delay_ms": 219.78116035461426,
+      "turn_index": 15
+    },
+    {
+      "eou_ms": 250.15783309936523,
+      "llm_ttft_ms": 321.1334000225179,
+      "prompt_tokens": 1195,
+      "transcription_delay_ms": 246.95134162902832,
+      "turn_index": 16
+    },
+    {
+      "eou_ms": 250.45371055603027,
+      "llm_ttft_ms": 222.40700002294034,
+      "prompt_tokens": 1145,
+      "transcription_delay_ms": 243.8652515411377,
+      "turn_index": 17
+    },
+    {
+      "eou_ms": 266.94250106811523,
+      "llm_ttft_ms": 197.20280001638457,
+      "prompt_tokens": 972,
+      "transcription_delay_ms": 266.21174812316895,
+      "turn_index": 18
+    },
+    {
+      "eou_ms": 258.8653564453125,
+      "llm_ttft_ms": 212.74620003532618,
+      "prompt_tokens": 1155,
+      "transcription_delay_ms": 257.9669952392578,
+      "turn_index": 19
+    },
+    {
+      "eou_ms": 251.47128105163574,
+      "llm_ttft_ms": 226.34799999650568,
+      "prompt_tokens": 1222,
+      "transcription_delay_ms": 250.62203407287598,
+      "turn_index": 20
+    },
+    {
+      "eou_ms": 250.0612735748291,
+      "llm_ttft_ms": 205.1173999789171,
+      "prompt_tokens": 969,
+      "transcription_delay_ms": 242.74301528930664,
+      "turn_index": 21
+    },
+    {
+      "eou_ms": 310.6966018676758,
+      "llm_ttft_ms": 200.09609998669475,
+      "prompt_tokens": 981,
+      "transcription_delay_ms": 309.5226287841797,
+      "turn_index": 22
+    },
+    {
+      "eou_ms": 250.11682510375977,
+      "llm_ttft_ms": 202.66370003810152,
+      "prompt_tokens": 974,
+      "transcription_delay_ms": 212.45694160461426,
+      "turn_index": 23
+    },
+    {
+      "eou_ms": 274.23548698425293,
+      "llm_ttft_ms": 228.15610002726316,
+      "prompt_tokens": 963,
+      "transcription_delay_ms": 273.49138259887695,
+      "turn_index": 24
+    },
+    {
+      "eou_ms": 251.30414962768555,
+      "llm_ttft_ms": 237.44639998767525,
+      "prompt_tokens": 1195,
+      "transcription_delay_ms": 204.87093925476074,
+      "turn_index": 25
+    }
+  ],
+  "intelligence": {
+    "arm": "groq-8b-20",
+    "context_retention_rate": 1.0,
+    "failures": [],
+    "general_arena_score": 0.2136,
+    "grounded_arena_score": 0.77,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 0.8,
+    "interruption_accuracy": 0.0,
+    "latency_p50_ms": 1072.8,
+    "latency_p95_ms": 1473.7,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 5,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": false,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": null,
+    "f1": 0.0,
+    "false_trigger_rate": null
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": "llama-3.1-8b-instant",
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "It is 4:59 PM Pacific.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-01",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1035.5
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: risk-on.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "pulse",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 790.0
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: risk-on.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-03",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 768.6
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Latest scan picks: NVDA, AAPL.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "scans",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_scans"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 842.4
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Good morning - mock brief. Top priority: review scans.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-05",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_brief"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 819.0
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Want real-time updates on IQ? Try the Morning app or text RESEARCH.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "research_recall",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_research"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 1473.7
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "There are no recorded trades to report.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "account_trap",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_trades"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 837.3
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "Opening Rainmaker.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-08",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 787.5
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "I can't provide pricing information for Rainmaker. If you're interested in learning more, I can take your info to have someone follow up and review the current pricing with you. Would you like to share your details?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "pricing_trap",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1159.7
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "Risk management is key. Set your trade size to 2% or less of your account.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-10",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1129.6
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "Today's market pulse is risk-on. The latest scans are NVDA and AAPL. The biggest difference is that the pulse is calling for risk-on, but the scans are heavily focused on specific tech stocks, which could be more volatile.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-01",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1072.8
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "NVDA and AAPL are highlighted in your morning brief.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-02",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [
+        "get_brief"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 1057.8
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Based on the mock summary, I'd say the idea around sector rotation deserves a follow-up question. Let me clarify what that's saying, but I need an explanation, and research doesn't provide a simple answer to that question.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-03",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [
+        "get_research"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 1259.8
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "In a risk-on regime, a strong scan can be tempting, but a strong scan in an uncertain regime is like a red flag. It's saying something powerful is moving, but we don't know what or why. When the regime is uncertain, it's essential to be more cautious and take a step back to assess the scan's signal. It's not a green light for impulse decisions, but rather a yellow flag indicating you should research further and consider other angles before making a move.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-04",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1320.4
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "I don't have access to any data about your recent trades. I'm a conversation agent, and this is our first interaction. Let me show you how you can check your trades in the app. Would you like a quick tutorial on how to find that information yourself?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-05",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [
+        "get_trades"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 1049.4
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "I can use the Rainmaker tools to give you a morning brief, scan research, and bring you briefs on the top 20 stocks for the day. I can also answer general knowledge questions and chat with you about various topics. But if you'd like to make a live trade, I recommend checking out the Rainmaker Morning app or texting PULSE, PICKS, TRADES, SCAN, RESEARCH, BRIEF, or HERO for more information.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-06",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1107.9
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "I'd verify the market pulse first because it's a real-time snapshot of the current market regime, lean, and confidence level, which can give us a quick understanding of the market's sentiment and momentum. If the market pulse and scan data disagree, it's possible that the scan data is based on historical or delayed data, so the pulse would give us a better sense of what's happening right now.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-07",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1121.4
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "Earlier, we discussed a potential disagreement between the scan data and the market pulse. To recall, the context is that the market pulse is a real-time indicator of the current market sentiment and momentum, while the scan data might be based on historical or delayed data.\n\nTo identify any missing context, I'd like to ask: were we exploring how to reconcile the difference between the two data sources in a specific scenario, such as during a trade or when making a decision? Are there any specific stocks, assets, or market conditions we should consider?",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-08",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1069.8
+    },
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "One useful next step for the morning is to open the Rainmaker Morning app to view your customized market scans and get the latest market insights and news. This will give you a quick snapshot of the markets and help you make more informed decisions.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-09",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1136.5
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-10",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1089.8
+    }
+  ],
+  "room": "sam-wave8-embedded-b9b9a65f8ea7",
+  "sam_brain": "groq",
+  "turn_mode": "stt"
+}

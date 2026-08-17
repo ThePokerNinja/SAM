@@ -22,14 +22,23 @@ class RegistryMetadataTests(unittest.TestCase):
         self.registry = ToolRegistry()
         register_rainmaker_tools(self.registry)
 
-    def test_registers_nine_rainmaker_tools(self) -> None:
-        self.assertEqual(len(self.registry.names()), 9)
+    def test_registers_fourteen_rainmaker_tools(self) -> None:
+        self.assertEqual(len(self.registry.names()), 14)
 
     def test_read_only_tools(self) -> None:
         read_only = {s.name for s in self.registry.specs() if s.read_only}
         self.assertEqual(
             read_only,
-            {"get_scans", "get_pulse", "get_trades", "get_research", "get_brief"},
+            {
+                "get_scans",
+                "get_pulse",
+                "get_trades",
+                "get_research",
+                "get_brief",
+                "list_studio_runs",
+                "studio_asset_status",
+                "studio_campaign_report",
+            },
         )
 
     def test_requires_approval_tools(self) -> None:
@@ -68,7 +77,7 @@ class RegistryBuildTests(unittest.TestCase):
             function_tool=_identity_decorator,
             owner_refusal=self.owner_refusal,
         )
-        self.assertEqual(len(tools), 9)
+        self.assertEqual(len(tools), 14)
 
     def test_owner_gate_blocks_trigger_tool(self) -> None:
         tools = self.registry.build_livekit_tools(

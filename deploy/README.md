@@ -112,6 +112,9 @@ After changing a non-secret in `render.yaml`:
 2. If it is stale, edit the dashboard value or sync the Blueprint, then redeploy.
 3. Do not treat “hook returned 200” as “new env is live.”
 
+Wave 8.2: dashboard ``SAM_BRAIN=openai`` is treated as a stale 8.1 pin. The worker
+uses Groq 8b whenever ``GROQ_API_KEY`` is set. Roll back with ``SAM_BRAIN=openai-legacy``.
+
 ### Deploy hook env vars (optional)
 
 Copy the **full** URL from Render -> **that service** -> **Settings** -> **Deploy Hook** (must include `?key=...`).
