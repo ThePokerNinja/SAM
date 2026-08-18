@@ -105,7 +105,7 @@ services:
       - key: SAM_INTERRUPT_MIN_WORDS
         value: "1"
       - key: SAM_INTERRUPTION_MODE
-        value: adaptive
+        value: vad
       - key: SAM_ENDPOINTING_MIN
         value: "0.25"
       - key: SAM_ENDPOINTING_MAX

@@ -375,6 +375,32 @@ class LiveKitAudioDriver:
             await asyncio.sleep(AUDIO_FRAME_MS / 1000.0)
         return PublishTiming(started, first_voice_at or started, last_voice_at)
 
+    async def publish_silence(self, duration_s: float) -> None:
+        """Keep the upstream STT stream alive while pacing LLM requests."""
+        if duration_s <= 0:
+            return
+        samples_per_frame = self.sample_rate * AUDIO_FRAME_MS // 1000
+        silence = b"\x00" * (samples_per_frame * 2)
+        frame_count = max(1, round(duration_s * 1000 / AUDIO_FRAME_MS))
+        for _ in range(frame_count):
+            await self.source.capture_frame(
+                rtc.AudioFrame(
+                    data=silence,
+                    sample_rate=self.sample_rate,
+                    num_channels=1,
+                    samples_per_channel=samples_per_frame,
+                )
+            )
+            await asyncio.sleep(AUDIO_FRAME_MS / 1000.0)
+
+    async def wait_agent_idle(self, timeout_s: float = 60.0) -> None:
+        """Do not let an ordinary matrix turn become an accidental interruption."""
+        deadline = time.perf_counter() + timeout_s
+        while self._speaking:
+            if time.perf_counter() >= deadline:
+                raise TimeoutError("timed out waiting for agent audio to finish")
+            await asyncio.sleep(0.05)
+
     async def wait_event(
         self,
         kind: str,

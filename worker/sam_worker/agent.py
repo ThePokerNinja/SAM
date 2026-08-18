@@ -550,6 +550,7 @@ async def entrypoint(ctx: JobContext) -> None:
             "sam_brain_env": s.sam_brain or "",
             "resolved_brain": resolved,
             "turn_mode": s.turn_mode,
+            "interruption_mode": s.interruption_mode,
             "stt_model": stt_label,
             "surface": surface,
             "endpoint_min": s.endpoint_min,

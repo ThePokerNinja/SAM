@@ -21,7 +21,7 @@
     {"id": "long-08", "kind": "long", "file": "long-08.wav", "transcript": "Recall the topic we discussed earlier, connect it to the current question, and identify any missing context."},
     {"id": "long-09", "kind": "long", "file": "long-09.wav", "transcript": "Describe one useful next step for the morning without inventing a price, account balance, or position."},
     {"id": "long-10", "kind": "long", "file": "long-10.wav", "transcript": "Walk through the latest Rainmaker information in a calm order and stop after the most actionable observation."},
-    {"id": "barge-prompt", "kind": "barge_prompt", "file": "barge-prompt.wav", "transcript": "Give me a detailed two minute explanation of every capability you have, with examples for each one."},
+    {"id": "barge-prompt", "kind": "barge_prompt", "file": "barge-prompt.wav", "transcript": "Tell me a calm four sentence story about a trader."},
     {"id": "interrupt-stop", "kind": "interruption", "file": "interrupt-stop.wav", "transcript": "Stop, hold on."},
     {"id": "decoy-mmhmm", "kind": "decoy", "file": "decoy-mmhmm.wav", "transcript": "Mm hmm."},
     {"id": "decoy-yeah", "kind": "decoy", "file": "decoy-yeah.wav", "transcript": "Yeah."}

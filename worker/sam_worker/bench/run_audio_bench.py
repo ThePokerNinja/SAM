@@ -308,18 +308,18 @@ async def _run(args) -> dict:
         await driver.wait_ready(timeout_s=args.agent_timeout)
         await driver.wait_initial_greeting()
         for index, fixture in enumerate(turns):
-            results.append(
-                await driver.measure_turn(
-                    fixture,
-                    turn_mode=args.turn_mode,
-                    timeout_s=args.turn_timeout,
-                )
+            result = await driver.measure_turn(
+                fixture,
+                turn_mode=args.turn_mode,
+                timeout_s=args.turn_timeout,
             )
+            results.append(result)
+            await driver.wait_agent_idle(timeout_s=max(60.0, args.turn_timeout))
             more_requests_follow = index < len(turns) - 1 or (
                 not args.skip_barge and prompt is not None and interruption is not None
             )
             if args.inter_turn_delay > 0 and more_requests_follow:
-                await asyncio.sleep(args.inter_turn_delay)
+                await driver.publish_silence(args.inter_turn_delay)
         if not args.skip_barge and prompt is not None and interruption is not None:
             results.append(
                 await driver.measure_barge_in(
