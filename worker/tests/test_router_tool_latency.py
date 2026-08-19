@@ -110,6 +110,11 @@ def test_calendar_turn_requires_the_selected_tool_call() -> None:
     def fake_parent(self, chat_ctx, tools, model_settings):
         seen["tools"] = [getattr(tool, "__name__", "") for tool in (tools or [])]
         seen["tool_choice"] = model_settings.tool_choice
+        seen["developer"] = [
+            str(message.text_content or "")
+            for message in chat_ctx.messages()
+            if message.role == "developer"
+        ]
         return "calendar"
 
     async def direct(_decision):
@@ -149,8 +154,11 @@ def test_calendar_turn_requires_the_selected_tool_call() -> None:
     finally:
         Agent.llm_node = original
     assert result == "calendar"
-    assert seen["tools"] == ["get_calendar_events", "propose_calendar_change"]
+    assert seen["tools"] == ["propose_calendar_change"]
     assert seen["tool_choice"] == "required"
+    assert any(
+        "action='update'" in message for message in seen["developer"]
+    )
 
 
 def test_direct_route_bypasses_primary_llm_node() -> None:

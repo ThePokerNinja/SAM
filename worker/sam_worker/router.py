@@ -22,7 +22,11 @@ from .tools.handlers import (
     handle_get_scans,
     handle_get_trades,
 )
-from .tools.select import filter_tools, select_tools_for_utterance
+from .tools.select import (
+    calendar_action_for_utterance,
+    filter_tools,
+    select_tools_for_utterance,
+)
 
 _log = logging.getLogger("sam.router")
 _NON_ALNUM = re.compile(r"[^a-z0-9 ]+")
@@ -220,6 +224,17 @@ class RoutedSamuelAgent(Agent):
         available = list(tools or [])
         names = select_tools_for_utterance(text)
         selected = filter_tools(available, names)
+        calendar_action = calendar_action_for_utterance(text)
+        if calendar_action and "propose_calendar_change" in names:
+            chat_ctx.add_message(
+                role="developer",
+                content=(
+                    "Required calendar mutation for this turn: call "
+                    f"propose_calendar_change with action={calendar_action!r}. "
+                    "Do not substitute another action and do not claim a read-back "
+                    "without the tool result."
+                ),
+            )
         if self._history_token_cap:
             removed = trim_chat_context_tokens(chat_ctx, self._history_token_cap)
             if removed:

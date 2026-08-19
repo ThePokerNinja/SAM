@@ -67,6 +67,18 @@ def _has_any(text: str, needles: tuple[str, ...]) -> bool:
     return any(needle in text for needle in needles)
 
 
+def calendar_action_for_utterance(utterance: str) -> str | None:
+    """Map explicit scheduling verbs to the proposal action they permit."""
+    text = _normalize(utterance)
+    if _has_any(text, ("cancel", "delete", "remove", "clear")):
+        return "cancel"
+    if _has_any(text, ("move", "reschedule", "change", "update", "shift")):
+        return "update"
+    if _has_any(text, ("book", "schedule", "create", "add", "put", "hold")):
+        return "create"
+    return None
+
+
 def select_tools_for_utterance(utterance: str) -> list[str]:
     """Return the tool names the LLM should see for this utterance.
 
@@ -105,27 +117,10 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
             selected.append("send_brief")
     if _has_any(text, ("hero", "character card", "stats card")):
         selected.append("send_hero")
-    calendar_action = _has_any(
-        text,
-        (
-            "book",
-            "schedule",
-            "create",
-            "add",
-            "put",
-            "hold",
-            "move",
-            "reschedule",
-            "change",
-            "update",
-            "shift",
-            "cancel",
-            "delete",
-            "remove",
-            "clear",
-        ),
-    )
-    if calendar_action or _has_any(
+    calendar_action = calendar_action_for_utterance(utterance)
+    if calendar_action:
+        selected.append("propose_calendar_change")
+    elif _has_any(
         text,
         (
             "calendar",
@@ -138,8 +133,6 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         ),
     ):
         selected.append("get_calendar_events")
-        if calendar_action:
-            selected.append("propose_calendar_change")
     if (
         _has_any(text, ("queue research", "research"))
         and _TICKER.search(raw)

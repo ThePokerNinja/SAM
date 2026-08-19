@@ -13,6 +13,7 @@ from sam_worker.prompt_budget import (
 from sam_worker.tools.select import (
     STUDIO_TOOLS,
     VOICE_TOOLS,
+    calendar_action_for_utterance,
     filter_tools,
     select_tools_for_utterance,
 )
@@ -67,9 +68,7 @@ def test_select_calendar_proposal_then_confirmation() -> None:
     proposal_names = select_tools_for_utterance(
         "Book a dentist appointment tomorrow at three"
     )
-    assert "get_calendar_events" in proposal_names
-    assert "propose_calendar_change" in proposal_names
-    assert "commit_calendar_change" not in proposal_names
+    assert proposal_names == ["propose_calendar_change"]
 
     confirm_names = select_tools_for_utterance("Yes, confirm it")
     assert confirm_names == ["commit_calendar_change"]
@@ -79,7 +78,15 @@ def test_select_move_without_calendar_noun_and_commit_only_confirmation() -> Non
     move_names = select_tools_for_utterance(
         "Move Samuel scheduling proof to Wednesday at four"
     )
-    assert move_names == ["get_calendar_events", "propose_calendar_change"]
+    assert move_names == ["propose_calendar_change"]
+    assert (
+        calendar_action_for_utterance(
+            "Move Samuel scheduling proof to Wednesday at four"
+        )
+        == "update"
+    )
+    assert calendar_action_for_utterance("Cancel dentist tomorrow") == "cancel"
+    assert calendar_action_for_utterance("Book coffee tomorrow") == "create"
 
     confirm_names = select_tools_for_utterance(
         "I confirm the calendar change now"
