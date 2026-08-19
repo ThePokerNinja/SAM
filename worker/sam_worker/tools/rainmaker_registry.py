@@ -331,9 +331,11 @@ def _build_propose_calendar_change(
         all_day: bool | None = None,
         timezone: str | None = None,
     ) -> str:
+        preserve_duration = False
         if isinstance(turn_state, dict):
             action = str(turn_state.get("action") or action)
             if action == "update" and turn_state.get("preserve_duration"):
+                preserve_duration = True
                 end = None
                 duration_minutes = None
         return await handle_propose_calendar_change(
@@ -350,6 +352,7 @@ def _build_propose_calendar_change(
             location=location,
             all_day=all_day,
             timezone=timezone,
+            preserve_duration=preserve_duration,
         )
 
     return propose_calendar_change

@@ -148,6 +148,7 @@ class RegistryBuildTests(unittest.TestCase):
         self.assertEqual(seen["action"], "update")
         self.assertIsNone(seen["end"])
         self.assertIsNone(seen["duration_minutes"])
+        self.assertIs(seen["preserve_duration"], True)
 
     def test_owner_gate_blocks_trigger_tool(self) -> None:
         tools = self.registry.build_livekit_tools(
