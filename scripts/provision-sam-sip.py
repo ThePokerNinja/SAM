@@ -80,20 +80,24 @@ async def main() -> None:
                     ),
                     trunk_ids=[trunk.sip_trunk_id],
                     name=RULE_NAME,
-                    hide_phone_number=True,
+                    hide_phone_number=False,
                 )
             )
             print(f"created dispatch rule {rule.sip_dispatch_rule_id}")
         else:
-            rule = await client.sip.update_sip_dispatch_rule_fields(
+            rule = await client.sip.update_sip_dispatch_rule(
                 rule.sip_dispatch_rule_id,
-                trunk_ids=[trunk.sip_trunk_id],
-                rule=api.SIPDispatchRule(
-                    dispatch_rule_individual=api.SIPDispatchRuleIndividual(
-                        room_prefix="call-"
-                    )
+                api.SIPDispatchRuleInfo(
+                    sip_dispatch_rule_id=rule.sip_dispatch_rule_id,
+                    name=RULE_NAME,
+                    trunk_ids=[trunk.sip_trunk_id],
+                    hide_phone_number=False,
+                    rule=api.SIPDispatchRule(
+                        dispatch_rule_individual=api.SIPDispatchRuleIndividual(
+                            room_prefix="call-"
+                        )
+                    ),
                 ),
-                name=RULE_NAME,
             )
             print(f"reconciled dispatch rule {rule.sip_dispatch_rule_id}")
     finally:

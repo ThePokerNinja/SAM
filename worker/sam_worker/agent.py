@@ -114,6 +114,17 @@ def sip_caller_is_authorized(participants, owner_numbers: tuple[str, ...]) -> bo
     return bool(callers) and not callers.isdisjoint(allowed)
 
 
+async def _wait_for_sip_participants(room, *, timeout_s: float = 12.0):
+    """SIP callers join slightly after the agent connects; gating too early rejects everyone."""
+    deadline = time.perf_counter() + timeout_s
+    while time.perf_counter() < deadline:
+        participants = list(room.remote_participants.values())
+        if participants:
+            return participants
+        await asyncio.sleep(0.1)
+    return list(room.remote_participants.values())
+
+
 load_dotenv()
 _log = logging.getLogger("sam.agent")
 
@@ -535,7 +546,8 @@ async def entrypoint(ctx: JobContext) -> None:
         and (
             not s.sip_owner_numbers
             or not sip_caller_is_authorized(
-                ctx.room.remote_participants.values(), s.sip_owner_numbers
+                await _wait_for_sip_participants(ctx.room),
+                s.sip_owner_numbers,
             )
         )
     ):
