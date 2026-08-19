@@ -34,3 +34,8 @@ def test_llm_completion_budget_is_clamped(monkeypatch):
     assert Settings.from_env().llm_max_completion_tokens == 64
     monkeypatch.setenv("SAM_LLM_MAX_COMPLETION_TOKENS", "5000")
     assert Settings.from_env().llm_max_completion_tokens == 1024
+
+
+def test_llm_completion_budget_defaults_to_calendar_safe_limit(monkeypatch):
+    monkeypatch.delenv("SAM_LLM_MAX_COMPLETION_TOKENS", raising=False)
+    assert Settings.from_env().llm_max_completion_tokens == 512

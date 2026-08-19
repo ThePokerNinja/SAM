@@ -118,7 +118,9 @@ class Settings:
     groq_api_key: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
     groq_model: str = "openai/gpt-oss-20b"
-    llm_max_completion_tokens: int = 256
+    # Tool calls on gpt-oss include hidden reasoning in this budget. Calendar
+    # proposals can exhaust 256 tokens before the JSON call is emitted.
+    llm_max_completion_tokens: int = 512
     # SAM_BRAIN: "openai" | "groq" | "hybrid" | "hermes" — explicit override (else auto-detect).
     # hybrid uses Groq for the session LLM; the fast router covers tool turns.
     sam_brain: str = ""
@@ -184,7 +186,7 @@ class Settings:
             llm_max_completion_tokens=max(
                 64,
                 min(
-                    int(os.getenv("SAM_LLM_MAX_COMPLETION_TOKENS", "256") or 256),
+                    int(os.getenv("SAM_LLM_MAX_COMPLETION_TOKENS", "512") or 512),
                     1024,
                 ),
             ),

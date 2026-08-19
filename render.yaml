@@ -79,7 +79,7 @@ services:
       - key: GROQ_MODEL
         value: openai/gpt-oss-20b
       - key: SAM_LLM_MAX_COMPLETION_TOKENS
-        value: "256"
+        value: "512"
       - key: ELEVENLABS_API_KEY
         sync: false
       - key: ELEVENLABS_MODEL

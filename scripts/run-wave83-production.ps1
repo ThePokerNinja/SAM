@@ -28,7 +28,7 @@ if (-not $SkipDeploy) {
         "SAM_INTERRUPTION_MODE=vad",
         "SAM_STT_MODEL=deepgram/nova-3",
         "GROQ_MODEL=openai/gpt-oss-20b",
-        "SAM_LLM_MAX_COMPLETION_TOKENS=256"
+        "SAM_LLM_MAX_COMPLETION_TOKENS=512"
     ) `
     -RequiredEnv @("DEEPGRAM_API_KEY", "GROQ_API_KEY")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -59,7 +59,7 @@ try {
         --expect-worker-info resolved_brain=groq `
         --expect-worker-info brain=groq:openai/gpt-oss-20b `
         --expect-worker-info interruption_mode=vad `
-        --expect-worker-info llm_max_completion_tokens=256 `
+        --expect-worker-info llm_max_completion_tokens=512 `
         --expect-worker-info stt_model=deepgram/nova-3 `
         --expect-worker-info surface=portal `
         --arm wave83-production
