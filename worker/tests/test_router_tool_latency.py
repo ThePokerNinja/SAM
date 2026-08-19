@@ -184,10 +184,8 @@ def test_calendar_turn_requires_the_selected_tool_call() -> None:
     assert any(
         "action='update'" in message for message in seen["developer"]
     )
-    assert calendar_turn_state == {
-        "action": "update",
-        "preserve_duration": True,
-    }
+    assert calendar_turn_state["action"] == "update"
+    assert calendar_turn_state["preserve_duration"] is True
 
 
 def test_direct_route_bypasses_primary_llm_node() -> None:

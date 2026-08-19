@@ -339,7 +339,7 @@ def _build_propose_calendar_change(
                 preserve_duration = True
                 end = None
                 duration_minutes = None
-        return await handle_propose_calendar_change(
+        result = await handle_propose_calendar_change(
             client,
             session_id=session_id,
             action=action,
@@ -355,6 +355,9 @@ def _build_propose_calendar_change(
             timezone=timezone,
             preserve_duration=preserve_duration,
         )
+        if isinstance(turn_state, dict):
+            turn_state["completed"] = True
+        return result
 
     return propose_calendar_change
 

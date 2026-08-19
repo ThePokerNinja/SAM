@@ -102,6 +102,9 @@ def test_schedule_question_selects_read_instead_of_create() -> None:
         "Check my calendar for upcoming meetings"
     ) == ["get_calendar_events"]
     assert select_tools_for_utterance(
+        "My schedule today"
+    ) == ["get_calendar_events"]
+    assert select_tools_for_utterance(
         "Schedule a meeting tomorrow at noon"
     ) == ["propose_calendar_change"]
 

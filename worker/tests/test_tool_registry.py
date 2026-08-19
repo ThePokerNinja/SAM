@@ -112,6 +112,10 @@ class RegistryBuildTests(unittest.TestCase):
 
     def test_calendar_turn_state_overrides_conflicting_model_action(self) -> None:
         seen: dict[str, Any] = {}
+        turn_state = {
+            "action": "update",
+            "preserve_duration": True,
+        }
 
         class Spy:
             async def propose_calendar_change(self, **fields: Any) -> dict:
@@ -128,10 +132,7 @@ class RegistryBuildTests(unittest.TestCase):
             owner_refusal=self.owner_refusal,
             deps={
                 "session_id": "call-move",
-                "calendar_turn_state": {
-                    "action": "update",
-                    "preserve_duration": True,
-                },
+                "calendar_turn_state": turn_state,
             },
             only=["propose_calendar_change"],
         )
@@ -149,6 +150,7 @@ class RegistryBuildTests(unittest.TestCase):
         self.assertIsNone(seen["end"])
         self.assertIsNone(seen["duration_minutes"])
         self.assertIs(seen["preserve_duration"], True)
+        self.assertIs(turn_state["completed"], True)
 
     def test_owner_gate_blocks_trigger_tool(self) -> None:
         tools = self.registry.build_livekit_tools(

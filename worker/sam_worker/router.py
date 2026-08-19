@@ -219,6 +219,12 @@ class RoutedSamuelAgent(Agent):
             getattr(item, "type", "") == "function_call_output"
             for item in items[last_user_index + 1 :]
         )
+        if (
+            self._calendar_turn_state
+            and self._calendar_turn_state.get("user_text") == text
+            and self._calendar_turn_state.get("completed")
+        ):
+            tool_completed = True
         started = time.perf_counter()
         decision = self._router.classify(text)
         route_ms = (time.perf_counter() - started) * 1000.0
@@ -240,8 +246,9 @@ class RoutedSamuelAgent(Agent):
         names = [] if tool_completed else select_tools_for_utterance(text)
         selected = filter_tools(available, names)
         calendar_action = calendar_action_for_utterance(text)
-        if self._calendar_turn_state is not None:
+        if self._calendar_turn_state is not None and not tool_completed:
             self._calendar_turn_state.clear()
+            self._calendar_turn_state["user_text"] = text
             if calendar_action:
                 self._calendar_turn_state["action"] = calendar_action
                 self._calendar_turn_state["preserve_duration"] = (

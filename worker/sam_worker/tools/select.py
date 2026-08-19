@@ -92,7 +92,10 @@ def calendar_action_for_utterance(utterance: str) -> str | None:
         return "cancel"
     if _has_any(text, ("move", "reschedule", "change", "update", "shift")):
         return "update"
-    if _has_any(text, ("book", "schedule", "create", "add", "put", "hold")):
+    if _has_any(text, ("book", "create", "add", "put", "hold")) or re.search(
+        r"\bschedule (?:a |an |the |my )?(?:meeting|appointment|event|call|coffee|lunch)\b",
+        text,
+    ):
         return "create"
     return None
 
