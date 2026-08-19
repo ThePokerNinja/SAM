@@ -470,6 +470,7 @@ async def entrypoint(ctx: JobContext) -> None:
         deps={
             "run_scan_bg": _run_scan_bg,
             "tool_latency_manager": tool_latency_manager,
+            "session_id": session_id,
         },
     )
     rm_mode = "mock" if (s.sam_mock_rm or not s.rm_api_base_url) else "http:" + s.rm_api_base_url

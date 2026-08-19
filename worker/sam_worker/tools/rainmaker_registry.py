@@ -20,9 +20,8 @@ from .handlers import (
     handle_record_studio_publish,
     handle_send_brief,
     handle_send_hero,
-    handle_create_calendar_event,
-    handle_update_calendar_event,
-    handle_cancel_calendar_event,
+    handle_commit_calendar_change,
+    handle_propose_calendar_change,
     handle_studio_asset_status,
     handle_studio_campaign_report,
 )
@@ -169,30 +168,26 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     )
     registry.register(
         ToolSpec(
-            name="create_calendar_event",
-            description="Create a calendar event. Owner only. Args: summary, start, end.",
+            name="propose_calendar_change",
+            description=(
+                "Prepare a create, update, or cancel and read it back for confirmation. "
+                "Never commit in the same turn."
+            ),
             read_only=False,
-            requires_approval=True,
+            requires_approval=False,
         ),
-        _build_create_calendar_event,
+        _build_propose_calendar_change,
     )
     registry.register(
         ToolSpec(
-            name="update_calendar_event",
-            description="Move or edit a calendar event. Owner only. Args: event_id.",
+            name="commit_calendar_change",
+            description=(
+                "Commit the latest pending calendar change after the owner says yes."
+            ),
             read_only=False,
             requires_approval=True,
         ),
-        _build_update_calendar_event,
-    )
-    registry.register(
-        ToolSpec(
-            name="cancel_calendar_event",
-            description="Cancel a calendar event. Owner only. Arg: event_id.",
-            read_only=False,
-            requires_approval=True,
-        ),
-        _build_cancel_calendar_event,
+        _build_commit_calendar_change,
     )
 
 
@@ -315,63 +310,52 @@ def _build_get_calendar_events(client: Any, _is_owner: Any, _deps: dict[str, Any
     return get_calendar_events
 
 
-def _build_create_calendar_event(client: Any, _is_owner: Any, _deps: dict[str, Any]):
-    async def create_calendar_event(
+def _build_propose_calendar_change(
+    client: Any, _is_owner: Any, deps: dict[str, Any]
+):
+    session_id = str(deps.get("session_id") or "samuel-voice")
+
+    async def propose_calendar_change(
         context: RunContext,
-        summary: str,
-        start: str,
-        end: str,
+        action: str,
+        summary: str = "",
+        start: str = "",
+        end: str = "",
+        event_id: str = "",
+        event_query: str = "",
         description: str = "",
         location: str = "",
         all_day: bool = False,
         timezone: str = "America/Los_Angeles",
     ) -> str:
-        return await handle_create_calendar_event(
+        return await handle_propose_calendar_change(
             client,
+            session_id=session_id,
+            action=action,
             summary=summary,
             start=start,
             end=end,
+            event_id=event_id,
+            event_query=event_query,
             description=description,
             location=location,
             all_day=all_day,
             timezone=timezone,
         )
 
-    return create_calendar_event
+    return propose_calendar_change
 
 
-def _build_update_calendar_event(client: Any, _is_owner: Any, _deps: dict[str, Any]):
-    async def update_calendar_event(
-        context: RunContext,
-        event_id: str,
-        summary: str = "",
-        start: str = "",
-        end: str = "",
-        description: str = "",
-        location: str = "",
-        all_day: bool = False,
-        timezone: str = "America/Los_Angeles",
+def _build_commit_calendar_change(
+    client: Any, _is_owner: Any, deps: dict[str, Any]
+):
+    session_id = str(deps.get("session_id") or "samuel-voice")
+
+    async def commit_calendar_change(
+        context: RunContext, proposal_id: str = ""
     ) -> str:
-        fields: dict[str, Any] = {"timezone": timezone}
-        if summary:
-            fields["summary"] = summary
-        if start:
-            fields["start"] = start
-        if end:
-            fields["end"] = end
-        if description:
-            fields["description"] = description
-        if location:
-            fields["location"] = location
-        if all_day:
-            fields["all_day"] = True
-        return await handle_update_calendar_event(client, event_id, **fields)
+        return await handle_commit_calendar_change(
+            client, session_id=session_id, proposal_id=proposal_id
+        )
 
-    return update_calendar_event
-
-
-def _build_cancel_calendar_event(client: Any, _is_owner: Any, _deps: dict[str, Any]):
-    async def cancel_calendar_event(context: RunContext, event_id: str) -> str:
-        return await handle_cancel_calendar_event(client, event_id)
-
-    return cancel_calendar_event
+    return commit_calendar_change

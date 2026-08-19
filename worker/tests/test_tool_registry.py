@@ -22,8 +22,8 @@ class RegistryMetadataTests(unittest.TestCase):
         self.registry = ToolRegistry()
         register_rainmaker_tools(self.registry)
 
-    def test_registers_fourteen_rainmaker_tools(self) -> None:
-        self.assertEqual(len(self.registry.names()), 14)
+    def test_registers_seventeen_rainmaker_tools(self) -> None:
+        self.assertEqual(len(self.registry.names()), 17)
 
     def test_read_only_tools(self) -> None:
         read_only = {s.name for s in self.registry.specs() if s.read_only}
@@ -38,6 +38,7 @@ class RegistryMetadataTests(unittest.TestCase):
                 "list_studio_runs",
                 "studio_asset_status",
                 "studio_campaign_report",
+                "get_calendar_events",
             },
         )
 
@@ -45,7 +46,13 @@ class RegistryMetadataTests(unittest.TestCase):
         gated = {s.name for s in self.registry.specs() if s.requires_approval}
         self.assertEqual(
             gated,
-            {"run_scan", "queue_research", "send_brief", "send_hero"},
+            {
+                "run_scan",
+                "queue_research",
+                "send_brief",
+                "send_hero",
+                "commit_calendar_change",
+            },
         )
 
     def test_duplicate_register_raises(self) -> None:
@@ -77,7 +84,7 @@ class RegistryBuildTests(unittest.TestCase):
             function_tool=_identity_decorator,
             owner_refusal=self.owner_refusal,
         )
-        self.assertEqual(len(tools), 14)
+        self.assertEqual(len(tools), 17)
 
     def test_owner_gate_blocks_trigger_tool(self) -> None:
         tools = self.registry.build_livekit_tools(
@@ -90,16 +97,39 @@ class RegistryBuildTests(unittest.TestCase):
         out = asyncio.run(tools[0](None))
         self.assertEqual(out, self.owner_refusal)
 
-    def test_owner_gate_exposes_only_context_parameter(self) -> None:
+    def test_owner_gate_preserves_multi_argument_signature(self) -> None:
+        class Spy:
+            async def queue_research(self, prompt: str) -> dict:
+                return {"ok": True, "shortId": "abc", "queuedAhead": 0}
+
         tools = self.registry.build_livekit_tools(
-            client=object(),
+            client=Spy(),
             is_owner=lambda: True,
             function_tool=_identity_decorator,
             owner_refusal=self.owner_refusal,
-            only=["run_scan"],
+            only=["queue_research"],
         )
-        self.assertEqual(list(inspect.signature(tools[0]).parameters), ["context"])
+        self.assertEqual(
+            list(inspect.signature(tools[0]).parameters), ["context", "topic"]
+        )
         self.assertIs(get_type_hints(tools[0])["context"], RunContext)
+        out = asyncio.run(tools[0](None, "NVDA earnings"))
+        self.assertIn("Queued your research", out)
+
+    def test_owner_gate_blocks_multi_argument_tool(self) -> None:
+        class Spy:
+            async def queue_research(self, prompt: str) -> dict:
+                raise AssertionError("owner-gated handler must not execute")
+
+        tools = self.registry.build_livekit_tools(
+            client=Spy(),
+            is_owner=lambda: False,
+            function_tool=_identity_decorator,
+            owner_refusal=self.owner_refusal,
+            only=["queue_research"],
+        )
+        out = asyncio.run(tools[0](None, "NVDA earnings"))
+        self.assertEqual(out, self.owner_refusal)
 
     def test_builder_invokes_handler(self) -> None:
         class Spy:

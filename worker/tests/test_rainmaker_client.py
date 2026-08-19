@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import unittest
 
 import httpx
@@ -246,6 +247,66 @@ class BriefHeroTests(unittest.TestCase):
         self.assertTrue(res["ok"])
         self.assertTrue(res["sent"])
         self.assertTrue(captured["url"].endswith("/notify/test-hero"))
+
+
+class CalendarProposalTests(unittest.TestCase):
+    def test_propose_calendar_change_posts_fields(self) -> None:
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["method"] = request.method
+            captured["url"] = str(request.url)
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "proposal": {
+                        "proposal_id": "p1",
+                        "readback": "Create Coffee tomorrow?",
+                    },
+                },
+            )
+
+        result = asyncio.run(
+            _client(handler).propose_calendar_change(
+                session_id="call-1",
+                action="create",
+                summary="Coffee",
+            )
+        )
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["proposal"]["proposal_id"], "p1")
+        self.assertEqual(captured["method"], "POST")
+        self.assertTrue(captured["url"].endswith("/calendar/proposals"))
+        self.assertEqual(captured["body"]["session_id"], "call-1")
+
+    def test_commit_calendar_change_posts_session(self) -> None:
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "result": {
+                        "action": "create",
+                        "event": {"id": "google-1"},
+                    },
+                },
+            )
+
+        result = asyncio.run(
+            _client(handler).commit_calendar_change("call-1", "p1")
+        )
+        self.assertTrue(result["ok"])
+        self.assertTrue(captured["url"].endswith("/calendar/proposals/commit"))
+        self.assertEqual(
+            captured["body"],
+            {"session_id": "call-1", "proposal_id": "p1"},
+        )
 
 
 class FailureModeTests(unittest.TestCase):

@@ -76,6 +76,10 @@ class RainmakerClient(Protocol):
     async def make_studio_deliverable(self, type: str, run_id: str = "") -> dict: ...
     async def record_studio_publish(self, asset_id: str, url: str) -> dict: ...
     async def get_calendar_events(self, days: int = 7) -> dict: ...
+    async def propose_calendar_change(self, **fields: Any) -> dict: ...
+    async def commit_calendar_change(
+        self, session_id: str, proposal_id: str = ""
+    ) -> dict: ...
     async def create_calendar_event(self, **fields: Any) -> dict: ...
     async def update_calendar_event(self, event_id: str, **fields: Any) -> dict: ...
     async def cancel_calendar_event(self, event_id: str) -> dict: ...
@@ -144,6 +148,31 @@ class MockRainmakerClient:
             ],
         }
 
+    async def propose_calendar_change(self, **fields: Any) -> dict:
+        return {
+            "ok": True,
+            "proposal": {
+                "proposal_id": "mock-proposal",
+                "readback": f"Create {fields.get('summary') or 'Event'} tomorrow at 10 AM?",
+            },
+        }
+
+    async def commit_calendar_change(
+        self, session_id: str, proposal_id: str = ""
+    ) -> dict:
+        return {
+            "ok": True,
+            "result": {
+                "proposal_id": proposal_id or "mock-proposal",
+                "action": "create",
+                "event": {
+                    "id": "mock-new",
+                    "summary": "Event",
+                    "start": "2026-08-20T10:00:00-07:00",
+                },
+            },
+        }
+
     async def create_calendar_event(self, **fields: Any) -> dict:
         return {
             "ok": True,
@@ -188,6 +217,7 @@ class HttpRainmakerClient:
     STUDIO_MAKE_PATH = "/studio/make"
     STUDIO_PUBLISH_PATH = "/studio/publish"
     CALENDAR_EVENTS_PATH = "/calendar/events"
+    CALENDAR_PROPOSALS_PATH = "/calendar/proposals"
     _LONG_TIMEOUT = 30.0
 
     def __init__(
@@ -484,6 +514,29 @@ class HttpRainmakerClient:
             return {"ok": False, "error": res["error"]}
         data = res.get("data") or {}
         return {"ok": bool(data.get("ok", True)), "events": data.get("events") or [], "error": data.get("error")}
+
+    async def propose_calendar_change(self, **fields: Any) -> dict:
+        res = await self._post(self.CALENDAR_PROPOSALS_PATH, body=fields)
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        if not data.get("ok"):
+            return {"ok": False, "error": data.get("error") or "calendar_proposal_failed"}
+        return {"ok": True, "proposal": data.get("proposal") or {}}
+
+    async def commit_calendar_change(
+        self, session_id: str, proposal_id: str = ""
+    ) -> dict:
+        res = await self._post(
+            f"{self.CALENDAR_PROPOSALS_PATH}/commit",
+            body={"session_id": session_id, "proposal_id": proposal_id},
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        if not data.get("ok"):
+            return {"ok": False, "error": data.get("error") or "calendar_commit_failed"}
+        return {"ok": True, "result": data.get("result") or {}}
 
     async def create_calendar_event(self, **fields: Any) -> dict:
         res = await self._post(self.CALENDAR_EVENTS_PATH, body=fields)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -86,10 +87,13 @@ class ToolRegistry:
                 original = raw
 
                 def _owner_gated(handler: Callable[..., Awaitable[str]]):
-                    async def _gated(context: RunContext) -> str:
+                    @functools.wraps(handler)
+                    async def _gated(
+                        context: RunContext, *args: Any, **kwargs: Any
+                    ) -> str:
                         if not is_owner():
                             return owner_refusal
-                        return await handler(context)
+                        return await handler(context, *args, **kwargs)
 
                     return _gated
 

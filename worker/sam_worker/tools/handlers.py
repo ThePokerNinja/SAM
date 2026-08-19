@@ -240,8 +240,45 @@ async def handle_get_calendar_events(client: RainmakerClient, days: int = 7) -> 
     for ev in events[:6]:
         title = ev.get("summary") or "(no title)"
         start = ev.get("start") or "?"
-        lines.append(f"{title} at {start}")
+        event_id = ev.get("id") or ""
+        lines.append(f"{title} at {start} [event_id={event_id}]")
     return ("Upcoming: " + "; ".join(lines))[:_MAX_SPOKEN]
+
+
+async def handle_propose_calendar_change(
+    client: RainmakerClient, **fields: Any
+) -> str:
+    res = await client.propose_calendar_change(**fields)
+    if not res.get("ok"):
+        return f"I couldn't prepare that calendar change ({res.get('error') or 'unknown'})."
+    proposal = res.get("proposal") or {}
+    return (
+        f"{proposal.get('readback')} Say yes to confirm. "
+        f"[proposal_id={proposal.get('proposal_id')}]"
+    )[:_MAX_SPOKEN]
+
+
+async def handle_commit_calendar_change(
+    client: RainmakerClient, session_id: str, proposal_id: str = ""
+) -> str:
+    res = await client.commit_calendar_change(session_id, proposal_id)
+    if not res.get("ok"):
+        error = res.get("error") or "unknown"
+        if error == "confirmation_required":
+            return "Please confirm the calendar change after I read it back."
+        if error == "no_pending_proposal":
+            return "There's no pending calendar change to confirm."
+        return f"I couldn't commit that calendar change ({error})."
+    result = res.get("result") or {}
+    action = result.get("action")
+    event = result.get("event") or {}
+    if action == "cancel":
+        return "Canceled the calendar event."
+    verb = "Booked" if action == "create" else "Updated"
+    return (
+        f"{verb} {event.get('summary') or 'the event'} "
+        f"starting {event.get('start') or 'as confirmed'}."
+    )[:_MAX_SPOKEN]
 
 
 async def handle_create_calendar_event(client: RainmakerClient, **fields: Any) -> str:
@@ -249,7 +286,10 @@ async def handle_create_calendar_event(client: RainmakerClient, **fields: Any) -
     if not res.get("ok"):
         return "I couldn't create that calendar event."
     event = res.get("event") or {}
-    return f"Booked {event.get('summary')} starting {event.get('start')}."[:_MAX_SPOKEN]
+    return (
+        f"Booked {event.get('summary')} starting {event.get('start')} "
+        f"[event_id={event.get('id') or ''}]."
+    )[:_MAX_SPOKEN]
 
 
 async def handle_update_calendar_event(client: RainmakerClient, event_id: str, **fields: Any) -> str:

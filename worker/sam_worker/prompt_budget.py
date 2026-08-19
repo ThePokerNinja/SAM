@@ -9,7 +9,9 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from .personas import SAMUEL
 from .tools.rainmaker_registry import register_rainmaker_tools
@@ -62,6 +64,35 @@ _TOOL_PARAMS: dict[str, dict[str, Any]] = {
         },
         "required": ["asset_id", "url"],
     },
+    "get_calendar_events": {
+        "type": "object",
+        "properties": {"days": {"type": "integer"}},
+        "required": [],
+    },
+    "propose_calendar_change": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["create", "update", "cancel"],
+            },
+            "summary": {"type": "string"},
+            "start": {"type": "string"},
+            "end": {"type": "string"},
+            "event_id": {"type": "string"},
+            "event_query": {"type": "string"},
+            "description": {"type": "string"},
+            "location": {"type": "string"},
+            "all_day": {"type": "boolean"},
+            "timezone": {"type": "string"},
+        },
+        "required": ["action"],
+    },
+    "commit_calendar_change": {
+        "type": "object",
+        "properties": {"proposal_id": {"type": "string"}},
+        "required": [],
+    },
 }
 
 _EMPTY_PARAMS: dict[str, Any] = {
@@ -80,7 +111,14 @@ def estimate_tokens(text: str) -> int:
 
 def samuel_instructions(*, extra: str = "") -> str:
     """Canon + short tool reminder (+ optional bench/greeting extra)."""
-    parts = [SAMUEL.system_hint.strip(), VOICE_TOOLS_APPENDIX]
+    now = datetime.now(ZoneInfo("America/Los_Angeles"))
+    calendar_hint = (
+        f"Today is {now.strftime('%A, %B')} {now.day}, {now.year}; "
+        f"the time is {now.strftime('%I:%M %p').lstrip('0')} Pacific. "
+        "For calendar changes, use ISO-8601 Pacific times, propose first, read it back, "
+        "and wait for a later yes before committing. Never speak bracketed event IDs."
+    )
+    parts = [SAMUEL.system_hint.strip(), VOICE_TOOLS_APPENDIX, calendar_hint]
     extra = (extra or "").strip()
     if extra:
         parts.append(extra)

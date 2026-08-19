@@ -23,10 +23,10 @@ def test_estimate_tokens_empty_is_zero() -> None:
     assert estimate_tokens("abcd") == 1
 
 
-def test_full_fourteen_dump_still_blows_the_target() -> None:
+def test_full_seventeen_dump_still_blows_the_target() -> None:
     """Attaching every tool every turn is the TPM killer; do not send that set."""
     budget = breakdown(system=samuel_instructions(), specs=all_rainmaker_specs())
-    assert budget.tool_count == 14
+    assert budget.tool_count == 17
     assert budget.tool_schema_tokens > 400
     assert budget.total_tokens > TARGET_PROMPT_TOKENS
 
@@ -61,6 +61,18 @@ def test_select_studio_only_when_asked() -> None:
 def test_select_pricing_and_stories_get_no_tools() -> None:
     assert select_tools_for_utterance("How much does Rainmaker cost?") == []
     assert select_tools_for_utterance("Tell me a short story about the market") == []
+
+
+def test_select_calendar_proposal_then_confirmation() -> None:
+    proposal_names = select_tools_for_utterance(
+        "Book a dentist appointment tomorrow at three"
+    )
+    assert "get_calendar_events" in proposal_names
+    assert "propose_calendar_change" in proposal_names
+    assert "commit_calendar_change" not in proposal_names
+
+    confirm_names = select_tools_for_utterance("Yes, confirm it")
+    assert confirm_names == ["commit_calendar_change"]
 
 
 def test_filter_tools_preserves_requested_order() -> None:

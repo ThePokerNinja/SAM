@@ -108,12 +108,29 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         ("calendar", "schedule", "meeting", "appointment", "book", "event", "coffee", "lunch"),
     ):
         selected.append("get_calendar_events")
-        if _has_any(text, ("book", "schedule", "create", "add", "put", "hold")):
-            selected.append("create_calendar_event")
-        if _has_any(text, ("move", "reschedule", "change", "update", "shift")):
-            selected.append("update_calendar_event")
-        if _has_any(text, ("cancel", "delete", "remove", "clear")):
-            selected.append("cancel_calendar_event")
+        if _has_any(
+            text,
+            (
+                "book",
+                "schedule",
+                "create",
+                "add",
+                "put",
+                "hold",
+                "move",
+                "reschedule",
+                "change",
+                "update",
+                "shift",
+                "cancel",
+                "delete",
+                "remove",
+                "clear",
+            ),
+        ):
+            selected.append("propose_calendar_change")
+    if _has_any(text, ("yes", "confirm", "do it", "book it", "go ahead")):
+        selected.append("commit_calendar_change")
     if _has_any(text, ("queue research", "research")) and _TICKER.search(raw):
         if "queue_research" not in selected:
             selected.append("queue_research")
