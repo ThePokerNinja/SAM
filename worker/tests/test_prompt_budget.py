@@ -75,6 +75,18 @@ def test_select_calendar_proposal_then_confirmation() -> None:
     assert confirm_names == ["commit_calendar_change"]
 
 
+def test_select_move_without_calendar_noun_and_commit_only_confirmation() -> None:
+    move_names = select_tools_for_utterance(
+        "Move Samuel scheduling proof to Wednesday at four"
+    )
+    assert move_names == ["get_calendar_events", "propose_calendar_change"]
+
+    confirm_names = select_tools_for_utterance(
+        "I confirm the calendar change now"
+    )
+    assert confirm_names == ["commit_calendar_change"]
+
+
 def test_filter_tools_preserves_requested_order() -> None:
     class _Tool:
         def __init__(self, name: str) -> None:

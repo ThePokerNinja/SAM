@@ -78,6 +78,8 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         return []
     if _has_any(text, ("story", "joke", "trivia", "poem")):
         return []
+    if _has_any(text, ("yes", "confirm", "do it", "book it", "go ahead")):
+        return ["commit_calendar_change"]
     selected: list[str] = []
 
     if _has_any(text, ("studio", "campaign", "deliverable", "asset id", "render")):
@@ -103,37 +105,47 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
             selected.append("send_brief")
     if _has_any(text, ("hero", "character card", "stats card")):
         selected.append("send_hero")
-    if _has_any(
+    calendar_action = _has_any(
         text,
-        ("calendar", "schedule", "meeting", "appointment", "book", "event", "coffee", "lunch"),
+        (
+            "book",
+            "schedule",
+            "create",
+            "add",
+            "put",
+            "hold",
+            "move",
+            "reschedule",
+            "change",
+            "update",
+            "shift",
+            "cancel",
+            "delete",
+            "remove",
+            "clear",
+        ),
+    )
+    if calendar_action or _has_any(
+        text,
+        (
+            "calendar",
+            "scheduling",
+            "meeting",
+            "appointment",
+            "event",
+            "coffee",
+            "lunch",
+        ),
     ):
         selected.append("get_calendar_events")
-        if _has_any(
-            text,
-            (
-                "book",
-                "schedule",
-                "create",
-                "add",
-                "put",
-                "hold",
-                "move",
-                "reschedule",
-                "change",
-                "update",
-                "shift",
-                "cancel",
-                "delete",
-                "remove",
-                "clear",
-            ),
-        ):
+        if calendar_action:
             selected.append("propose_calendar_change")
-    if _has_any(text, ("yes", "confirm", "do it", "book it", "go ahead")):
-        selected.append("commit_calendar_change")
-    if _has_any(text, ("queue research", "research")) and _TICKER.search(raw):
-        if "queue_research" not in selected:
-            selected.append("queue_research")
+    if (
+        _has_any(text, ("queue research", "research"))
+        and _TICKER.search(raw)
+        and "queue_research" not in selected
+    ):
+        selected.append("queue_research")
 
     # Dedup, preserve order.
     seen: set[str] = set()
