@@ -171,7 +171,8 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
             name="propose_calendar_change",
             description=(
                 "Prepare a create, update, or cancel and read it back for confirmation. "
-                "Create requires summary, start, and either end or duration_minutes. "
+                "Create requires summary and start. Always include end: use the ISO end "
+                "time, or null when duration_minutes supplies the duration. "
                 "Update/cancel requires event_id or event_query. Never commit in the same turn."
             ),
             read_only=False,

@@ -206,6 +206,19 @@ class RoutedSamuelAgent(Agent):
     async def llm_node(self, chat_ctx, tools, model_settings):
         user_messages = [message for message in chat_ctx.messages() if message.role == "user"]
         text = str(user_messages[-1].text_content or "") if user_messages else ""
+        items = list(chat_ctx.items)
+        last_user_index = max(
+            (
+                index
+                for index, item in enumerate(items)
+                if getattr(item, "role", None) == "user"
+            ),
+            default=-1,
+        )
+        tool_completed = any(
+            getattr(item, "type", "") == "function_call_output"
+            for item in items[last_user_index + 1 :]
+        )
         started = time.perf_counter()
         decision = self._router.classify(text)
         route_ms = (time.perf_counter() - started) * 1000.0
@@ -224,7 +237,7 @@ class RoutedSamuelAgent(Agent):
                 await self._publish_bench({"type": "tool_calls", "names": [result.tool_name]})
             return result.spoken
         available = list(tools or [])
-        names = select_tools_for_utterance(text)
+        names = [] if tool_completed else select_tools_for_utterance(text)
         selected = filter_tools(available, names)
         calendar_action = calendar_action_for_utterance(text)
         if self._calendar_turn_state is not None:

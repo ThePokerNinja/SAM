@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from livekit.agents import ModelSettings
-from livekit.agents.llm import ChatContext
+from livekit.agents.llm import ChatContext, FunctionCall, FunctionCallOutput
 
 from sam_worker.router import DirectResult, FastIntentRouter, RoutedSamuelAgent
 from sam_worker.tool_latency import ToolLatencyManager
@@ -153,11 +153,34 @@ def test_calendar_turn_requires_the_selected_tool_call() -> None:
         result = asyncio.run(
             agent.llm_node(context, tools, ModelSettings(tool_choice="auto"))
         )
+        initial_tools = seen["tools"]
+        initial_tool_choice = seen["tool_choice"]
+        context.insert(
+            [
+                FunctionCall(
+                    call_id="calendar-1",
+                    arguments='{"action":"update"}',
+                    name="propose_calendar_change",
+                ),
+                FunctionCallOutput(
+                    call_id="calendar-1",
+                    name="propose_calendar_change",
+                    output="Update the event to four? Say yes to confirm.",
+                    is_error=False,
+                ),
+            ]
+        )
+        followup = asyncio.run(
+            agent.llm_node(context, tools, ModelSettings(tool_choice="auto"))
+        )
     finally:
         Agent.llm_node = original
     assert result == "calendar"
-    assert seen["tools"] == ["propose_calendar_change"]
-    assert seen["tool_choice"] == "required"
+    assert followup == "calendar"
+    assert initial_tools == ["propose_calendar_change"]
+    assert initial_tool_choice == "required"
+    assert seen["tools"] == []
+    assert seen["tool_choice"] == "auto"
     assert any(
         "action='update'" in message for message in seen["developer"]
     )

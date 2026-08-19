@@ -94,6 +94,18 @@ def test_select_move_without_calendar_noun_and_commit_only_confirmation() -> Non
     assert confirm_names == ["commit_calendar_change"]
 
 
+def test_schedule_question_selects_read_instead_of_create() -> None:
+    assert select_tools_for_utterance(
+        "What is on my schedule today?"
+    ) == ["get_calendar_events"]
+    assert select_tools_for_utterance(
+        "Check my calendar for upcoming meetings"
+    ) == ["get_calendar_events"]
+    assert select_tools_for_utterance(
+        "Schedule a meeting tomorrow at noon"
+    ) == ["propose_calendar_change"]
+
+
 def test_filter_tools_preserves_requested_order() -> None:
     class _Tool:
         def __init__(self, name: str) -> None:

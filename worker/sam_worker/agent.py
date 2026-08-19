@@ -558,6 +558,7 @@ async def entrypoint(ctx: JobContext) -> None:
         )
     ):
         _log.warning("Rejected non-owner SIP caller")
+        await session.say(_OWNER_ONLY, allow_interruptions=False)
         ctx.shutdown("SIP caller is not owner-authorized")
         return
 

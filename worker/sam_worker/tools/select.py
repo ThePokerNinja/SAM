@@ -70,6 +70,24 @@ def _has_any(text: str, needles: tuple[str, ...]) -> bool:
 def calendar_action_for_utterance(utterance: str) -> str | None:
     """Map explicit scheduling verbs to the proposal action they permit."""
     text = _normalize(utterance)
+    if (
+        _has_any(text, ("schedule", "calendar", "appointments", "meetings"))
+        and _has_any(
+            text,
+            (
+                "what is on",
+                "whats on",
+                "show",
+                "read",
+                "check",
+                "do i have",
+                "my schedule",
+                "my calendar",
+                "upcoming",
+            ),
+        )
+    ):
+        return None
     if _has_any(text, ("cancel", "delete", "remove", "clear")):
         return "cancel"
     if _has_any(text, ("move", "reschedule", "change", "update", "shift")):
@@ -124,6 +142,7 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         text,
         (
             "calendar",
+            "schedule",
             "scheduling",
             "meeting",
             "appointment",
