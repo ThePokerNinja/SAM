@@ -131,6 +131,24 @@ class RegistryBuildTests(unittest.TestCase):
         out = asyncio.run(tools[0](None, "NVDA earnings"))
         self.assertEqual(out, self.owner_refusal)
 
+    def test_owner_gate_blocks_non_owner_calendar_commit(self) -> None:
+        class Spy:
+            async def commit_calendar_change(
+                self, session_id: str, proposal_id: str = ""
+            ) -> dict:
+                raise AssertionError("calendar commit must not execute")
+
+        tools = self.registry.build_livekit_tools(
+            client=Spy(),
+            is_owner=lambda: False,
+            function_tool=_identity_decorator,
+            owner_refusal=self.owner_refusal,
+            deps={"session_id": "hostile-caller"},
+            only=["commit_calendar_change"],
+        )
+        out = asyncio.run(tools[0](None, "pending-proposal"))
+        self.assertEqual(out, self.owner_refusal)
+
     def test_builder_invokes_handler(self) -> None:
         class Spy:
             async def get_scans(self, limit: int = 10) -> dict:
