@@ -110,6 +110,45 @@ class RegistryBuildTests(unittest.TestCase):
         ):
             self.assertIsNone(params[name].default)
 
+    def test_calendar_turn_state_overrides_conflicting_model_action(self) -> None:
+        seen: dict[str, Any] = {}
+
+        class Spy:
+            async def propose_calendar_change(self, **fields: Any) -> dict:
+                seen.update(fields)
+                return {
+                    "ok": True,
+                    "proposal": {"proposal_id": "p1", "readback": "Move event?"},
+                }
+
+        tools = self.registry.build_livekit_tools(
+            client=Spy(),
+            is_owner=lambda: True,
+            function_tool=_identity_decorator,
+            owner_refusal=self.owner_refusal,
+            deps={
+                "session_id": "call-move",
+                "calendar_turn_state": {
+                    "action": "update",
+                    "preserve_duration": True,
+                },
+            },
+            only=["propose_calendar_change"],
+        )
+        asyncio.run(
+            tools[0](
+                None,
+                "create",
+                summary="Samuel scheduling proof",
+                start="2026-08-19T16:00:00-07:00",
+                end="2026-08-19T17:00:00-07:00",
+                duration_minutes=60,
+            )
+        )
+        self.assertEqual(seen["action"], "update")
+        self.assertIsNone(seen["end"])
+        self.assertIsNone(seen["duration_minutes"])
+
     def test_owner_gate_blocks_trigger_tool(self) -> None:
         tools = self.registry.build_livekit_tools(
             client=object(),

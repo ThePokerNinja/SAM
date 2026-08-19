@@ -131,11 +131,13 @@ def test_calendar_turn_requires_the_selected_tool_call() -> None:
 
     original = Agent.llm_node
     Agent.llm_node = fake_parent
+    calendar_turn_state: dict[str, object] = {}
     try:
         agent = RoutedSamuelAgent(
             router=FastIntentRouter(),
             direct_execute=direct,
             publish_command=publish,
+            calendar_turn_state=calendar_turn_state,
             instructions="test",
         )
         context = ChatContext.empty()
@@ -159,6 +161,10 @@ def test_calendar_turn_requires_the_selected_tool_call() -> None:
     assert any(
         "action='update'" in message for message in seen["developer"]
     )
+    assert calendar_turn_state == {
+        "action": "update",
+        "preserve_duration": True,
+    }
 
 
 def test_direct_route_bypasses_primary_llm_node() -> None:

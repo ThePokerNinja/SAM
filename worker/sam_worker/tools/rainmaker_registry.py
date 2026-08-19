@@ -315,6 +315,7 @@ def _build_propose_calendar_change(
     client: Any, _is_owner: Any, deps: dict[str, Any]
 ):
     session_id = str(deps.get("session_id") or "samuel-voice")
+    turn_state = deps.get("calendar_turn_state")
 
     async def propose_calendar_change(
         context: RunContext,
@@ -330,6 +331,11 @@ def _build_propose_calendar_change(
         all_day: bool | None = None,
         timezone: str | None = None,
     ) -> str:
+        if isinstance(turn_state, dict):
+            action = str(turn_state.get("action") or action)
+            if action == "update" and turn_state.get("preserve_duration"):
+                end = None
+                duration_minutes = None
         return await handle_propose_calendar_change(
             client,
             session_id=session_id,

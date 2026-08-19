@@ -22,6 +22,7 @@ import os
 import sys
 import time
 from dataclasses import replace
+from typing import Any
 
 # Windows consoles default to cp1252; LiveKit's CLI banner prints an emoji that crashes
 # the charmap codec. Force UTF-8 on our streams before any livekit import prints.
@@ -458,6 +459,8 @@ async def entrypoint(ctx: JobContext) -> None:
                 _log.debug("session close logging failed", exc_info=True)
 
     tool_registry = _build_tool_registry()
+    calendar_turn_state: dict[str, Any] = {}
+
     def _tool_timing(_name: str, elapsed_ms: float, _cached: bool) -> None:
         perf_state["tool_ms"] = float(perf_state["tool_ms"] or 0.0) + elapsed_ms
 
@@ -471,6 +474,7 @@ async def entrypoint(ctx: JobContext) -> None:
             "run_scan_bg": _run_scan_bg,
             "tool_latency_manager": tool_latency_manager,
             "session_id": session_id,
+            "calendar_turn_state": calendar_turn_state,
         },
     )
     rm_mode = "mock" if (s.sam_mock_rm or not s.rm_api_base_url) else "http:" + s.rm_api_base_url
@@ -535,6 +539,7 @@ async def entrypoint(ctx: JobContext) -> None:
         context_provider=_context_provider,
         performance_report=_route_timing,
         publish_bench=_publish_bench_event,
+        calendar_turn_state=calendar_turn_state,
         history_token_cap=s.history_token_cap,
         instructions=instructions,
         tools=rm_tools,

@@ -163,6 +163,7 @@ class RoutedSamuelAgent(Agent):
         context_provider: Callable[[str], Awaitable[Any]] | None = None,
         performance_report: Callable[[RouteDecision, float], None] | None = None,
         publish_bench: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+        calendar_turn_state: dict[str, Any] | None = None,
         history_token_cap: int = DEFAULT_HISTORY_TOKEN_CAP,
         **kwargs: Any,
     ) -> None:
@@ -173,6 +174,7 @@ class RoutedSamuelAgent(Agent):
         self._context_provider = context_provider
         self._performance_report = performance_report
         self._publish_bench = publish_bench
+        self._calendar_turn_state = calendar_turn_state
         self._history_token_cap = history_token_cap
 
     async def on_user_turn_completed(self, turn_ctx, new_message) -> None:
@@ -225,13 +227,28 @@ class RoutedSamuelAgent(Agent):
         names = select_tools_for_utterance(text)
         selected = filter_tools(available, names)
         calendar_action = calendar_action_for_utterance(text)
+        if self._calendar_turn_state is not None:
+            self._calendar_turn_state.clear()
+            if calendar_action:
+                self._calendar_turn_state["action"] = calendar_action
+                self._calendar_turn_state["preserve_duration"] = (
+                    calendar_action == "update"
+                    and not re.search(r"\b(minutes?|hours?|until)\b", text.lower())
+                )
         if calendar_action and "propose_calendar_change" in names:
             chat_ctx.add_message(
                 role="developer",
                 content=(
                     "Required calendar mutation for this turn: call "
                     f"propose_calendar_change with action={calendar_action!r}. "
-                    "Do not substitute another action and do not claim a read-back "
+                    + (
+                        "The user did not state a new duration; omit end and "
+                        "duration_minutes so the existing duration is preserved. "
+                        if self._calendar_turn_state
+                        and self._calendar_turn_state.get("preserve_duration")
+                        else ""
+                    )
+                    + "Do not substitute another action and do not claim a read-back "
                     "without the tool result."
                 ),
             )
