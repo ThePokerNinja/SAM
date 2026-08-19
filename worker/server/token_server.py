@@ -16,18 +16,20 @@ import os
 import uuid
 from datetime import timedelta
 
+import httpx
+
 try:
     from dotenv import load_dotenv
 
     load_dotenv()  # load worker/.env so uvicorn picks up LIVEKIT_* without extra flags
-except Exception:
+except ImportError:
     pass
 
 try:
     from fastapi import FastAPI, HTTPException, Request
     from fastapi.middleware.cors import CORSMiddleware
     from livekit import api
-except Exception:  # deps not installed in --mock-only setups
+except ImportError:  # deps not installed in --mock-only setups
     FastAPI = None  # type: ignore[assignment]
 
 
@@ -35,10 +37,24 @@ except Exception:  # deps not installed in --mock-only setups
 _TOKEN_TTL_SECONDS = 600
 
 _ACCESS_HEADER = "x-sam-access"
+_DEFAULT_RM_API_BASE_URL = "https://rainmaker-api-waqs.onrender.com"
 
 
 def _portal_access_required() -> bool:
-    return bool(os.getenv("SAM_PORTAL_ACCESS_KEY", "").strip())
+    return _google_auth_required() or bool(os.getenv("SAM_PORTAL_ACCESS_KEY", "").strip())
+
+
+def _google_auth_required() -> bool:
+    return os.getenv("SAM_PORTAL_GOOGLE_REQUIRED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _rm_api_base_url() -> str:
+    return os.getenv("RM_API_BASE_URL", _DEFAULT_RM_API_BASE_URL).strip().rstrip("/")
 
 
 def _access_key_ok(request_headers: dict[str, str], query_access: str | None = None) -> bool:
@@ -49,6 +65,34 @@ def _access_key_ok(request_headers: dict[str, str], query_access: str | None = N
     if " " in got and "+" not in got:
         got = got.replace(" ", "+")
     return got == want
+
+
+def _bearer_token(request_headers: dict[str, str]) -> str:
+    raw = (request_headers.get("authorization") or "").strip()
+    scheme, separator, token = raw.partition(" ")
+    if not separator or scheme.lower() != "bearer":
+        return ""
+    return token.strip()
+
+
+def _google_identity_ok(token: str) -> bool:
+    """Delegate JWT and allowlist verification to rm_api; any uncertainty denies."""
+    if not token or not _rm_api_base_url():
+        return False
+    try:
+        response = httpx.get(
+            f"{_rm_api_base_url()}/auth/me",
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+            timeout=5.0,
+            follow_redirects=False,
+        )
+        if response.status_code != 200:
+            return False
+        body = response.json()
+        user = body.get("user") if isinstance(body, dict) else None
+        return bool(isinstance(user, dict) and str(user.get("email") or "").strip())
+    except (httpx.HTTPError, ValueError, TypeError):
+        return False
 
 
 def _allowed_origins() -> list[str]:
@@ -88,11 +132,27 @@ def create_app():
             "ok": True,
             "livekitConfigured": configured,
             "portalAccessRequired": _portal_access_required(),
+            "googleAuthRequired": _google_auth_required(),
+            "rmApiConfigured": bool(_rm_api_base_url()),
+            "legacyAccessEnabled": bool(os.getenv("SAM_PORTAL_ACCESS_KEY", "").strip()),
         }
 
     @app.post("/token")
     def token(request: Request, identity: str | None = None, room: str | None = None) -> dict:
-        if not _access_key_ok(dict(request.headers), request.query_params.get("access")):
+        headers = dict(request.headers)
+        bearer = _bearer_token(headers)
+        google_owner = _google_identity_ok(bearer)
+        legacy_owner = (
+            not bearer
+            and not _google_auth_required()
+            and _access_key_ok(headers, request.query_params.get("access"))
+            and bool(os.getenv("SAM_PORTAL_ACCESS_KEY", "").strip())
+        )
+        if _google_auth_required() and not google_owner:
+            raise HTTPException(status_code=403, detail="access_denied")
+        if not _google_auth_required() and _portal_access_required() and not (
+            google_owner or legacy_owner
+        ):
             raise HTTPException(status_code=403, detail="access_denied")
         key = os.getenv("LIVEKIT_API_KEY")
         secret = os.getenv("LIVEKIT_API_SECRET")
@@ -111,9 +171,9 @@ def create_app():
             .with_grants(grant)
             .with_ttl(timedelta(seconds=_TOKEN_TTL_SECONDS))
         )
-        # Owner signal for the agent's Tier-T gate: only when a portal access key is BOTH
-        # configured AND matched (gate-off mode means everyone passes, so it must not imply owner).
-        if _portal_access_required():
+        # Owner is minted only after rm_api verification or an explicitly enabled
+        # temporary legacy-key migration. Production requires Google in render.yaml.
+        if google_owner or legacy_owner:
             builder = builder.with_attributes({"role": "owner"})
         jwt = builder.to_jwt()
         return {"token": jwt, "url": url, "room": room_name, "identity": ident}

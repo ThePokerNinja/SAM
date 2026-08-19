@@ -249,6 +249,59 @@ class BriefHeroTests(unittest.TestCase):
         self.assertTrue(captured["url"].endswith("/notify/test-hero"))
 
 
+class CanonicalMemoryTests(unittest.TestCase):
+    def test_reads_context_with_worker_token_and_budget(self) -> None:
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            captured["auth"] = request.headers.get("X-RM-CRON-TOKEN")
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "personId": "owner",
+                    "items": [
+                        {
+                            "content": "Cathy prefers morning meetings.",
+                            "provenance": {"surface": "sms"},
+                        }
+                    ],
+                    "tokenCap": 200,
+                },
+            )
+
+        result = asyncio.run(
+            _client(handler).get_memory_context("Cathy meeting", token_cap=200)
+        )
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["items"][0]["provenance"]["surface"], "sms")
+        self.assertIn("tokenCap=200", captured["url"])
+        self.assertEqual(captured["auth"], TOKEN)
+
+    def test_writes_voice_turn_off_the_model_path(self) -> None:
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            captured["body"] = json.loads(request.content)
+            return httpx.Response(200, json={"ok": True, "turn": {"id": "turn-1"}})
+
+        result = asyncio.run(
+            _client(handler).write_memory_turn(
+                session_id="call-owner",
+                surface="voice",
+                role="user",
+                content="Remember my preferred briefing time.",
+                provenance={"room": "call-owner", "surface_variant": "phone"},
+            )
+        )
+        self.assertTrue(result["ok"])
+        self.assertTrue(captured["url"].endswith("/samuel/memory/turns"))
+        self.assertEqual(captured["body"]["surface"], "voice")
+        self.assertEqual(captured["body"]["provenance"]["room"], "call-owner")
+
+
 class CalendarProposalTests(unittest.TestCase):
     def test_propose_calendar_change_posts_fields(self) -> None:
         captured = {}

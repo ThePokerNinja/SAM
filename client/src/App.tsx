@@ -8,8 +8,12 @@ import { BrandIntro } from "./components/BrandIntro";
 import { useTierController } from "./hooks/useTierController";
 import {
   bootstrapPortalAccessFromUrl,
+  consumeOAuthReturn,
+  getPortalAuthToken,
   clearPortalAccessKey,
   getPortalAccessKey,
+  setPortalAuthToken,
+  startGoogleSignIn,
 } from "./lib/portalAccess";
 import {
   connectSam,
@@ -27,17 +31,25 @@ export default function App() {
   const [revealed, setRevealed] = useState(false);
   const [attempt, setAttempt] = useState(0); // remount the intro back to candle on retry
   const [portalAccessRequired, setPortalAccessRequired] = useState(false);
+  const [googleAuthRequired, setGoogleAuthRequired] = useState(false);
   const roomRef = useRef<Room | null>(null);
 
   const { preset, lastReason } = useTierController(room);
 
   useEffect(() => {
     bootstrapPortalAccessFromUrl();
-    fetchTokenHealth().then((h) => setPortalAccessRequired(h.portalAccessRequired));
+    consumeOAuthReturn();
+    fetchTokenHealth().then((h) => {
+      setPortalAccessRequired(h.portalAccessRequired);
+      setGoogleAuthRequired(h.googleAuthRequired);
+    });
   }, []);
 
   const start = useCallback((): boolean => {
-    if (portalAccessRequired && !getPortalAccessKey()) {
+    if (
+      (googleAuthRequired && !getPortalAuthToken()) ||
+      (portalAccessRequired && !getPortalAuthToken() && !getPortalAccessKey())
+    ) {
       setStatus("denied");
       setError("");
       return false;
@@ -61,6 +73,7 @@ export default function App() {
         setStatus("live");
       } catch (e) {
         if (e instanceof PortalAccessDeniedError) {
+          setPortalAuthToken("");
           clearPortalAccessKey();
           setStatus("denied");
           setError("");
@@ -73,7 +86,7 @@ export default function App() {
     })();
 
     return true;
-  }, [portalAccessRequired]);
+  }, [googleAuthRequired, portalAccessRequired]);
 
   useEffect(() => {
     return () => {
@@ -109,6 +122,7 @@ export default function App() {
             ready={status === "live"}
             accessDenied={accessDenied}
             onIgnite={start}
+            onGoogleSignIn={startGoogleSignIn}
             onRevealed={() => setRevealed(true)}
           />
         )}

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from sam_worker.prompt_budget import (
     TARGET_PROMPT_TOKENS,
     all_rainmaker_specs,
@@ -9,6 +12,7 @@ from sam_worker.prompt_budget import (
     estimate_tokens,
     samuel_instructions,
     specs_named,
+    volatile_clock_context,
 )
 from sam_worker.tools.select import (
     STUDIO_TOOLS,
@@ -22,6 +26,17 @@ from sam_worker.tools.select import (
 def test_estimate_tokens_empty_is_zero() -> None:
     assert estimate_tokens("") == 0
     assert estimate_tokens("abcd") == 1
+
+
+def test_system_prefix_is_stable_and_clock_is_separate() -> None:
+    first = samuel_instructions()
+    second = samuel_instructions()
+    assert first == second
+    assert "Today is " not in first
+    clock = volatile_clock_context(
+        now=datetime(2026, 8, 19, 11, 12, tzinfo=ZoneInfo("America/Los_Angeles"))
+    )
+    assert "Today is Wednesday, August 19, 2026" in clock
 
 
 def test_full_seventeen_dump_still_blows_the_target() -> None:
@@ -48,6 +63,26 @@ def test_typical_unrouted_turn_fits_target() -> None:
     assert budget.under_target is True
 
 
+def test_cache_aware_budget_excludes_only_stable_prefix(monkeypatch) -> None:
+    monkeypatch.setenv("GROQ_TPM_BUDGET", "12000")
+    system = samuel_instructions()
+    specs = specs_named(["get_calendar_events", "propose_calendar_change"])
+    uncached = breakdown(system=system, specs=specs, history=("user: hello",))
+    cached = breakdown(
+        system=system,
+        specs=specs,
+        history=("user: hello",),
+        cached_prefix_tokens=uncached.system_tokens + uncached.tool_schema_tokens,
+    )
+    assert cached.tpm_budget == 12000
+    assert cached.billable_prompt_tokens == cached.history_tokens
+    assert cached.cache_savings_tokens > 0
+    assert (
+        cached.turns_per_minute_at_tpm_budget
+        > uncached.turns_per_minute_at_tpm_budget
+    )
+
+
 def test_select_skips_studio_on_voice_path() -> None:
     names = select_tools_for_utterance("What's the market pulse looking like?")
     assert "get_pulse" in names
@@ -72,6 +107,12 @@ def test_select_calendar_proposal_then_confirmation() -> None:
 
     confirm_names = select_tools_for_utterance("Yes, confirm it")
     assert confirm_names == ["commit_calendar_change"]
+
+
+def test_add_another_appointment_selects_calendar_proposal() -> None:
+    assert select_tools_for_utterance("add another appointment") == [
+        "propose_calendar_change"
+    ]
 
 
 def test_select_move_without_calendar_noun_and_commit_only_confirmation() -> None:

@@ -30,6 +30,10 @@ services:
         value: https://voice.michaelstewman.com
       - key: SAM_PORTAL_ACCESS_KEY
         sync: false
+      - key: SAM_PORTAL_GOOGLE_REQUIRED
+        value: "1"
+      - key: RM_API_BASE_URL
+        value: https://rainmaker-api-waqs.onrender.com
 
   # Static React portal (candle intro + voice UI). Custom domain: voice.michaelstewman.com
   - type: web
@@ -44,6 +48,8 @@ services:
           type: web
           name: sam-token
           envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_RM_API_BASE_URL
+        value: https://rainmaker-api-waqs.onrender.com
     routes:
       - type: rewrite
         source: /*
@@ -78,6 +84,16 @@ services:
         value: https://api.groq.com/openai/v1
       - key: GROQ_MODEL
         value: openai/gpt-oss-20b
+      - key: GROQ_FALLBACK_MODEL
+        value: openai/gpt-oss-120b
+      - key: GROQ_TPM_BUDGET
+        value: "8000"
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: CEREBRAS_BASE_URL
+        value: https://api.cerebras.ai/v1
+      - key: CEREBRAS_MODEL
+        value: gpt-oss-120b
       - key: SAM_LLM_MAX_COMPLETION_TOKENS
         value: "512"
       - key: ELEVENLABS_API_KEY
@@ -112,6 +128,8 @@ services:
         value: "0.6"
       - key: SAM_HISTORY_TOKEN_CAP
         value: "250"
+      - key: SAM_PROMPT_TOOL_MODE
+        value: dynamic
       # Same workspace + Oregon region: keep Samuel's command traffic on
       # Render's private network. config.py adds the http:// scheme.
       - key: RM_API_HOSTPORT

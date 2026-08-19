@@ -12,6 +12,8 @@ interface Props {
   onRevealed?: () => void;
   /** When true, show dim candle + access denied (no reveal). */
   accessDenied?: boolean;
+  /** Starts owner authentication through rm_api's Google OAuth flow. */
+  onGoogleSignIn?: () => void;
   /** Card artwork shown during the bright lead-up. */
   cardSrc?: string;
 }
@@ -28,6 +30,7 @@ export function BrandIntro({
   onIgnite,
   onRevealed,
   accessDenied = false,
+  onGoogleSignIn,
   cardSrc = "/brand/card.svg",
 }: Props) {
   const [phase, setPhase] = useState<Phase>("candle");
@@ -122,7 +125,16 @@ export function BrandIntro({
       {phase === "denied" && (
         <p className="bi-denied-hint" role="status">
           Access denied
-          <span className="bi-denied-sub">Owner link must include ?access=your-key</span>
+          <button
+            type="button"
+            className="bi-google-sign-in"
+            onClick={(event) => {
+              event.stopPropagation();
+              onGoogleSignIn?.();
+            }}
+          >
+            Continue with Google
+          </button>
         </p>
       )}
       <div className="bi-card" aria-hidden="true">

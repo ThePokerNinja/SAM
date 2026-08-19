@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import asyncio
 
-from livekit.agents import ModelSettings
+from livekit.agents import NOT_GIVEN, ModelSettings
 from livekit.agents.llm import ChatContext, FunctionCall, FunctionCallOutput
 
-from sam_worker.router import DirectResult, FastIntentRouter, RoutedSamuelAgent
+from sam_worker.router import (
+    DirectResult,
+    FastIntentRouter,
+    RoutedSamuelAgent,
+    _render_memory_row,
+    _safe_utterance_for_log,
+)
 from sam_worker.tool_latency import ToolLatencyManager
 
 
@@ -30,6 +36,16 @@ class _Context:
         self.updates.append(message)
 
 
+def test_canonical_memory_rows_preserve_surface_provenance() -> None:
+    rendered = _render_memory_row(
+        {
+            "content": "Cathy prefers morning meetings.",
+            "provenance": {"surface": "sms"},
+        }
+    )
+    assert rendered == "[sms] Cathy prefers morning meetings."
+
+
 def test_router_is_high_confidence_and_fails_complex_to_llm() -> None:
     router = FastIntentRouter()
     assert router.classify("What time is it?").route == "time"
@@ -44,6 +60,7 @@ def test_router_is_high_confidence_and_fails_complex_to_llm() -> None:
     complex_route = router.classify("Explain whether I should buy NVDA right now")
     assert complex_route.direct is False
     assert complex_route.route == "llm"
+    assert _safe_utterance_for_log("add another\nappointment") == "add another appointment"
 
 
 def test_scan_route_executes_named_tool() -> None:
@@ -102,6 +119,82 @@ def test_llm_node_attaches_no_tools_for_pricing() -> None:
         Agent.llm_node = original
     assert result == "priced"
     assert seen["tools"] == []
+
+
+def test_empty_tool_subset_clears_incompatible_tool_choice() -> None:
+    seen: dict[str, object] = {}
+
+    def fake_parent(self, chat_ctx, tools, model_settings):
+        seen["tools"] = list(tools or [])
+        seen["tool_choice"] = model_settings.tool_choice
+        return "ok"
+
+    async def direct(_decision):
+        raise AssertionError
+
+    async def publish(_command):
+        return None
+
+    from livekit.agents import Agent
+
+    original = Agent.llm_node
+    Agent.llm_node = fake_parent
+    try:
+        agent = RoutedSamuelAgent(
+            router=FastIntentRouter(),
+            direct_execute=direct,
+            publish_command=publish,
+            instructions="test",
+        )
+        context = ChatContext.empty()
+        context.add_message(role="user", content="Tell me a short story")
+        result = asyncio.run(
+            agent.llm_node(context, [], ModelSettings(tool_choice="none"))
+        )
+    finally:
+        Agent.llm_node = original
+    assert result == "ok"
+    assert seen["tools"] == []
+    assert seen["tool_choice"] is NOT_GIVEN
+
+
+def test_stable_full_flag_keeps_complete_tool_schema_set() -> None:
+    seen: dict[str, object] = {}
+
+    def fake_parent(self, chat_ctx, tools, model_settings):
+        seen["tools"] = [getattr(tool, "__name__", "") for tool in tools]
+        return "ok"
+
+    async def direct(_decision):
+        raise AssertionError
+
+    async def publish(_command):
+        return None
+
+    class _Tool:
+        def __init__(self, name: str) -> None:
+            self.__name__ = name
+
+    from livekit.agents import Agent
+
+    original = Agent.llm_node
+    Agent.llm_node = fake_parent
+    try:
+        agent = RoutedSamuelAgent(
+            router=FastIntentRouter(),
+            direct_execute=direct,
+            publish_command=publish,
+            use_full_tool_set=True,
+            instructions="test",
+        )
+        context = ChatContext.empty()
+        context.add_message(role="user", content="How much does Rainmaker cost?")
+        tools = [_Tool("get_pulse"), _Tool("propose_calendar_change")]
+        result = asyncio.run(agent.llm_node(context, tools, ModelSettings()))
+    finally:
+        Agent.llm_node = original
+    assert result == "ok"
+    assert seen["tools"] == ["get_pulse", "propose_calendar_change"]
 
 
 def test_calendar_turn_requires_the_selected_tool_call() -> None:
@@ -176,11 +269,11 @@ def test_calendar_turn_requires_the_selected_tool_call() -> None:
     finally:
         Agent.llm_node = original
     assert result == "calendar"
-    assert followup == "calendar"
+    assert followup == "Update the event to four? Say yes to confirm."
     assert initial_tools == ["propose_calendar_change"]
     assert initial_tool_choice == "required"
-    assert seen["tools"] == []
-    assert seen["tool_choice"] == "auto"
+    assert seen["tools"] == ["propose_calendar_change"]
+    assert seen["tool_choice"] == "required"
     assert any(
         "action='update'" in message for message in seen["developer"]
     )

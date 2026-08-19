@@ -75,6 +75,16 @@ class RainmakerClient(Protocol):
     async def studio_campaign_report(self, run_id: str) -> dict: ...
     async def make_studio_deliverable(self, type: str, run_id: str = "") -> dict: ...
     async def record_studio_publish(self, asset_id: str, url: str) -> dict: ...
+    async def get_memory_context(self, query: str, token_cap: int = 256) -> dict: ...
+    async def write_memory_turn(
+        self,
+        *,
+        session_id: str,
+        surface: str,
+        role: str,
+        content: str,
+        provenance: dict[str, Any] | None = None,
+    ) -> dict: ...
     async def get_calendar_events(self, days: int = 7) -> dict: ...
     async def propose_calendar_change(self, **fields: Any) -> dict: ...
     async def commit_calendar_change(
@@ -139,6 +149,39 @@ class MockRainmakerClient:
 
     async def record_studio_publish(self, asset_id: str, url: str) -> dict:
         return {"ok": True, "publish": {"asset_id": asset_id, "url": url, "channel": "web"}}
+
+    async def get_memory_context(self, query: str, token_cap: int = 256) -> dict:
+        return {
+            "ok": True,
+            "items": [
+                {
+                    "content": f"Mock owner memory relevant to {query}",
+                    "role": "user",
+                    "provenance": {"surface": "sms"},
+                }
+            ],
+            "tokenCap": token_cap,
+        }
+
+    async def write_memory_turn(
+        self,
+        *,
+        session_id: str,
+        surface: str,
+        role: str,
+        content: str,
+        provenance: dict[str, Any] | None = None,
+    ) -> dict:
+        return {
+            "ok": True,
+            "turn": {
+                "session_id": session_id,
+                "surface": surface,
+                "role": role,
+                "content": content,
+                "provenance": provenance or {},
+            },
+        }
 
     async def get_calendar_events(self, days: int = 7) -> dict:
         return {
@@ -216,6 +259,8 @@ class HttpRainmakerClient:
     STUDIO_REPORT_PATH = "/studio/campaign/report"
     STUDIO_MAKE_PATH = "/studio/make"
     STUDIO_PUBLISH_PATH = "/studio/publish"
+    MEMORY_CONTEXT_PATH = "/samuel/memory/context"
+    MEMORY_TURNS_PATH = "/samuel/memory/turns"
     CALENDAR_EVENTS_PATH = "/calendar/events"
     CALENDAR_PROPOSALS_PATH = "/calendar/proposals"
     _LONG_TIMEOUT = 30.0
@@ -507,6 +552,50 @@ class HttpRainmakerClient:
             return {"ok": False, "error": res["error"]}
         data = res.get("data") or {}
         return {"ok": True, "publish": data.get("publish") or data}
+
+    async def get_memory_context(self, query: str, token_cap: int = 256) -> dict:
+        res = await self._get(
+            self.MEMORY_CONTEXT_PATH,
+            params={
+                "query": (query or "")[:2000],
+                "tokenCap": max(16, min(int(token_cap or 256), 2048)),
+            },
+            timeout=min(self.timeout, 0.6),
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {
+            "ok": True,
+            "items": data.get("items") or [],
+            "personId": data.get("personId"),
+            "tokenCap": data.get("tokenCap"),
+        }
+
+    async def write_memory_turn(
+        self,
+        *,
+        session_id: str,
+        surface: str,
+        role: str,
+        content: str,
+        provenance: dict[str, Any] | None = None,
+    ) -> dict:
+        res = await self._post(
+            self.MEMORY_TURNS_PATH,
+            body={
+                "sessionId": (session_id or "sam-worker")[:256],
+                "surface": (surface or "voice")[:32],
+                "role": (role or "")[:32],
+                "content": (content or "")[:8000],
+                "provenance": provenance or {},
+            },
+            timeout=min(self.timeout, 0.6),
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": True, "turn": data.get("turn") or {}}
 
     async def get_calendar_events(self, days: int = 7) -> dict:
         res = await self._get(self.CALENDAR_EVENTS_PATH, params={"days": days})

@@ -2,6 +2,7 @@
 // (registered with no agent_name) auto-dispatches Samuel into whatever room we join.
 import { Room, RoomEvent } from "livekit-client";
 import {
+  getPortalAuthToken,
   getPortalAccessKey,
   PORTAL_ACCESS_HEADER,
 } from "./portalAccess";
@@ -60,27 +61,40 @@ export function tokenBase(): string {
 
 export async function fetchTokenHealth(): Promise<{
   portalAccessRequired: boolean;
+  googleAuthRequired: boolean;
 }> {
   const base = tokenBase();
-  if (!base) return { portalAccessRequired: false };
+  if (!base) return { portalAccessRequired: false, googleAuthRequired: false };
   try {
     const res = await fetch(base + "/health", { headers: { Accept: "application/json" } });
-    if (!res.ok) return { portalAccessRequired: false };
-    const data = (await res.json()) as { portalAccessRequired?: boolean };
-    return { portalAccessRequired: Boolean(data.portalAccessRequired) };
+    if (!res.ok) return { portalAccessRequired: false, googleAuthRequired: false };
+    const data = (await res.json()) as {
+      portalAccessRequired?: boolean;
+      googleAuthRequired?: boolean;
+    };
+    return {
+      portalAccessRequired: Boolean(data.portalAccessRequired),
+      googleAuthRequired: Boolean(data.googleAuthRequired),
+    };
   } catch {
-    return { portalAccessRequired: false };
+    return { portalAccessRequired: false, googleAuthRequired: false };
   }
 }
 
 export async function connectSam(): Promise<SamSession> {
   const base = tokenBase();
   const headers: Record<string, string> = { Accept: "application/json" };
+  const authToken = getPortalAuthToken();
   const access = getPortalAccessKey();
-  if (access) headers[PORTAL_ACCESS_HEADER] = access;
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  } else if (access) {
+    // Temporary migration only; production token server requires Google.
+    headers[PORTAL_ACCESS_HEADER] = access;
+  }
 
   const tokenUrl =
-    access
+    access && !authToken
       ? `${base}/token?access=${encodeURIComponent(access)}`
       : `${base}/token`;
 

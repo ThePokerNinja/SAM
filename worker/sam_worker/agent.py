@@ -42,6 +42,7 @@ from livekit.agents import (
     WorkerOptions,
     cli,
     function_tool,
+    llm,
     metrics,
 )
 from livekit.plugins import (  # noqa: F401 — register on main thread
@@ -141,11 +142,31 @@ def prewarm(proc: JobProcess) -> None:
 
 def _build_llm(s: Settings):
     if resolve_brain(s) == "groq":
-        return openai.LLM(
-            model=s.groq_model,
-            base_url=s.groq_base_url,
-            api_key=s.groq_api_key,
-            max_completion_tokens=s.llm_max_completion_tokens,
+        models = [s.groq_model]
+        if s.groq_fallback_model and s.groq_fallback_model not in models:
+            models.append(s.groq_fallback_model)
+        rungs = [
+            openai.LLM(
+                model=model,
+                base_url=s.groq_base_url,
+                api_key=s.groq_api_key,
+                max_completion_tokens=s.llm_max_completion_tokens,
+            )
+            for model in models
+        ]
+        if s.cerebras_api_key:
+            rungs.append(
+                openai.LLM(
+                    model=s.cerebras_model,
+                    base_url=s.cerebras_base_url,
+                    api_key=s.cerebras_api_key,
+                    max_completion_tokens=s.llm_max_completion_tokens,
+                )
+            )
+        return llm.FallbackAdapter(
+            llm=rungs,
+            attempt_timeout=1.5,
+            max_retry_per_llm=0,
         )
     return openai.LLM(
         model=s.openai_model,
@@ -153,6 +174,64 @@ def _build_llm(s: Settings):
         api_key=s.openai_api_key,
         max_completion_tokens=s.llm_max_completion_tokens,
     )
+
+
+def _error_status(error: Any) -> int | None:
+    """Extract an HTTP status from LiveKit's nested error event safely."""
+    seen: set[int] = set()
+    current = error
+    for _ in range(5):
+        if current is None or id(current) in seen:
+            break
+        seen.add(id(current))
+        status = getattr(current, "status_code", None)
+        if isinstance(status, int) and status > 0:
+            return status
+        current = getattr(current, "error", None)
+    return None
+
+
+def _recovery_utterance(error: Any) -> str:
+    if _error_status(error) == 429:
+        return "Give me one moment, I'm catching up."
+    return "Sorry, I lost that. Say it again."
+
+
+def _event_time_ms(event: Any) -> float:
+    created_at = getattr(event, "created_at", None)
+    if isinstance(created_at, (int, float)) and created_at > 0:
+        return float(created_at) * 1000.0
+    return time.time() * 1000.0
+
+
+def _start_barge_overlap(
+    state: dict[str, float | None],
+    event: Any,
+    *,
+    other_state: str | None,
+) -> None:
+    if (
+        getattr(event, "new_state", None) == "speaking"
+        and other_state == "speaking"
+        and state.get("t0_ms") is None
+    ):
+        state["t0_ms"] = _event_time_ms(event)
+
+
+def _finish_barge_overlap(
+    state: dict[str, float | None],
+    event: Any,
+) -> float | None:
+    if (
+        getattr(event, "old_state", None) != "speaking"
+        or getattr(event, "new_state", None) == "speaking"
+        or state.get("t0_ms") is None
+    ):
+        return None
+    measured = max(0.0, _event_time_ms(event) - float(state["t0_ms"]))
+    state["t0_ms"] = None
+    state["measured_ms"] = measured
+    return measured
 
 
 async def entrypoint(ctx: JobContext) -> None:
@@ -191,6 +270,36 @@ async def entrypoint(ctx: JobContext) -> None:
         vad=ctx.proc.userdata["phone_vad" if is_phone else "vad"],
         turn_handling=build_turn_handling(s),
     )
+    recovery_state: dict[str, Any] = {"task": None, "last_at": 0.0}
+
+    async def _speak_recovery(error: Any) -> None:
+        # A fallback chain can emit one error per rung. Speak once for the burst,
+        # directly through TTS, and never let recovery handling close the session.
+        now = time.monotonic()
+        if recovery_state["task"] is not None or now - recovery_state["last_at"] < 4.0:
+            return
+        recovery_state["last_at"] = now
+        recovery_state["task"] = asyncio.current_task()
+        try:
+            await session.say(_recovery_utterance(error), allow_interruptions=False)
+        except Exception:  # noqa: BLE001
+            _log.exception("session recovery speech failed")
+        finally:
+            recovery_state["task"] = None
+
+    try:
+        @session.on("error")
+        def _on_session_error(ev) -> None:
+            error = getattr(ev, "error", ev)
+            _log.warning(
+                "SESSION_ERROR kind=%s status=%s",
+                type(error).__name__,
+                _error_status(error),
+            )
+            if recovery_state["task"] is None:
+                asyncio.ensure_future(_speak_recovery(error))
+    except Exception:  # noqa: BLE001
+        _log.debug("session error recovery hook unavailable", exc_info=True)
 
     session_id = ctx.room.name or ctx.job.id
     surface = "phone" if is_phone else "portal"
@@ -323,10 +432,11 @@ async def entrypoint(ctx: JobContext) -> None:
             @session.on("user_state_changed")
             def _on_user_state(ev) -> None:  # type: ignore[no-redef]
                 try:
-                    new = getattr(ev, "new_state", None)
-                    agent_state = getattr(session, "agent_state", None)
-                    if new == "speaking" and agent_state == "speaking":
-                        barge_state["t0_ms"] = time.time() * 1000.0
+                    _start_barge_overlap(
+                        barge_state,
+                        ev,
+                        other_state=getattr(session, "agent_state", None),
+                    )
                 except Exception:  # noqa: BLE001
                     _log.debug("barge-in user-state event unavailable", exc_info=True)
         except Exception:  # noqa: BLE001
@@ -336,15 +446,18 @@ async def entrypoint(ctx: JobContext) -> None:
             @session.on("agent_state_changed")
             def _on_agent_state(ev) -> None:  # type: ignore[no-redef]
                 try:
-                    if (
-                        getattr(ev, "old_state", None) == "speaking"
-                        and getattr(ev, "new_state", None) != "speaking"
-                        and barge_state["t0_ms"] is not None
-                    ):
-                        barge_state["measured_ms"] = max(
-                            0.0, (time.time() * 1000.0) - barge_state["t0_ms"]
+                    _start_barge_overlap(
+                        barge_state,
+                        ev,
+                        other_state=getattr(session, "user_state", None),
+                    )
+                    measured = _finish_barge_overlap(barge_state, ev)
+                    if measured is not None:
+                        _log.info(
+                            "BARGE_IN measured_ms=%.1f target_ms=250 result=%s",
+                            measured,
+                            "PASS" if measured < 250 else "OVER",
                         )
-                        barge_state["t0_ms"] = None
                 except Exception:  # noqa: BLE001
                     _log.debug("barge-in agent-state event unavailable", exc_info=True)
         except Exception:  # noqa: BLE001
@@ -395,24 +508,68 @@ async def entrypoint(ctx: JobContext) -> None:
         text = str(getattr(ev, "transcript", "") or "")
         last_transcript_chars["value"] = len(text.strip())
 
-    if episode_store is not None:
-        @session.on("user_input_transcribed")
-        def _remember_user_turn(ev) -> None:
-            if not getattr(ev, "is_final", False) or not _session_is_owner():
-                return
-            text = str(getattr(ev, "transcript", "") or "").strip()
-            if text:
-                asyncio.ensure_future(
-                    episode_store.append_async(
-                        Episode(
-                            session_id=session_id,
-                            kind="transcript",
-                            content=text,
-                            speaker_id=getattr(ev, "speaker_id", None),
-                            provenance=f"livekit:{session_id}",
-                        )
+    async def _persist_owner_turn(
+        role: str,
+        content: str,
+        provenance: dict[str, Any],
+    ) -> None:
+        result = await rm_client.write_memory_turn(
+            session_id=session_id,
+            surface="voice",
+            role=role,
+            content=content,
+            provenance={**provenance, "surface_variant": surface},
+        )
+        if not result.get("ok"):
+            _log.debug("canonical owner memory write skipped: %s", result.get("error"))
+
+    @session.on("user_input_transcribed")
+    def _remember_user_turn(ev) -> None:
+        if not getattr(ev, "is_final", False) or not _session_is_owner():
+            return
+        text = str(getattr(ev, "transcript", "") or "").strip()
+        if not text:
+            return
+        if episode_store is not None:
+            asyncio.ensure_future(
+                episode_store.append_async(
+                    Episode(
+                        session_id=session_id,
+                        kind="transcript",
+                        content=text,
+                        speaker_id=getattr(ev, "speaker_id", None),
+                        provenance=f"livekit:{session_id}",
                     )
                 )
+            )
+        asyncio.ensure_future(
+            _persist_owner_turn(
+                "user",
+                text,
+                {
+                    "source": "sam_worker",
+                    "room": session_id,
+                    "speaker_id": getattr(ev, "speaker_id", None),
+                },
+            )
+        )
+
+    @session.on("conversation_item_added")
+    def _remember_assistant_turn(ev) -> None:
+        if not _session_is_owner():
+            return
+        item = getattr(ev, "item", None)
+        if getattr(item, "role", None) != "assistant":
+            return
+        text = str(getattr(item, "text_content", "") or "").strip()
+        if text:
+            asyncio.ensure_future(
+                _persist_owner_turn(
+                    "assistant",
+                    text,
+                    {"source": "sam_worker", "room": session_id},
+                )
+            )
 
     session_logger = SessionLogger(
         room_name=ctx.room.name or ctx.job.id,
@@ -500,25 +657,41 @@ async def entrypoint(ctx: JobContext) -> None:
         )
 
     async def _context_provider(text: str):
-        if memory_retriever is None or profile_store is None or not _session_is_owner():
+        if not _session_is_owner():
             return await assemble_context(
                 memory=list,
                 profile=dict,
                 tools=tool_registry.names,
                 permissions=lambda: {"owner": _session_is_owner()},
             )
+        local_memory = (
+            (
+                lambda: memory_retriever.retrieve_async(
+                    text,
+                    session_id=session_id,
+                    profile_id="owner",
+                    token_budget=350,
+                )
+            )
+            if memory_retriever is not None
+            else list
+        )
+        local_profile = (
+            (lambda: asyncio.to_thread(profile_store.facts, "owner"))
+            if profile_store is not None
+            else dict
+        )
         snapshot = await assemble_context(
-            memory=lambda: memory_retriever.retrieve_async(
-                text,
-                session_id=session_id,
-                profile_id="owner",
-                token_budget=600,
-            ),
-            profile=lambda: asyncio.to_thread(profile_store.facts, "owner"),
+            memory=local_memory,
+            profile=local_profile,
             tools=tool_registry.names,
             permissions=lambda: {"owner": True},
+            external=lambda: rm_client.get_memory_context(text, token_cap=250),
             timeout_s=0.75,
         )
+        remote = snapshot.external if isinstance(snapshot.external, dict) else {}
+        if remote.get("ok") and isinstance(remote.get("items"), list):
+            snapshot.memory = [*(snapshot.memory or []), *remote["items"]]
         _log.info(
             "CONTEXT_LATENCY total_ms=%.1f stages=%s errors=%s",
             snapshot.total_ms,
@@ -541,6 +714,7 @@ async def entrypoint(ctx: JobContext) -> None:
         publish_bench=_publish_bench_event,
         calendar_turn_state=calendar_turn_state,
         history_token_cap=s.history_token_cap,
+        use_full_tool_set=s.prompt_tool_mode == "stable_full",
         instructions=instructions,
         tools=rm_tools,
     )

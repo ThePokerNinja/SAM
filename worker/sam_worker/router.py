@@ -11,9 +11,9 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from livekit.agents import Agent
+from livekit.agents import NOT_GIVEN, Agent
 
-from .prompt_budget import DEFAULT_HISTORY_TOKEN_CAP
+from .prompt_budget import DEFAULT_HISTORY_TOKEN_CAP, volatile_clock_context
 from .tier_session import trim_chat_context_tokens
 from .tools.handlers import (
     handle_get_brief,
@@ -30,12 +30,46 @@ from .tools.select import (
 
 _log = logging.getLogger("sam.router")
 _NON_ALNUM = re.compile(r"[^a-z0-9 ]+")
+_UNSAFE_LOG_CHARS = re.compile(r"[\x00-\x1f\x7f]+")
 
 
 def _normalize(utterance: str) -> str:
     text = utterance.lower().replace("&", " and ")
     text = re.sub(r"['’]s\b", "s", text)
     return " ".join(_NON_ALNUM.sub(" ", text).split())
+
+
+def _safe_utterance_for_log(utterance: str, limit: int = 160) -> str:
+    """Keep owner diagnostics one-line and bounded without changing routing input."""
+    return _UNSAFE_LOG_CHARS.sub(" ", utterance).strip()[:limit]
+
+
+def _calendar_tool_readback(items: list[Any], after_index: int) -> str:
+    """Return calendar write output directly instead of asking the LLM to re-tool."""
+    for item in reversed(items[after_index + 1 :]):
+        if getattr(item, "type", "") != "function_call_output":
+            continue
+        if getattr(item, "name", "") not in {
+            "propose_calendar_change",
+            "commit_calendar_change",
+        }:
+            continue
+        output = str(getattr(item, "output", "") or "").strip()
+        if output:
+            return output
+    return ""
+
+
+def _render_memory_row(row: Any) -> str:
+    if isinstance(row, dict):
+        content = str(row.get("content") or row.get("text") or "").strip()
+        provenance = row.get("provenance") or {}
+        if isinstance(provenance, dict):
+            surface = str(provenance.get("surface") or row.get("surface") or "").strip()
+            if surface and content:
+                return f"[{surface}] {content}"
+        return content or str(row)
+    return str(getattr(row, "text", row))
 
 
 @dataclass(frozen=True)
@@ -165,6 +199,7 @@ class RoutedSamuelAgent(Agent):
         publish_bench: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
         calendar_turn_state: dict[str, Any] | None = None,
         history_token_cap: int = DEFAULT_HISTORY_TOKEN_CAP,
+        use_full_tool_set: bool = False,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -176,6 +211,7 @@ class RoutedSamuelAgent(Agent):
         self._publish_bench = publish_bench
         self._calendar_turn_state = calendar_turn_state
         self._history_token_cap = history_token_cap
+        self._use_full_tool_set = use_full_tool_set
 
     async def on_user_turn_completed(self, turn_ctx, new_message) -> None:
         text = str(getattr(new_message, "text_content", "") or "")
@@ -189,12 +225,11 @@ class RoutedSamuelAgent(Agent):
             )
         if decision.direct or self._context_provider is None:
             return
+        turn_ctx.add_message(role="developer", content=volatile_clock_context())
         snapshot = await self._context_provider(text)
         memory_rows = getattr(snapshot, "memory", []) or []
         if memory_rows:
-            rendered = "\n".join(
-                f"- {getattr(row, 'text', str(row))}" for row in memory_rows
-            )
+            rendered = "\n".join(f"- {_render_memory_row(row)}" for row in memory_rows)
             turn_ctx.add_message(
                 role="developer",
                 content=(
@@ -225,6 +260,10 @@ class RoutedSamuelAgent(Agent):
             and self._calendar_turn_state.get("completed")
         ):
             tool_completed = True
+        calendar_readback = _calendar_tool_readback(items, last_user_index)
+        if calendar_readback:
+            _log.info("CALENDAR_TOOL_READBACK direct=true chars=%d", len(calendar_readback))
+            return calendar_readback
         started = time.perf_counter()
         decision = self._router.classify(text)
         route_ms = (time.perf_counter() - started) * 1000.0
@@ -244,7 +283,11 @@ class RoutedSamuelAgent(Agent):
             return result.spoken
         available = list(tools or [])
         names = [] if tool_completed else select_tools_for_utterance(text)
-        selected = filter_tools(available, names)
+        selected = (
+            available
+            if self._use_full_tool_set and not tool_completed
+            else filter_tools(available, names)
+        )
         calendar_action = calendar_action_for_utterance(text)
         if self._calendar_turn_state is not None and not tool_completed:
             self._calendar_turn_state.clear()
@@ -280,10 +323,19 @@ class RoutedSamuelAgent(Agent):
                     removed,
                     self._history_token_cap,
                 )
-        _log.info("LLM_TOOLS selected=%s of %d", names, len(available))
-        if model_settings is not None and any(
-            name in {"propose_calendar_change", "commit_calendar_change"}
-            for name in names
-        ):
-            model_settings = replace(model_settings, tool_choice="required")
+        _log.info(
+            "LLM_TOOLS selected=%s of %d mode=%s utterance=%r",
+            [getattr(tool, "__name__", "") for tool in selected],
+            len(available),
+            "stable_full" if self._use_full_tool_set else "dynamic",
+            _safe_utterance_for_log(text),
+        )
+        if model_settings is not None:
+            if not selected:
+                model_settings = replace(model_settings, tool_choice=NOT_GIVEN)
+            elif any(
+                name in {"propose_calendar_change", "commit_calendar_change"}
+                for name in names
+            ):
+                model_settings = replace(model_settings, tool_choice="required")
         return super().llm_node(chat_ctx, selected, model_settings)

@@ -7,6 +7,7 @@ dump plus growing chat. This module estimates that split without a live LLM call
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -19,7 +20,7 @@ from .tools.registry import ToolRegistry, ToolSpec
 
 # Target for a typical unrouted turn after Wave 8.2 shrink.
 TARGET_PROMPT_TOKENS = 800
-GROQ_TPM_BUDGET = 8000
+DEFAULT_GROQ_TPM_BUDGET = 8000
 
 # Hard cap on user/assistant history tokens sent to the LLM (on top of turn-count trim).
 DEFAULT_HISTORY_TOKEN_CAP = 250
@@ -110,21 +111,38 @@ def estimate_tokens(text: str) -> int:
     return max(1, (len(text) + 3) // 4)
 
 
-def samuel_instructions(*, extra: str = "") -> str:
-    """Canon + short tool reminder (+ optional bench/greeting extra)."""
-    now = datetime.now(ZoneInfo("America/Los_Angeles"))
-    calendar_hint = (
+def stable_samuel_instructions(*, extra: str = "") -> str:
+    """Exact, cacheable system prefix without clock or per-turn context."""
+    parts = [SAMUEL.system_hint.strip(), VOICE_TOOLS_APPENDIX]
+    extra = (extra or "").strip()
+    if extra:
+        parts.append(extra)
+    return "\n\n".join(parts)
+
+
+def volatile_clock_context(*, now: datetime | None = None) -> str:
+    """Clock context appended after the stable system prefix on each user turn."""
+    now = now or datetime.now(ZoneInfo("America/Los_Angeles"))
+    return (
         f"Today is {now.strftime('%A, %B')} {now.day}, {now.year}; "
         f"the time is {now.strftime('%I:%M %p').lstrip('0')} Pacific. "
         "For calendar changes, use ISO-8601 Pacific times, propose first, read it back, "
         "and wait for a later yes before committing. A create needs summary, start, and "
         "either end or duration_minutes. Never speak bracketed event IDs."
     )
-    parts = [SAMUEL.system_hint.strip(), VOICE_TOOLS_APPENDIX, calendar_hint]
-    extra = (extra or "").strip()
-    if extra:
-        parts.append(extra)
-    return "\n\n".join(parts)
+
+
+def samuel_instructions(*, extra: str = "") -> str:
+    """Stable system instructions; volatile context is injected after this prefix."""
+    return stable_samuel_instructions(extra=extra)
+
+
+def configured_tpm_budget() -> int:
+    """Current provider TPM budget used by offline prompt reports."""
+    try:
+        return max(1, int(os.getenv("GROQ_TPM_BUDGET", str(DEFAULT_GROQ_TPM_BUDGET))))
+    except ValueError:
+        return DEFAULT_GROQ_TPM_BUDGET
 
 
 def tool_openai_schema(spec: ToolSpec) -> dict[str, Any]:
@@ -160,6 +178,10 @@ class PromptBudget:
     history_chars: int = 0
     dominant: str = ""
     turns_per_minute_at_tpm_budget: float = 0.0
+    tpm_budget: int = DEFAULT_GROQ_TPM_BUDGET
+    cached_prefix_tokens: int = 0
+    billable_prompt_tokens: int = 0
+    cache_savings_tokens: int = 0
     under_target: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -171,6 +193,8 @@ def breakdown(
     system: str,
     specs: Iterable[ToolSpec],
     history: Iterable[str] = (),
+    tpm_budget: int | None = None,
+    cached_prefix_tokens: int = 0,
 ) -> PromptBudget:
     spec_list = list(specs)
     system_text = system or ""
@@ -180,13 +204,16 @@ def breakdown(
     tool_tokens = estimate_tokens(tools_text)
     hist_tokens = estimate_tokens(hist_text)
     total = system_tokens + tool_tokens + hist_tokens
+    budget_tpm = max(1, tpm_budget or configured_tpm_budget())
+    cached = min(max(0, cached_prefix_tokens), system_tokens + tool_tokens)
+    billable = max(0, total - cached)
     slices = {
         "system": system_tokens,
         "tool_schema": tool_tokens,
         "history": hist_tokens,
     }
     dominant = max(slices, key=slices.get) if total else "system"
-    tpm = (GROQ_TPM_BUDGET / total) if total else 0.0
+    turns_per_minute = (budget_tpm / billable) if billable else 0.0
     return PromptBudget(
         system_tokens=system_tokens,
         tool_schema_tokens=tool_tokens,
@@ -198,7 +225,11 @@ def breakdown(
         tool_schema_chars=len(tools_text),
         history_chars=len(hist_text),
         dominant=dominant,
-        turns_per_minute_at_tpm_budget=round(tpm, 2),
+        turns_per_minute_at_tpm_budget=round(turns_per_minute, 2),
+        tpm_budget=budget_tpm,
+        cached_prefix_tokens=cached,
+        billable_prompt_tokens=billable,
+        cache_savings_tokens=cached,
         under_target=total <= TARGET_PROMPT_TOKENS,
     )
 

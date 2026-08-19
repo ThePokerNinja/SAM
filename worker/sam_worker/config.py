@@ -9,6 +9,7 @@ from typing import Literal
 
 TurnMode = Literal["cloud", "mini", "vad", "stt"]
 InterruptionMode = Literal["adaptive", "vad"]
+PromptToolMode = Literal["dynamic", "stable_full"]
 TURN_MODES: frozenset[str] = frozenset({"cloud", "mini", "vad", "stt"})
 
 # Per-tier brain model map. Mirrors the client presets; placeholders until Hermes
@@ -118,6 +119,11 @@ class Settings:
     groq_api_key: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
     groq_model: str = "openai/gpt-oss-20b"
+    groq_fallback_model: str = ""
+    # Independent last-resort OpenAI-compatible provider. It is inert without a key.
+    cerebras_api_key: str = ""
+    cerebras_base_url: str = "https://api.cerebras.ai/v1"
+    cerebras_model: str = "gpt-oss-120b"
     # Tool calls on gpt-oss include hidden reasoning in this budget. Calendar
     # proposals can exhaust 256 tokens before the JSON call is emitted.
     llm_max_completion_tokens: int = 512
@@ -140,6 +146,10 @@ class Settings:
     voice_ids: dict[str, str] = field(default_factory=dict)
     # Hard cap on user/assistant history tokens sent to the LLM (Wave 8.2).
     history_token_cap: int = 250
+    # Keep dynamic routing as the production-compatible default. stable_full is an
+    # explicit measurement arm for Groq's exact-prefix prompt cache.
+    prompt_tool_mode: PromptToolMode = "dynamic"
+    groq_tpm_budget: int = 8000
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -183,6 +193,12 @@ class Settings:
             groq_api_key=os.getenv("GROQ_API_KEY", ""),
             groq_base_url=os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
             groq_model=os.getenv("GROQ_MODEL", "openai/gpt-oss-20b"),
+            groq_fallback_model=os.getenv("GROQ_FALLBACK_MODEL", "").strip(),
+            cerebras_api_key=os.getenv("CEREBRAS_API_KEY", ""),
+            cerebras_base_url=os.getenv(
+                "CEREBRAS_BASE_URL", "https://api.cerebras.ai/v1"
+            ),
+            cerebras_model=os.getenv("CEREBRAS_MODEL", "gpt-oss-120b"),
             llm_max_completion_tokens=max(
                 64,
                 min(
@@ -208,4 +224,13 @@ class Settings:
                 "sales": os.getenv("SALES_VOICE_ID", ""),
             },
             history_token_cap=int(os.getenv("SAM_HISTORY_TOKEN_CAP", "250") or 250),
+            prompt_tool_mode=(
+                "stable_full"
+                if os.getenv("SAM_PROMPT_TOOL_MODE", "dynamic").strip().lower()
+                == "stable_full"
+                else "dynamic"
+            ),
+            groq_tpm_budget=max(
+                1, int(os.getenv("GROQ_TPM_BUDGET", "8000") or 8000)
+            ),
         )
