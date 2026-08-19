@@ -6,7 +6,7 @@ import logging
 import re
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -15,7 +15,6 @@ from livekit.agents import Agent
 
 from .prompt_budget import DEFAULT_HISTORY_TOKEN_CAP
 from .tier_session import trim_chat_context_tokens
-from .tools.select import filter_tools, select_tools_for_utterance
 from .tools.handlers import (
     handle_get_brief,
     handle_get_pulse,
@@ -23,6 +22,7 @@ from .tools.handlers import (
     handle_get_scans,
     handle_get_trades,
 )
+from .tools.select import filter_tools, select_tools_for_utterance
 
 _log = logging.getLogger("sam.router")
 _NON_ALNUM = re.compile(r"[^a-z0-9 ]+")
@@ -229,4 +229,9 @@ class RoutedSamuelAgent(Agent):
                     self._history_token_cap,
                 )
         _log.info("LLM_TOOLS selected=%s of %d", names, len(available))
+        if model_settings is not None and any(
+            name in {"propose_calendar_change", "commit_calendar_change"}
+            for name in names
+        ):
+            model_settings = replace(model_settings, tool_choice="required")
         return super().llm_node(chat_ctx, selected, model_settings)

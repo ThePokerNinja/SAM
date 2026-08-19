@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
+from livekit.agents import ModelSettings
 from livekit.agents.llm import ChatContext
 
 from sam_worker.router import DirectResult, FastIntentRouter, RoutedSamuelAgent
@@ -101,6 +102,55 @@ def test_llm_node_attaches_no_tools_for_pricing() -> None:
         Agent.llm_node = original
     assert result == "priced"
     assert seen["tools"] == []
+
+
+def test_calendar_turn_requires_the_selected_tool_call() -> None:
+    seen: dict[str, object] = {}
+
+    def fake_parent(self, chat_ctx, tools, model_settings):
+        seen["tools"] = [getattr(tool, "__name__", "") for tool in (tools or [])]
+        seen["tool_choice"] = model_settings.tool_choice
+        return "calendar"
+
+    async def direct(_decision):
+        raise AssertionError("calendar changes must use the LLM tool path")
+
+    async def publish(_command):
+        return None
+
+    class _Tool:
+        def __init__(self, name: str) -> None:
+            self.__name__ = name
+
+    from livekit.agents import Agent
+
+    original = Agent.llm_node
+    Agent.llm_node = fake_parent
+    try:
+        agent = RoutedSamuelAgent(
+            router=FastIntentRouter(),
+            direct_execute=direct,
+            publish_command=publish,
+            instructions="test",
+        )
+        context = ChatContext.empty()
+        context.add_message(
+            role="user",
+            content="Move Samuel scheduling proof to Wednesday at four",
+        )
+        tools = [
+            _Tool("get_calendar_events"),
+            _Tool("propose_calendar_change"),
+            _Tool("commit_calendar_change"),
+        ]
+        result = asyncio.run(
+            agent.llm_node(context, tools, ModelSettings(tool_choice="auto"))
+        )
+    finally:
+        Agent.llm_node = original
+    assert result == "calendar"
+    assert seen["tools"] == ["get_calendar_events", "propose_calendar_change"]
+    assert seen["tool_choice"] == "required"
 
 
 def test_direct_route_bypasses_primary_llm_node() -> None:
