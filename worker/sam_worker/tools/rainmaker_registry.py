@@ -8,6 +8,7 @@ from typing import Any
 from livekit.agents import RunContext
 
 from .handlers import (
+    handle_commit_calendar_change,
     handle_get_brief,
     handle_get_calendar_events,
     handle_get_pulse,
@@ -16,12 +17,11 @@ from .handlers import (
     handle_get_trades,
     handle_list_studio_runs,
     handle_make_studio_deliverable,
+    handle_propose_calendar_change,
     handle_queue_research,
     handle_record_studio_publish,
     handle_send_brief,
     handle_send_hero,
-    handle_commit_calendar_change,
-    handle_propose_calendar_change,
     handle_studio_asset_status,
     handle_studio_campaign_report,
 )
@@ -319,16 +319,16 @@ def _build_propose_calendar_change(
     async def propose_calendar_change(
         context: RunContext,
         action: str,
-        summary: str = "",
-        start: str = "",
-        end: str = "",
-        duration_minutes: int = 0,
-        event_id: str = "",
-        event_query: str = "",
-        description: str = "",
-        location: str = "",
-        all_day: bool = False,
-        timezone: str = "America/Los_Angeles",
+        summary: str | None = None,
+        start: str | None = None,
+        end: str | None = None,
+        duration_minutes: int | None = None,
+        event_id: str | None = None,
+        event_query: str | None = None,
+        description: str | None = None,
+        location: str | None = None,
+        all_day: bool | None = None,
+        timezone: str | None = None,
     ) -> str:
         return await handle_propose_calendar_change(
             client,
@@ -355,10 +355,10 @@ def _build_commit_calendar_change(
     session_id = str(deps.get("session_id") or "samuel-voice")
 
     async def commit_calendar_change(
-        context: RunContext, proposal_id: str = ""
+        context: RunContext, proposal_id: str | None = None
     ) -> str:
         return await handle_commit_calendar_change(
-            client, session_id=session_id, proposal_id=proposal_id
+            client, session_id=session_id, proposal_id=proposal_id or ""
         )
 
     return commit_calendar_change

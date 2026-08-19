@@ -86,6 +86,30 @@ class RegistryBuildTests(unittest.TestCase):
         )
         self.assertEqual(len(tools), 17)
 
+    def test_calendar_proposal_schema_only_requires_action(self) -> None:
+        tools = self.registry.build_livekit_tools(
+            client=object(),
+            is_owner=lambda: True,
+            function_tool=_identity_decorator,
+            owner_refusal=self.owner_refusal,
+            only=["propose_calendar_change"],
+        )
+        params = inspect.signature(tools[0]).parameters
+        self.assertIs(params["action"].default, inspect.Parameter.empty)
+        for name in (
+            "summary",
+            "start",
+            "end",
+            "duration_minutes",
+            "event_id",
+            "event_query",
+            "description",
+            "location",
+            "all_day",
+            "timezone",
+        ):
+            self.assertIsNone(params[name].default)
+
     def test_owner_gate_blocks_trigger_tool(self) -> None:
         tools = self.registry.build_livekit_tools(
             client=object(),
