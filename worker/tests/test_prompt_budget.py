@@ -107,6 +107,12 @@ def test_schedule_question_selects_read_instead_of_create() -> None:
     assert select_tools_for_utterance(
         "Schedule a meeting tomorrow at noon"
     ) == ["propose_calendar_change"]
+    assert select_tools_for_utterance(
+        "Can you add an event to my calendar tomorrow?"
+    ) == ["propose_calendar_change"]
+    assert calendar_action_for_utterance(
+        "Edit my calendar and move the dentist appointment"
+    ) == "update"
 
 
 def test_filter_tools_preserves_requested_order() -> None:
