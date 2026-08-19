@@ -75,6 +75,10 @@ class RainmakerClient(Protocol):
     async def studio_campaign_report(self, run_id: str) -> dict: ...
     async def make_studio_deliverable(self, type: str, run_id: str = "") -> dict: ...
     async def record_studio_publish(self, asset_id: str, url: str) -> dict: ...
+    async def get_calendar_events(self, days: int = 7) -> dict: ...
+    async def create_calendar_event(self, **fields: Any) -> dict: ...
+    async def update_calendar_event(self, event_id: str, **fields: Any) -> dict: ...
+    async def cancel_calendar_event(self, event_id: str) -> dict: ...
 
 
 class MockRainmakerClient:
@@ -132,6 +136,33 @@ class MockRainmakerClient:
     async def record_studio_publish(self, asset_id: str, url: str) -> dict:
         return {"ok": True, "publish": {"asset_id": asset_id, "url": url, "channel": "web"}}
 
+    async def get_calendar_events(self, days: int = 7) -> dict:
+        return {
+            "ok": True,
+            "events": [
+                {"id": "mock-event", "summary": "Team sync", "start": "2026-08-19T10:00:00-07:00"}
+            ],
+        }
+
+    async def create_calendar_event(self, **fields: Any) -> dict:
+        return {
+            "ok": True,
+            "event": {
+                "id": "mock-new",
+                "summary": fields.get("summary") or "Event",
+                "start": fields.get("start"),
+            },
+        }
+
+    async def update_calendar_event(self, event_id: str, **fields: Any) -> dict:
+        return {
+            "ok": True,
+            "event": {"id": event_id, "summary": fields.get("summary") or "Updated", "start": fields.get("start")},
+        }
+
+    async def cancel_calendar_event(self, event_id: str) -> dict:
+        return {"ok": True, "event": {"id": event_id, "deleted": True}}
+
 
 class HttpRainmakerClient:
     """Read-only rm_api client (SAM-005). httpx + ``X-RM-CRON-TOKEN``.
@@ -156,6 +187,7 @@ class HttpRainmakerClient:
     STUDIO_REPORT_PATH = "/studio/campaign/report"
     STUDIO_MAKE_PATH = "/studio/make"
     STUDIO_PUBLISH_PATH = "/studio/publish"
+    CALENDAR_EVENTS_PATH = "/calendar/events"
     _LONG_TIMEOUT = 30.0
 
     def __init__(
@@ -217,6 +249,54 @@ class HttpRainmakerClient:
             else:
                 async with httpx.AsyncClient(timeout=tmo) as client:
                     resp = await client.post(url, json=body or {}, headers=self._headers())
+        except httpx.TimeoutException:
+            return {"ok": False, "error": "timeout"}
+        except httpx.HTTPError as exc:
+            return {"ok": False, "error": f"request_error: {exc}"[:200]}
+        if resp.status_code != 200:
+            return {"ok": False, "error": f"http_{resp.status_code}"}
+        try:
+            return {"ok": True, "data": resp.json()}
+        except ValueError:
+            return {"ok": False, "error": "bad_json"}
+
+    async def _patch(
+        self, path: str, body: dict[str, Any] | None = None, *, timeout: float | None = None
+    ) -> dict:
+        import httpx
+
+        url = self.base_url + path
+        tmo = self.timeout if timeout is None else timeout
+        try:
+            if self._client is not None:
+                resp = await self._client.patch(
+                    url, json=body or {}, headers=self._headers(), timeout=tmo
+                )
+            else:
+                async with httpx.AsyncClient(timeout=tmo) as client:
+                    resp = await client.patch(url, json=body or {}, headers=self._headers())
+        except httpx.TimeoutException:
+            return {"ok": False, "error": "timeout"}
+        except httpx.HTTPError as exc:
+            return {"ok": False, "error": f"request_error: {exc}"[:200]}
+        if resp.status_code != 200:
+            return {"ok": False, "error": f"http_{resp.status_code}"}
+        try:
+            return {"ok": True, "data": resp.json()}
+        except ValueError:
+            return {"ok": False, "error": "bad_json"}
+
+    async def _delete(self, path: str, *, timeout: float | None = None) -> dict:
+        import httpx
+
+        url = self.base_url + path
+        tmo = self.timeout if timeout is None else timeout
+        try:
+            if self._client is not None:
+                resp = await self._client.delete(url, headers=self._headers(), timeout=tmo)
+            else:
+                async with httpx.AsyncClient(timeout=tmo) as client:
+                    resp = await client.delete(url, headers=self._headers())
         except httpx.TimeoutException:
             return {"ok": False, "error": "timeout"}
         except httpx.HTTPError as exc:
@@ -397,3 +477,37 @@ class HttpRainmakerClient:
             return {"ok": False, "error": res["error"]}
         data = res.get("data") or {}
         return {"ok": True, "publish": data.get("publish") or data}
+
+    async def get_calendar_events(self, days: int = 7) -> dict:
+        res = await self._get(self.CALENDAR_EVENTS_PATH, params={"days": days})
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": bool(data.get("ok", True)), "events": data.get("events") or [], "error": data.get("error")}
+
+    async def create_calendar_event(self, **fields: Any) -> dict:
+        res = await self._post(self.CALENDAR_EVENTS_PATH, body=fields)
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        if not data.get("ok"):
+            return {"ok": False, "error": data.get("error") or "calendar_create_failed"}
+        return {"ok": True, "event": data.get("event") or {}}
+
+    async def update_calendar_event(self, event_id: str, **fields: Any) -> dict:
+        res = await self._patch(f"{self.CALENDAR_EVENTS_PATH}/{event_id}", body=fields)
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        if not data.get("ok"):
+            return {"ok": False, "error": data.get("error") or "calendar_update_failed"}
+        return {"ok": True, "event": data.get("event") or {}}
+
+    async def cancel_calendar_event(self, event_id: str) -> dict:
+        res = await self._delete(f"{self.CALENDAR_EVENTS_PATH}/{event_id}")
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        if not data.get("ok"):
+            return {"ok": False, "error": data.get("error") or "calendar_delete_failed"}
+        return {"ok": True, "event": data.get("event") or {}}

@@ -227,3 +227,41 @@ async def handle_send_hero(client: RainmakerClient) -> str:
         return "Twilio couldn't send the image, so I texted you an ASCII version of the card."
     reason = res.get("reason") or "send_failed"
     return f"I couldn't send the HERO card right now ({reason})."
+
+
+async def handle_get_calendar_events(client: RainmakerClient, days: int = 7) -> str:
+    res = await client.get_calendar_events(days=days)
+    if not res.get("ok"):
+        return "I couldn't read your calendar right now."
+    events = res.get("events") or []
+    if not events:
+        return f"No events in the next {days} days."
+    lines = []
+    for ev in events[:6]:
+        title = ev.get("summary") or "(no title)"
+        start = ev.get("start") or "?"
+        lines.append(f"{title} at {start}")
+    return ("Upcoming: " + "; ".join(lines))[:_MAX_SPOKEN]
+
+
+async def handle_create_calendar_event(client: RainmakerClient, **fields: Any) -> str:
+    res = await client.create_calendar_event(**fields)
+    if not res.get("ok"):
+        return "I couldn't create that calendar event."
+    event = res.get("event") or {}
+    return f"Booked {event.get('summary')} starting {event.get('start')}."[:_MAX_SPOKEN]
+
+
+async def handle_update_calendar_event(client: RainmakerClient, event_id: str, **fields: Any) -> str:
+    res = await client.update_calendar_event(event_id, **fields)
+    if not res.get("ok"):
+        return "I couldn't update that calendar event."
+    event = res.get("event") or {}
+    return f"Updated {event.get('summary')} to start {event.get('start')}."[:_MAX_SPOKEN]
+
+
+async def handle_cancel_calendar_event(client: RainmakerClient, event_id: str) -> str:
+    res = await client.cancel_calendar_event(event_id)
+    if not res.get("ok"):
+        return "I couldn't cancel that calendar event."
+    return "Canceled the calendar event."

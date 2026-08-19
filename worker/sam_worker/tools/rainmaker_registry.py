@@ -9,6 +9,7 @@ from livekit.agents import RunContext
 
 from .handlers import (
     handle_get_brief,
+    handle_get_calendar_events,
     handle_get_pulse,
     handle_get_research,
     handle_get_scans,
@@ -19,6 +20,9 @@ from .handlers import (
     handle_record_studio_publish,
     handle_send_brief,
     handle_send_hero,
+    handle_create_calendar_event,
+    handle_update_calendar_event,
+    handle_cancel_calendar_event,
     handle_studio_asset_status,
     handle_studio_campaign_report,
 )
@@ -154,6 +158,42 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
         ),
         _build_record_publish,
     )
+    registry.register(
+        ToolSpec(
+            name="get_calendar_events",
+            description="Read upcoming events on the owner's Google Calendar.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_get_calendar_events,
+    )
+    registry.register(
+        ToolSpec(
+            name="create_calendar_event",
+            description="Create a calendar event. Owner only. Args: summary, start, end.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_create_calendar_event,
+    )
+    registry.register(
+        ToolSpec(
+            name="update_calendar_event",
+            description="Move or edit a calendar event. Owner only. Args: event_id.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_update_calendar_event,
+    )
+    registry.register(
+        ToolSpec(
+            name="cancel_calendar_event",
+            description="Cancel a calendar event. Owner only. Arg: event_id.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_cancel_calendar_event,
+    )
 
 
 def _build_get_scans(client: Any, _is_owner: Any, _deps: dict[str, Any]):
@@ -266,3 +306,72 @@ def _build_record_publish(client: Any, is_owner: Any, _deps: dict[str, Any]):
         return await handle_record_studio_publish(client, asset_id, url)
 
     return record_studio_publish
+
+
+def _build_get_calendar_events(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def get_calendar_events(context: RunContext, days: int = 7) -> str:
+        return await handle_get_calendar_events(client, days=days)
+
+    return get_calendar_events
+
+
+def _build_create_calendar_event(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def create_calendar_event(
+        context: RunContext,
+        summary: str,
+        start: str,
+        end: str,
+        description: str = "",
+        location: str = "",
+        all_day: bool = False,
+        timezone: str = "America/Los_Angeles",
+    ) -> str:
+        return await handle_create_calendar_event(
+            client,
+            summary=summary,
+            start=start,
+            end=end,
+            description=description,
+            location=location,
+            all_day=all_day,
+            timezone=timezone,
+        )
+
+    return create_calendar_event
+
+
+def _build_update_calendar_event(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def update_calendar_event(
+        context: RunContext,
+        event_id: str,
+        summary: str = "",
+        start: str = "",
+        end: str = "",
+        description: str = "",
+        location: str = "",
+        all_day: bool = False,
+        timezone: str = "America/Los_Angeles",
+    ) -> str:
+        fields: dict[str, Any] = {"timezone": timezone}
+        if summary:
+            fields["summary"] = summary
+        if start:
+            fields["start"] = start
+        if end:
+            fields["end"] = end
+        if description:
+            fields["description"] = description
+        if location:
+            fields["location"] = location
+        if all_day:
+            fields["all_day"] = True
+        return await handle_update_calendar_event(client, event_id, **fields)
+
+    return update_calendar_event
+
+
+def _build_cancel_calendar_event(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def cancel_calendar_event(context: RunContext, event_id: str) -> str:
+        return await handle_cancel_calendar_event(client, event_id)
+
+    return cancel_calendar_event
