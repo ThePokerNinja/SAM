@@ -79,6 +79,7 @@ _TOOL_PARAMS: dict[str, dict[str, Any]] = {
             "summary": {"type": "string"},
             "start": {"type": "string"},
             "end": {"type": "string"},
+            "duration_minutes": {"type": "integer"},
             "event_id": {"type": "string"},
             "event_query": {"type": "string"},
             "description": {"type": "string"},
@@ -116,7 +117,8 @@ def samuel_instructions(*, extra: str = "") -> str:
         f"Today is {now.strftime('%A, %B')} {now.day}, {now.year}; "
         f"the time is {now.strftime('%I:%M %p').lstrip('0')} Pacific. "
         "For calendar changes, use ISO-8601 Pacific times, propose first, read it back, "
-        "and wait for a later yes before committing. Never speak bracketed event IDs."
+        "and wait for a later yes before committing. A create needs summary, start, and "
+        "either end or duration_minutes. Never speak bracketed event IDs."
     )
     parts = [SAMUEL.system_hint.strip(), VOICE_TOOLS_APPENDIX, calendar_hint]
     extra = (extra or "").strip()
