@@ -20,6 +20,19 @@ def test_read_includes_machine_event_reference() -> None:
     assert "[event_id=mock-event]" in result
 
 
+def test_today_read_clamps_zero_days_to_one() -> None:
+    seen: list[int] = []
+
+    class Spy(MockRainmakerClient):
+        async def get_calendar_events(self, days: int = 7) -> dict:
+            seen.append(days)
+            return await super().get_calendar_events(days)
+
+    result = asyncio.run(handle_get_calendar_events(Spy(), days=0))
+    assert seen == [1]
+    assert "Team sync" in result
+
+
 def test_proposal_reads_back_and_waits() -> None:
     result = asyncio.run(
         handle_propose_calendar_change(

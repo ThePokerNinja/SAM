@@ -230,6 +230,7 @@ async def handle_send_hero(client: RainmakerClient) -> str:
 
 
 async def handle_get_calendar_events(client: RainmakerClient, days: int = 7) -> str:
+    days = max(1, min(int(days or 1), 30))
     res = await client.get_calendar_events(days=days)
     if not res.get("ok"):
         return "I couldn't read your calendar right now."
