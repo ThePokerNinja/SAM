@@ -110,6 +110,17 @@ export async function connectSam(): Promise<SamSession> {
   const room = new Room({ adaptiveStream: true, dynacast: true });
   await room.connect(data.url, data.token);
   installSamCommands(room);
-  await room.localParticipant.setMicrophoneEnabled(true);
+  try {
+    await room.localParticipant.setMicrophoneEnabled(true);
+  } catch (err) {
+    room.disconnect();
+    const msg = String((err as Error)?.message || err);
+    if (/device not found|NotFoundError|Requested device/i.test(msg)) {
+      throw new Error(
+        "No microphone found. Open https://voice.michaelstewman.com in Safari or Chrome, allow the mic, then tap the flame again.",
+      );
+    }
+    throw err;
+  }
   return { room, roomName: data.room };
 }

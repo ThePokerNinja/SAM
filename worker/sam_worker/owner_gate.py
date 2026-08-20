@@ -1,18 +1,44 @@
 """Tier-T owner gate for trigger tools (run_scan, queue_research).
 
-Until Picovoice Eagle is enrolled, the portal is already gated by SAM_PORTAL_ACCESS_KEY
-at token mint - anyone in the room passed that check. Participant JWT attributes
-(role=owner) are the preferred signal but can arrive late or not surface on the agent
-SDK; this module caches attribute updates and falls back to "connected human in a
-portal session" only while voice verify is NOT armed.
+Owner is proven by one of:
+
+- a live voiceprint match when Eagle is armed,
+- JWT attribute ``role=owner`` minted after Google / verified portal auth, or
+- a SIP caller whose ``sip.phoneNumber`` is in ``SAM_SIP_OWNER_NUMBERS``.
+
+The gate fails closed. A connected human without one of those proofs is not
+the owner, so retiring ``SAM_PORTAL_ACCESS_KEY`` cannot hand owner-tier tools
+to anyone who merely reaches a room.
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from typing import Any, Callable
 
 _log = logging.getLogger("sam.owner_gate")
+
+
+def _digits(value: Any) -> str:
+    return "".join(character for character in str(value or "") if character.isdigit())
+
+
+def sip_caller_is_authorized(
+    participants: Iterable[Any],
+    owner_numbers: Iterable[str],
+) -> bool:
+    """Defense-in-depth caller gate behind LiveKit trunk ``allowed_numbers``."""
+    allowed = {_digits(number) for number in owner_numbers}
+    allowed.discard("")
+    callers = {
+        _digits(
+            (getattr(participant, "attributes", None) or {}).get("sip.phoneNumber", "")
+        )
+        for participant in participants
+    }
+    callers.discard("")
+    return bool(callers) and not callers.isdisjoint(allowed)
 
 
 def participant_has_owner_role(ctx: Any) -> bool:
@@ -30,9 +56,15 @@ def participant_has_owner_role(ctx: Any) -> bool:
 class OwnerGate:
     """Session-scoped owner check for Tier-T tools."""
 
-    def __init__(self, ctx: Any, verifier: Any | None) -> None:
+    def __init__(
+        self,
+        ctx: Any,
+        verifier: Any | None,
+        sip_owner_numbers: Iterable[str] = (),
+    ) -> None:
         self._ctx = ctx
         self._verifier = verifier
+        self._sip_owner_numbers = tuple(sip_owner_numbers or ())
         self._attr_owner = False
 
     def note_participant(self, participant: Any) -> None:
@@ -57,17 +89,25 @@ class OwnerGate:
         if self._attr_owner:
             return True
         if self._verifier is not None:
-            # Voice verify armed but no match yet - do not use portal fallback.
+            # Voice verify armed but no match yet - do not use a weaker fallback.
             return False
-        # Interim: portal access-key gated the join; Pico not enrolled yet.
-        connected = bool(getattr(self._ctx.room, "remote_participants", None))
-        if connected:
-            _log.debug("owner gate: portal fallback (voice verify off, human connected)")
-        return connected
+        try:
+            participants = list(self._ctx.room.remote_participants.values())
+        except Exception:  # noqa: BLE001
+            return False
+        if self._sip_owner_numbers and sip_caller_is_authorized(
+            participants, self._sip_owner_numbers
+        ):
+            return True
+        return False
 
 
-def build_owner_gate(ctx: Any, verifier: Any | None) -> tuple[Callable[[], bool], OwnerGate]:
-    gate = OwnerGate(ctx, verifier)
+def build_owner_gate(
+    ctx: Any,
+    verifier: Any | None,
+    sip_owner_numbers: Iterable[str] = (),
+) -> tuple[Callable[[], bool], OwnerGate]:
+    gate = OwnerGate(ctx, verifier, sip_owner_numbers=sip_owner_numbers)
     return gate.is_owner, gate
 
 

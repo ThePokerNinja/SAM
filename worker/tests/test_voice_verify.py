@@ -1,4 +1,4 @@
-"""Owner gate: attribute cache, portal fallback when voice verify is off."""
+"""Owner gate: attribute cache, SIP allow-list, fail-closed without proof."""
 
 from __future__ import annotations
 
@@ -35,10 +35,10 @@ class ParticipantOwnerRoleTests(unittest.TestCase):
 
 
 class OwnerGateTests(unittest.TestCase):
-    def test_portal_fallback_when_voice_verify_off(self) -> None:
-        ctx = _FakeCtx([_FakeP({})])  # no role attr - common prod bug
+    def test_connected_human_without_proof_is_not_owner(self) -> None:
+        ctx = _FakeCtx([_FakeP({})])
         gate = OwnerGate(ctx, verifier=None)
-        self.assertTrue(gate.is_owner())
+        self.assertFalse(gate.is_owner())
 
     def test_no_portal_fallback_when_voice_verify_armed(self) -> None:
         ctx = _FakeCtx([_FakeP({})])
@@ -57,6 +57,16 @@ class OwnerGateTests(unittest.TestCase):
         ctx = _FakeCtx([])
         gate = OwnerGate(ctx, verifier=type("V", (), {"is_owner": lambda self: True})())
         self.assertTrue(gate.is_owner())
+
+    def test_sip_owner_number_is_recognized(self) -> None:
+        ctx = _FakeCtx([_FakeP({"sip.phoneNumber": "+1 (555) 555-0123"})])
+        gate = OwnerGate(ctx, verifier=None, sip_owner_numbers=("+15555550123",))
+        self.assertTrue(gate.is_owner())
+
+    def test_unknown_sip_caller_is_not_owner(self) -> None:
+        ctx = _FakeCtx([_FakeP({"sip.phoneNumber": "+15555550999"})])
+        gate = OwnerGate(ctx, verifier=None, sip_owner_numbers=("+15555550123",))
+        self.assertFalse(gate.is_owner())
 
 
 class FromSettingsGuardTests(unittest.TestCase):

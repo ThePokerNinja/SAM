@@ -56,7 +56,11 @@ from .config import Settings, resolve_brain
 from .context import assemble_context
 from .latency import TurnProfile, latency_log_enabled, write_profile
 from .memory import Episode, EpisodicMemoryStore, MemoryRetriever, ProfileStore
-from .owner_gate import build_owner_gate, wire_owner_gate_listeners
+from .owner_gate import (
+    build_owner_gate,
+    sip_caller_is_authorized,
+    wire_owner_gate_listeners,
+)
 from .prompt_budget import samuel_instructions
 from .router import FastIntentRouter, RoutedSamuelAgent
 from .session_log import SessionLogger
@@ -94,26 +98,6 @@ def _build_tool_registry() -> ToolRegistry:
     registry = ToolRegistry()
     register_rainmaker_tools(registry)
     return registry
-
-
-def sip_caller_is_authorized(participants, owner_numbers: tuple[str, ...]) -> bool:
-    """Defense-in-depth caller gate behind LiveKit trunk ``allowed_numbers``."""
-    allowed = {
-        "".join(character for character in number if character.isdigit())
-        for number in owner_numbers
-    }
-    callers = {
-        "".join(
-            character
-            for character in str(
-                (getattr(participant, "attributes", None) or {}).get("sip.phoneNumber", "")
-            )
-            if character.isdigit()
-        )
-        for participant in participants
-    }
-    callers.discard("")
-    return bool(callers) and not callers.isdisjoint(allowed)
 
 
 async def _wait_for_sip_participants(room, *, timeout_s: float = 12.0):
@@ -465,10 +449,13 @@ async def entrypoint(ctx: JobContext) -> None:
 
     rm_client = build_rainmaker_client(s)
 
-    # Owner gate for Tier-T tools: live voice match (primary) OR access-key owner
-    # attribute on the token (fallback). Verifier is None when voice verify isn't configured.
+    # Owner gate for Tier-T tools: live voice match, verified JWT role=owner, or
+    # an allow-listed SIP caller. The gate fails closed — a connected human is
+    # not enough. Verifier is None when voice verify isn't configured.
     verifier = VoiceVerifier.from_settings(s)
-    _session_is_owner, owner_gate = build_owner_gate(ctx, verifier)
+    _session_is_owner, owner_gate = build_owner_gate(
+        ctx, verifier, sip_owner_numbers=s.sip_owner_numbers
+    )
     episode_store = EpisodicMemoryStore() if s.memory_enabled else None
     profile_store = ProfileStore() if s.memory_enabled else None
     memory_retriever = (
