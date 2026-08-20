@@ -39,10 +39,10 @@ def test_system_prefix_is_stable_and_clock_is_separate() -> None:
     assert "Today is Wednesday, August 19, 2026" in clock
 
 
-def test_full_seventeen_dump_still_blows_the_target() -> None:
+def test_full_tool_dump_still_blows_the_target() -> None:
     """Attaching every tool every turn is the TPM killer; do not send that set."""
     budget = breakdown(system=samuel_instructions(), specs=all_rainmaker_specs())
-    assert budget.tool_count == 17
+    assert budget.tool_count == 19
     assert budget.tool_schema_tokens > 400
     assert budget.total_tokens > TARGET_PROMPT_TOKENS
 
@@ -167,5 +167,5 @@ def test_filter_tools_preserves_requested_order() -> None:
 
 
 def test_voice_tool_count() -> None:
-    assert len(VOICE_TOOLS) == 9
+    assert len(VOICE_TOOLS) == 11
     assert len(STUDIO_TOOLS) == 5
