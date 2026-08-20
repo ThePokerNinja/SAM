@@ -119,7 +119,7 @@ class Settings:
     groq_api_key: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
     groq_model: str = "openai/gpt-oss-20b"
-    groq_fallback_model: str = ""
+    groq_fallback_model: str = "openai/gpt-oss-120b"
     # Independent last-resort OpenAI-compatible provider. It is inert without a key.
     cerebras_api_key: str = ""
     cerebras_base_url: str = "https://api.cerebras.ai/v1"
@@ -193,7 +193,9 @@ class Settings:
             groq_api_key=os.getenv("GROQ_API_KEY", ""),
             groq_base_url=os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
             groq_model=os.getenv("GROQ_MODEL", "openai/gpt-oss-20b"),
-            groq_fallback_model=os.getenv("GROQ_FALLBACK_MODEL", "").strip(),
+            groq_fallback_model=os.getenv(
+                "GROQ_FALLBACK_MODEL", "openai/gpt-oss-120b"
+            ).strip(),
             cerebras_api_key=os.getenv("CEREBRAS_API_KEY", ""),
             cerebras_base_url=os.getenv(
                 "CEREBRAS_BASE_URL", "https://api.cerebras.ai/v1"

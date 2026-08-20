@@ -125,38 +125,50 @@ def prewarm(proc: JobProcess) -> None:
 
 
 def _build_llm(s: Settings):
-    if resolve_brain(s) == "groq":
-        models = [s.groq_model]
-        if s.groq_fallback_model and s.groq_fallback_model not in models:
-            models.append(s.groq_fallback_model)
-        rungs = [
+    if resolve_brain(s) != "groq":
+        return openai.LLM(
+            model=s.openai_model,
+            base_url=s.openai_base_url,
+            api_key=s.openai_api_key,
+            max_completion_tokens=s.llm_max_completion_tokens,
+        )
+    models = [s.groq_model]
+    groq_fallback = s.groq_fallback_model or "openai/gpt-oss-120b"
+    if groq_fallback not in models:
+        models.append(groq_fallback)
+    rungs = [
+        openai.LLM(
+            model=model,
+            base_url=s.groq_base_url,
+            api_key=s.groq_api_key,
+            max_completion_tokens=s.llm_max_completion_tokens,
+        )
+        for model in models
+    ]
+    if s.openai_api_key:
+        rungs.append(
             openai.LLM(
-                model=model,
-                base_url=s.groq_base_url,
-                api_key=s.groq_api_key,
+                model=s.openai_model,
+                base_url=s.openai_base_url,
+                api_key=s.openai_api_key,
                 max_completion_tokens=s.llm_max_completion_tokens,
             )
-            for model in models
-        ]
-        if s.cerebras_api_key:
-            rungs.append(
-                openai.LLM(
-                    model=s.cerebras_model,
-                    base_url=s.cerebras_base_url,
-                    api_key=s.cerebras_api_key,
-                    max_completion_tokens=s.llm_max_completion_tokens,
-                )
-            )
-        return llm.FallbackAdapter(
-            llm=rungs,
-            attempt_timeout=1.5,
-            max_retry_per_llm=0,
         )
-    return openai.LLM(
-        model=s.openai_model,
-        base_url=s.openai_base_url,
-        api_key=s.openai_api_key,
-        max_completion_tokens=s.llm_max_completion_tokens,
+    if s.cerebras_api_key:
+        rungs.append(
+            openai.LLM(
+                model=s.cerebras_model,
+                base_url=s.cerebras_base_url,
+                api_key=s.cerebras_api_key,
+                max_completion_tokens=s.llm_max_completion_tokens,
+            )
+        )
+    if len(rungs) == 1:
+        return rungs[0]
+    return llm.FallbackAdapter(
+        llm=rungs,
+        attempt_timeout=1.5,
+        max_retry_per_llm=0,
     )
 
 
@@ -164,14 +176,31 @@ def _error_status(error: Any) -> int | None:
     """Extract an HTTP status from LiveKit's nested error event safely."""
     seen: set[int] = set()
     current = error
-    for _ in range(5):
+    for _ in range(8):
         if current is None or id(current) in seen:
             break
         seen.add(id(current))
         status = getattr(current, "status_code", None)
         if isinstance(status, int) and status > 0:
             return status
-        current = getattr(current, "error", None)
+        body = getattr(current, "body", None)
+        if isinstance(body, dict):
+            nested = body.get("error")
+            code = body.get("code")
+            if isinstance(nested, dict):
+                code = code or nested.get("code")
+            elif isinstance(nested, str):
+                code = code or nested
+            if "rate_limit" in str(code or "").lower():
+                return 429
+        current = (
+            getattr(current, "error", None)
+            or getattr(current, "__cause__", None)
+            or getattr(current, "exception", None)
+        )
+    text = str(error or "").lower()
+    if "429" in text or "rate_limit" in text or "tokens per minute" in text:
+        return 429
     return None
 
 
@@ -233,9 +262,12 @@ async def entrypoint(ctx: JobContext) -> None:
     brain = (resolved + ":" + (s.groq_model if resolved == "groq" else s.openai_model))
     stt = build_stt(s)
     stt_label = s.stt_model if not s.deepgram_api_key else f"deepgram/{s.stt_model.removeprefix('deepgram/')}"
+    groq_fallback = (s.groq_fallback_model or "openai/gpt-oss-120b") if resolved == "groq" else "-"
     _log.info(
-        "Samuel starting | brain=%s | stt=%s | turn=%s | endpoint=%.2f/%.2f | voice=%s",
+        "Samuel starting | brain=%s | groq_fallback=%s | openai_rung=%s | stt=%s | turn=%s | endpoint=%.2f/%.2f | voice=%s",
         brain,
+        groq_fallback,
+        bool(s.openai_api_key) if resolved == "groq" else False,
         stt_label,
         s.turn_mode,
         s.endpoint_min,
@@ -257,10 +289,10 @@ async def entrypoint(ctx: JobContext) -> None:
     recovery_state: dict[str, Any] = {"task": None, "last_at": 0.0}
 
     async def _speak_recovery(error: Any) -> None:
-        # A fallback chain can emit one error per rung. Speak once for the burst,
-        # directly through TTS, and never let recovery handling close the session.
+        # LiveKit retries a failed LLM turn about every 2s. Speak recovery once
+        # per burst so Groq 429s do not loop "sorry I lost that."
         now = time.monotonic()
-        if recovery_state["task"] is not None or now - recovery_state["last_at"] < 4.0:
+        if recovery_state["task"] is not None or now - recovery_state["last_at"] < 20.0:
             return
         recovery_state["last_at"] = now
         recovery_state["task"] = asyncio.current_task()
@@ -276,9 +308,10 @@ async def entrypoint(ctx: JobContext) -> None:
         def _on_session_error(ev) -> None:
             error = getattr(ev, "error", ev)
             _log.warning(
-                "SESSION_ERROR kind=%s status=%s",
+                "SESSION_ERROR kind=%s status=%s detail=%s",
                 type(error).__name__,
                 _error_status(error),
+                str(error)[:300],
             )
             if recovery_state["task"] is None:
                 asyncio.ensure_future(_speak_recovery(error))

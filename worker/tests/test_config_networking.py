@@ -60,3 +60,8 @@ def test_fallback_and_prompt_cache_config(monkeypatch):
 def test_dynamic_tools_remain_default(monkeypatch):
     monkeypatch.delenv("SAM_PROMPT_TOOL_MODE", raising=False)
     assert Settings.from_env().prompt_tool_mode == "dynamic"
+
+
+def test_groq_fallback_defaults_to_oss_120b(monkeypatch):
+    monkeypatch.delenv("GROQ_FALLBACK_MODEL", raising=False)
+    assert Settings.from_env().groq_fallback_model == "openai/gpt-oss-120b"

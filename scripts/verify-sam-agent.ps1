@@ -68,7 +68,7 @@ do {
 } while ($true)
 
 $envMap = Get-EnvMap
-$watch = @("SAM_BRAIN", "SAM_ENDPOINTING_MIN", "SAM_ENDPOINTING_MAX", "SAM_HISTORY_TOKEN_CAP", "GROQ_MODEL", "SAM_TURN_MODE")
+$watch = @("SAM_BRAIN", "SAM_ENDPOINTING_MIN", "SAM_ENDPOINTING_MAX", "SAM_HISTORY_TOKEN_CAP", "GROQ_MODEL", "GROQ_FALLBACK_MODEL", "SAM_TURN_MODE")
 Write-Host "sam-agent env:" -ForegroundColor Green
 foreach ($name in $watch) {
     if ($envMap.ContainsKey($name)) {
