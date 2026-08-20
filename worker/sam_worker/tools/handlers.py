@@ -144,6 +144,34 @@ async def handle_get_research(client: RainmakerClient, limit: int = 3) -> str:
     return ("Recent research: " + " | ".join(bits) + ".")[:_MAX_SPOKEN]
 
 
+async def handle_capture_note(client: RainmakerClient, body: str, kind: str = "note") -> str:
+    text = (body or "").strip()
+    if len(text) < 2:
+        return "Give me a few words and I'll save it."
+    res = await client.capture_note(text, kind=kind or "note")
+    if not res.get("ok"):
+        return _fail("note")
+    label = res.get("kind") or "note"
+    sid = res.get("shortId") or ""
+    return f"Saved that {label}" + (f" as {sid}." if sid else ".")
+
+
+async def handle_list_captures(client: RainmakerClient, limit: int = 8) -> str:
+    res = await client.list_captures(limit=limit)
+    if not res.get("ok"):
+        return _fail("notes")
+    items = res.get("captures") or []
+    if not items:
+        return "Nothing captured today."
+    bits = []
+    for item in items[:6]:
+        kind = item.get("kind") or "note"
+        body = (item.get("body") or "").strip()
+        if body:
+            bits.append(f"{kind}: {body[:60]}")
+    return ("Today: " + " | ".join(bits) + ".")[:_MAX_SPOKEN]
+
+
 _BRIEF_SPOKEN_MAX = 520  # brief is longer than other tools; still cap for one voice turn
 
 

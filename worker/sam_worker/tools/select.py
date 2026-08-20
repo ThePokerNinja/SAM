@@ -24,6 +24,8 @@ VOICE_TOOLS: tuple[str, ...] = (
     "get_research",
     "run_scan",
     "queue_research",
+    "capture_note",
+    "list_captures",
     "get_brief",
     "send_brief",
     "send_hero",
@@ -132,6 +134,10 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         selected.append("get_research")
         if _has_any(text, ("queue", "look up", "lookup", "research this", "research that")):
             selected.append("queue_research")
+    if _has_any(text, ("note", "notes", "task", "tasks", "remember this", "capture", "sync")):
+        selected.append("list_captures")
+        if _has_any(text, ("save", "add", "remember", "note that", "task", "capture")):
+            selected.append("capture_note")
     if "brief" in text or "whats on today" in text or "what is on today" in text:
         selected.append("get_brief")
         if _has_any(text, ("text", "send", "sms")):

@@ -41,6 +41,13 @@ class SkillBuilderRuntime:
                 );
                 CREATE INDEX IF NOT EXISTS idx_skill_kpis_latest
                     ON skill_kpis(skill_id, metric_name, observed_at DESC);
+                CREATE TABLE IF NOT EXISTS skill_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    candidate_id TEXT NOT NULL,
+                    event TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at REAL NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS skill_consent (
                     candidate_id TEXT PRIMARY KEY,
                     status TEXT NOT NULL,
@@ -113,6 +120,22 @@ class SkillBuilderRuntime:
                 "SELECT status FROM skill_consent WHERE candidate_id=?", (candidate_id,)
             ).fetchone()
         return str(row["status"]) if row else "missing"
+
+    def request_approval(self, candidate_id: str, *, reason: str, trust_tier: str = "T1") -> dict:
+        """Emit APPROVAL_NEEDED for Hermes/studios consent (SAM-053 remaining loop)."""
+        payload = {
+            "event": "APPROVAL_NEEDED",
+            "candidate_id": candidate_id,
+            "reason": reason,
+            "trust_tier": trust_tier,
+        }
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO skill_events(candidate_id, event, payload_json, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (candidate_id, "APPROVAL_NEEDED", json.dumps(payload), time.time()),
+            )
+        return payload
 
     def approve_for_implementation(self, candidate: SkillCandidate) -> SkillCandidate:
         """Advance only when both deterministic gates and explicit consent pass."""

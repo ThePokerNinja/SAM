@@ -67,6 +67,8 @@ class RainmakerClient(Protocol):
     async def run_scan(self) -> dict: ...
     async def queue_research(self, prompt: str) -> dict: ...
     async def get_research(self, limit: int = 3) -> dict: ...
+    async def capture_note(self, body: str, kind: str = "note") -> dict: ...
+    async def list_captures(self, limit: int = 8) -> dict: ...
     async def get_brief(self) -> dict: ...
     async def send_brief(self) -> dict: ...
     async def send_hero(self) -> dict: ...
@@ -121,6 +123,12 @@ class MockRainmakerClient:
 
     async def get_research(self, limit: int = 3) -> dict:
         return {"ok": True, "items": [{"prompt": "mock idea", "summary": "mock summary"}]}
+
+    async def capture_note(self, body: str, kind: str = "note") -> dict:
+        return {"ok": True, "shortId": "cap00001", "kind": kind, "body": body}
+
+    async def list_captures(self, limit: int = 8) -> dict:
+        return {"ok": True, "captures": [{"kind": "note", "body": "mock note", "status": "open"}]}
 
     async def get_brief(self) -> dict:
         return {
@@ -251,6 +259,8 @@ class HttpRainmakerClient:
     SCAN_RUN_PATH = "/scan/scheduled"
     RESEARCH_IDEAS_PATH = "/research/ideas"
     RESEARCH_DIGEST_PATH = "/research/digest"
+    CAPTURE_PATH = "/capture"
+    CAPTURE_TODAY_PATH = "/capture/today"
     BRIEF_PREVIEW_PATH = "/notify/owner-brief/preview"
     BRIEF_SEND_PATH = "/notify/owner-brief"
     HERO_SEND_PATH = "/notify/test-hero"
@@ -475,6 +485,29 @@ class HttpRainmakerClient:
         data = res.get("data") or {}
         items = data.get("research_digest") or []
         return {"ok": True, "items": items[:limit], "count": len(items)}
+
+    async def capture_note(self, body: str, kind: str = "note") -> dict:
+        res = await self._post(
+            self.CAPTURE_PATH,
+            body={"body": body, "kind": kind or "note", "surface": "voice"},
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        item = data.get("capture") or {}
+        return {
+            "ok": True,
+            "shortId": data.get("short_id") or item.get("short_id") or "",
+            "kind": item.get("kind") or kind,
+            "body": item.get("body") or body,
+        }
+
+    async def list_captures(self, limit: int = 8) -> dict:
+        res = await self._get(self.CAPTURE_TODAY_PATH, params={"limit": limit})
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": True, "captures": data.get("captures") or []}
 
     async def get_brief(self) -> dict:
         """Assemble the owner morning brief (read-only preview). Can take ~20s."""

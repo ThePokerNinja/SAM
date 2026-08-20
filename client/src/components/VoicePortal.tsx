@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   RoomAudioRenderer,
   useVoiceAssistant,
@@ -19,34 +20,55 @@ const STATE_LABEL: Record<string, string> = {
 export function VoicePortal() {
   const { state, agentTranscriptions } = useVoiceAssistant();
   const [treatment, setTreatment] = useVizTreatment();
+  const [chatOpen, setChatOpen] = useState(false);
   const caption = agentTranscriptions?.[agentTranscriptions.length - 1]?.text ?? "";
 
   return (
-    <div className={`portal-stage state-${state}`}>
-      <RoomAudioRenderer />
+    <>
+      <div className={`portal-stage state-${state}`}>
+        <RoomAudioRenderer />
 
-      <div className="viz-wrap">
-        <SamViz treatment={treatment} />
-      </div>
-
-      <div className="portal-lockup">
-        <div className="portal-brand">
-          <img
-            src="/brand/signature-gold.png"
-            className="portal-wordmark"
-            alt="Michael Stewman"
-            draggable={false}
-          />
+        <div className="viz-wrap">
+          <SamViz treatment={treatment} />
         </div>
 
-        <div className="portal-status" aria-live="polite">
-          {STATE_LABEL[state] ?? state}
-        </div>
+        <div className="portal-lockup">
+          <div className="portal-brand">
+            <img
+              src="/brand/signature-gold.png"
+              className="portal-wordmark"
+              alt="Michael Stewman"
+              draggable={false}
+            />
+          </div>
 
-        <p className="portal-caption">{caption}</p>
+          <div className="portal-status" aria-live="polite">
+            {STATE_LABEL[state] ?? state}
+          </div>
+
+          {/*
+           * Keep the caption in the DOM always (visibility:hidden when chat is open)
+           * so its reserved height never changes and the flex stack never shifts.
+           */}
+          <p
+            className="portal-caption"
+            style={chatOpen ? { visibility: "hidden" } : undefined}
+          >
+            {caption}
+          </p>
+        </div>
       </div>
 
-      <PortalCommandStrip treatment={treatment} onTreatmentChange={setTreatment} />
-    </div>
+      {/*
+       * Strip lives OUTSIDE portal-stage so it never participates in the
+       * flex-column centering calculation. CSS keeps it position:fixed.
+       */}
+      <PortalCommandStrip
+        treatment={treatment}
+        onTreatmentChange={setTreatment}
+        chatOpen={chatOpen}
+        onChatToggle={setChatOpen}
+      />
+    </>
   );
 }

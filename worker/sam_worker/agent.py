@@ -63,8 +63,10 @@ from .owner_gate import (
 )
 from .prompt_budget import samuel_instructions
 from .router import FastIntentRouter, RoutedSamuelAgent
+from .session import build_session
 from .session_log import SessionLogger
 from .stt import build_stt
+from .packs import PackRegistry
 from .tier import TierState
 from .tier_session import apply_tier_to_session, parse_tier_payload
 from .tool_latency import ToolLatencyManager
@@ -320,6 +322,15 @@ async def entrypoint(ctx: JobContext) -> None:
 
     session_id = ctx.room.name or ctx.job.id
     surface = "phone" if is_phone else "portal"
+    pack_registry = PackRegistry()
+    sam_session = build_session(session_id=session_id, surface=surface, room_name=room_name)
+    pack = pack_registry.get(sam_session.pack)
+    _log.info(
+        "Session kind=%s pack=%s surface=%s",
+        sam_session.kind,
+        pack.id,
+        sam_session.surface,
+    )
     bench_events_enabled = session_id.startswith(("sam-wave8-", "call-"))
 
     async def _publish_bench_event(payload: dict) -> None:
@@ -642,6 +653,7 @@ async def entrypoint(ctx: JobContext) -> None:
         perf_state["tool_ms"] = float(perf_state["tool_ms"] or 0.0) + elapsed_ms
 
     tool_latency_manager = ToolLatencyManager(on_timing=_tool_timing)
+    pack_tool_names = pack_registry.tools_for(pack.id, tool_registry.names())
     rm_tools = tool_registry.build_livekit_tools(
         rm_client,
         _session_is_owner,
@@ -653,6 +665,7 @@ async def entrypoint(ctx: JobContext) -> None:
             "session_id": session_id,
             "calendar_turn_state": calendar_turn_state,
         },
+        only=pack_tool_names,
     )
     rm_mode = "mock" if (s.sam_mock_rm or not s.rm_api_base_url) else "http:" + s.rm_api_base_url
     _log.info(
@@ -662,7 +675,10 @@ async def entrypoint(ctx: JobContext) -> None:
         "on" if verifier is not None else "off",
     )
 
+    overlay = (pack.persona_overlay or "").strip()
     instructions = samuel_instructions()
+    if overlay:
+        instructions = f"{instructions}\n\n{overlay}"
 
     fast_router = FastIntentRouter()
 

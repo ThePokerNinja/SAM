@@ -13,6 +13,8 @@ from sam_worker.tools.handlers import (
     handle_get_research,
     handle_get_scans,
     handle_get_trades,
+    handle_list_studio_runs,
+    handle_make_studio_deliverable,
     handle_queue_research,
     handle_run_scan,
     handle_send_brief,
@@ -71,6 +73,14 @@ class SpyClient:
     async def send_hero(self) -> dict:
         self.calls.append("send_hero")
         return self._send_hero_res
+
+    async def list_studio_runs(self, limit: int = 8) -> dict:
+        self.calls.append(f"list_studio_runs:{limit}")
+        return {"ok": True, "runs": [{"id": "pov-01", "name": "pov-01"}]}
+
+    async def make_studio_deliverable(self, type: str, run_id: str = "") -> dict:
+        self.calls.append(f"make:{type}")
+        return {"ok": True, "asset": {"id": f"{type}-1", "type": type, "status": "draft"}}
 
 
 class HandlerInvokeTests(unittest.TestCase):
@@ -185,6 +195,20 @@ class HandlerDegradeTests(unittest.TestCase):
         })
         out = asyncio.run(handle_get_trades(spy2, status="open"))
         self.assertIn("Realized only.", out)
+
+
+class StudioHandlerTests(unittest.TestCase):
+    def test_list_runs(self) -> None:
+        spy = SpyClient()
+        out = asyncio.run(handle_list_studio_runs(spy))
+        self.assertIn("list_studio_runs", spy.calls[0])
+        self.assertIn("pov-01", out)
+
+    def test_make(self) -> None:
+        spy = SpyClient()
+        out = asyncio.run(handle_make_studio_deliverable(spy, "email"))
+        self.assertIn("make:email", spy.calls)
+        self.assertIn("email", out.lower())
 
 
 class MockFormattingTests(unittest.TestCase):

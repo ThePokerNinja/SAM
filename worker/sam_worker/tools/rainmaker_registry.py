@@ -13,6 +13,8 @@ from .handlers import (
     handle_get_calendar_events,
     handle_get_pulse,
     handle_get_research,
+    handle_capture_note,
+    handle_list_captures,
     handle_get_scans,
     handle_get_trades,
     handle_list_studio_runs,
@@ -84,6 +86,24 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
             requires_approval=True,
         ),
         _build_queue_research,
+    )
+    registry.register(
+        ToolSpec(
+            name="capture_note",
+            description="Save a note or task so it syncs across SMS, voice, and Morning. Owner only. Args: body, kind=note|task.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_capture_note,
+    )
+    registry.register(
+        ToolSpec(
+            name="list_captures",
+            description="Read today's notes and tasks.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_list_captures,
     )
     registry.register(
         ToolSpec(
@@ -240,6 +260,20 @@ def _build_queue_research(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_queue_research(client, topic)
 
     return queue_research
+
+
+def _build_capture_note(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def capture_note(context: RunContext, body: str, kind: str = "note") -> str:
+        return await handle_capture_note(client, body, kind=kind)
+
+    return capture_note
+
+
+def _build_list_captures(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def list_captures(context: RunContext) -> str:
+        return await handle_list_captures(client)
+
+    return list_captures
 
 
 def _build_get_brief(client: Any, _is_owner: Any, _deps: dict[str, Any]):

@@ -13,6 +13,8 @@ import { IconChat, IconLeave, IconMic } from "./PortalIcons";
 interface Props {
   treatment: VizTreatment;
   onTreatmentChange: (t: VizTreatment) => void;
+  chatOpen: boolean;
+  onChatToggle: (open: boolean) => void;
 }
 
 /**
@@ -22,8 +24,7 @@ interface Props {
  * toggle and morphs the mark into a red start-over icon. Tapping start-over
  * disconnects (demo restarts) and the toggle collapses again.
  */
-export function PortalCommandStrip({ treatment, onTreatmentChange }: Props) {
-  const [chatOpen, setChatOpen] = useState(false);
+export function PortalCommandStrip({ treatment, onTreatmentChange, chatOpen, onChatToggle }: Props) {
   const [vizOpen, setVizOpen] = useState(false);
   const mic = useTrackToggle({ source: Track.Source.Microphone });
   const { buttonProps: leaveProps } = useDisconnectButton({});
@@ -44,7 +45,7 @@ export function PortalCommandStrip({ treatment, onTreatmentChange }: Props) {
     <div className="portal-command">
       <ChatPanel open={chatOpen} />
 
-      <div className="portal-command-strip">
+      <div className={`portal-command-strip${chatOpen ? " portal-command-strip--wide" : ""}`}>
         <button
           type="button"
           className={`cmd-btn${mic.enabled ? " cmd-btn--active" : ""}`}
@@ -76,7 +77,7 @@ export function PortalCommandStrip({ treatment, onTreatmentChange }: Props) {
         <button
           type="button"
           className={`cmd-btn${chatOpen ? " cmd-btn--active" : ""}`}
-          onClick={() => setChatOpen((o) => !o)}
+          onClick={() => onChatToggle(!chatOpen)}
           aria-label="Chat"
           aria-expanded={chatOpen}
         >

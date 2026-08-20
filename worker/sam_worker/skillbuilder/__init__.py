@@ -7,7 +7,9 @@ The runtime persists KPI evidence and defaults adoption to denied until explicit
 evidence is recorded.
 """
 
+from .advisory import run_advisory
 from .character_sheet import build_character_sheet, to_json
+from .snapshot import live_snapshot
 from .models import (
     KPISnapshot,
     Skill,
@@ -29,6 +31,8 @@ __all__ = [
     "SkillRegistry",
     "SkillPackManifest",
     "SkillBuilderRuntime",
+    "run_advisory",
+    "live_snapshot",
     "default_registry",
     "evaluate_candidate",
     "retirement_score",
