@@ -32,31 +32,31 @@ export default function App() {
   const [attempt, setAttempt] = useState(0); // remount the intro back to candle on retry
   const [portalAccessRequired, setPortalAccessRequired] = useState(false);
   const [googleAuthRequired, setGoogleAuthRequired] = useState(false);
+  const [hasAuth, setHasAuth] = useState(false);
+  const [signInHint, setSignInHint] = useState("");
+  const [authReady, setAuthReady] = useState(false);
   const roomRef = useRef<Room | null>(null);
+  const startRef = useRef<() => boolean>(() => false);
+  const authReadyRef = useRef(false);
 
   const { preset, lastReason } = useTierController(room);
 
-  useEffect(() => {
-    bootstrapPortalAccessFromUrl();
-    consumeOAuthReturn();
-    fetchTokenHealth().then((h) => {
-      setPortalAccessRequired(h.portalAccessRequired);
-      setGoogleAuthRequired(h.googleAuthRequired);
-    });
-  }, []);
-
   const start = useCallback((): boolean => {
-    if (
-      (googleAuthRequired && !getPortalAuthToken()) ||
-      (portalAccessRequired && !getPortalAuthToken() && !getPortalAccessKey())
-    ) {
-      setStatus("denied");
-      setError("");
+    if (googleAuthRequired && !getPortalAuthToken()) {
+      startGoogleSignIn();
+      return false;
+    }
+    if (!authReadyRef.current && !getPortalAuthToken()) {
+      return false;
+    }
+    if (portalAccessRequired && !getPortalAuthToken() && !getPortalAccessKey()) {
+      startGoogleSignIn();
       return false;
     }
 
     setStatus("connecting");
     setError("");
+    setSignInHint("");
 
     (async () => {
       try {
@@ -75,7 +75,9 @@ export default function App() {
         if (e instanceof PortalAccessDeniedError) {
           setPortalAuthToken("");
           clearPortalAccessKey();
+          setHasAuth(false);
           setStatus("denied");
+          setSignInHint("This Google account isn't authorized.");
           setError("");
           return;
         }
@@ -87,6 +89,25 @@ export default function App() {
 
     return true;
   }, [googleAuthRequired, portalAccessRequired]);
+  startRef.current = start;
+
+  useEffect(() => {
+    bootstrapPortalAccessFromUrl();
+    const oauth = consumeOAuthReturn();
+    setHasAuth(Boolean(getPortalAuthToken()));
+    if (oauth === "error") {
+      setSignInHint("Google sign-in didn't complete. Try again.");
+    }
+    fetchTokenHealth().then((h) => {
+      setPortalAccessRequired(h.portalAccessRequired);
+      setGoogleAuthRequired(h.googleAuthRequired);
+      authReadyRef.current = true;
+      setAuthReady(true);
+      if (oauth === "fresh" && getPortalAuthToken()) {
+        startRef.current();
+      }
+    });
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -95,7 +116,11 @@ export default function App() {
   }, []);
 
   const showIntro = !revealed || status !== "live";
-  const accessDenied = status === "denied";
+  const needsSignIn =
+    authReady &&
+    status !== "connecting" &&
+    status !== "live" &&
+    ((googleAuthRequired && !hasAuth) || status === "denied");
 
   return (
     <div className="app">
@@ -103,7 +128,7 @@ export default function App() {
         <header className="app-header app-header--floating">
           <div className="brand" aria-label={SAMUEL_DEFINITION}>
             <span className="brand-mark">Samuel</span>
-            <span className="brand-sub">S.A.M. � Systems Agent Model</span>
+            <span className="brand-sub">S.A.M. — Systems Agent Model</span>
           </div>
           <TierBadge preset={preset} reason={lastReason} />
         </header>
@@ -120,7 +145,8 @@ export default function App() {
           <BrandIntro
             key={attempt}
             ready={status === "live"}
-            accessDenied={accessDenied}
+            needsSignIn={needsSignIn}
+            signInHint={signInHint}
             onIgnite={start}
             onGoogleSignIn={startGoogleSignIn}
             onRevealed={() => setRevealed(true)}
@@ -133,7 +159,7 @@ export default function App() {
               Couldn&rsquo;t connect: {error}
               <br />
               <span className="connect-error-hint">
-                Check the token server (VITE_TOKEN_URL) and that the agent worker is running, then tap the flame again.
+                Open this in Safari or Chrome, allow the microphone, then try again.
               </span>
             </p>
           </div>

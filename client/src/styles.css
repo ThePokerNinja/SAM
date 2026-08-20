@@ -180,7 +180,7 @@ body {
 .app-footer { color: var(--muted); font-size: 12px; text-align: center; }
 
 /* ============================================================
-   Live voice portal (Samuel) � flagship polish
+   Live voice portal (Samuel) � flagship polish
    ============================================================ */
 :root {
   --amber: #f5b24e;
@@ -305,27 +305,42 @@ body {
   visibility: hidden;
 }
 
-/* Unified command strip + chat */
+/* Unified command strip + chat
+   Always fixed — completely decoupled from portal-stage's flex layout so the
+   orb/caption never shift when the strip widens or the chat panel opens. */
 .portal-command {
-  margin-top: 2px;
+  position: fixed;
+  bottom: 32px;
+  left: 0;
+  right: 0;
+  z-index: 40;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  max-width: 100%;
+  /* Transparent wrapper covers the full viewport width; only children handle events. */
+  pointer-events: none;
+}
+.portal-command > * {
+  pointer-events: auto;
 }
 .portal-command-strip {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0;
-  width: fit-content;
+  /* min-width starts at 0 (natural content width) and widens when chat opens. */
+  min-width: 0;
   padding: 5px 6px;
   border-radius: 16px;
   border: 1px solid var(--line);
   background: rgba(18, 25, 34, 0.88);
   backdrop-filter: blur(10px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  transition: min-width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* Desktop: strip widens to match chat panel before the panel rises. */
+.portal-command-strip--wide {
+  min-width: min(360px, 92vw);
 }
 .cmd-btn {
   appearance: none;
@@ -393,18 +408,26 @@ body {
   flex-shrink: 0;
 }
 
+/* Chat panel floats above the command strip — absolutely positioned so it
+   never shifts the agent visual or caption when it opens/closes. */
 .chat-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
   width: min(360px, 92vw);
+  z-index: 20;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(12, 16, 22, 0.92);
   backdrop-filter: blur(10px);
   overflow: hidden;
-  animation: chat-rise 0.22s ease both;
+  /* Delay 0.18 s so the strip finishes widening before the panel rises. */
+  animation: chat-rise 0.2s cubic-bezier(0.34, 1.2, 0.64, 1) 0.18s both;
 }
 @keyframes chat-rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 .chat-transcript {
   max-height: 140px;
@@ -544,42 +567,62 @@ body {
 .phase-candle .bi-candle { animation: candle-invite 4.5s ease-in-out infinite; }
 .phase-igniting .bi-candle { transform: scale(1.06); }
 .phase-dark .bi-candle { opacity: 0.12; transform: scale(1.12); }
-.phase-denied .bi-candle {
-  opacity: 0.14;
-  transform: scale(0.94);
-  filter: saturate(0.35) brightness(0.55);
+.needs-signin { cursor: default; }
+.needs-signin .bi-candle {
+  pointer-events: none;
+  opacity: 0.55;
   animation: none;
 }
-.phase-denied { cursor: default; }
 
-.bi-denied-hint {
+.bi-sign-in {
   position: absolute;
+  z-index: 6;
   left: 50%;
-  bottom: max(18vh, 120px);
+  bottom: max(10vh, 36px);
   transform: translateX(-50%);
-  margin: 0;
-  padding: 8px 16px;
-  font-size: 13px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(12, 16, 22, 0.82);
-  backdrop-filter: blur(8px);
-  pointer-events: none;
+  width: min(86vw, 320px);
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  pointer-events: auto;
   animation: fade-in 0.45s ease both;
-  text-align: center;
-  line-height: 1.45;
 }
-.bi-denied-sub {
-  display: block;
-  margin-top: 6px;
-  font-size: 11px;
-  letter-spacing: 0.06em;
+.bi-google-sign-in {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 12px 20px;
+  border: 1px solid rgba(236, 177, 129, 0.55);
+  border-radius: 999px;
+  background: rgba(12, 16, 22, 0.78);
+  color: #f4e4c4;
+  font: 600 15px/1.2 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+}
+.bi-google-sign-in:hover,
+.bi-google-sign-in:focus-visible {
+  background: rgba(236, 177, 129, 0.16);
+  outline: none;
+  border-color: rgba(244, 228, 196, 0.8);
+}
+.bi-sign-in-hint {
+  margin: 0;
+  max-width: 28ch;
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  text-align: center;
   text-transform: none;
   color: var(--muted);
-  opacity: 0.9;
 }
 
 .phase-bright .bi-candle,
@@ -686,10 +729,9 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   justify-content: center;
-  /* Symmetric vertical padding so the viz + lockup + strip stack stays
-     centered on the page (uneven top/bottom would shift it low). */
+  /* Top matches header height; bottom clears the fixed footer (32px offset + ~52px strip). */
   padding-top: 32px;
-  padding-bottom: 32px;
+  padding-bottom: 104px;
   box-sizing: border-box;
 }
 .app-header--floating {
@@ -741,7 +783,8 @@ body {
 
   .stage--full .portal-stage {
     padding-top: max(52px, calc(44px + env(safe-area-inset-top)));
-    padding-bottom: calc(100px + env(safe-area-inset-bottom));
+    /* Extra bottom clearance for taller mobile footer. */
+    padding-bottom: calc(120px + env(safe-area-inset-bottom));
     gap: 12px;
     padding-left: max(12px, env(safe-area-inset-left));
     padding-right: max(12px, env(safe-area-inset-right));
@@ -769,36 +812,38 @@ body {
     letter-spacing: 1.6px;
   }
 
+  /* Mobile footer: snap to very bottom, full-width, taller, gradient backdrop. */
   .portal-command {
-    position: fixed;
-    left: 0;
-    right: 0;
     bottom: 0;
     z-index: 50;
-    margin-top: 0;
-    width: 100%;
-    padding: 8px max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
-      max(12px, env(safe-area-inset-left));
+    /* stretch so the strip fills edge-to-edge (overrides align-items:center). */
+    align-items: stretch;
+    padding: 10px max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
     background: linear-gradient(
       180deg,
       rgba(8, 11, 18, 0) 0%,
-      rgba(8, 11, 18, 0.88) 28%,
-      rgba(8, 11, 18, 0.96) 100%
+      rgba(8, 11, 18, 0.9) 24%,
+      rgba(8, 11, 18, 0.97) 100%
     );
-    box-sizing: border-box;
   }
 
   .portal-command-strip {
     width: 100%;
     max-width: 100%;
     justify-content: space-between;
-    padding: 6px 8px;
-    border-radius: 14px;
+    /* Strip is already full width on mobile — disable the desktop expand animation. */
+    min-width: 0 !important;
+    transition: none;
+    padding: 8px 10px;
+    border-radius: 16px;
+    align-self: stretch;
   }
 
   .cmd-btn {
     min-width: 40px;
-    height: 40px;
+    /* Taller touch targets on mobile. */
+    height: 52px;
     flex: 1 1 auto;
   }
   .cmd-btn--label {
@@ -812,10 +857,20 @@ body {
     min-width: 44px;
   }
 
+  /* Mobile chat panel: full-width, floats above the fixed footer, no delay. */
   .chat-panel {
-    width: 100%;
-    max-width: none;
-    margin-bottom: 4px;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    transform: none;
+    width: auto;
+    border-radius: 14px 14px 0 0;
+    /* No delay — strip is already full-width so we rise immediately. */
+    animation: chat-rise-mobile 0.2s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+  }
+  @keyframes chat-rise-mobile {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   .connect-error-overlay {

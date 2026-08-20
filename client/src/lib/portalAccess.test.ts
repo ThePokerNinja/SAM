@@ -56,4 +56,16 @@ describe("portal Google login", () => {
       "https://voice.michaelstewman.com/portal?welcome=1",
     );
   });
+
+  it("clears a failed OAuth return without storing a token", () => {
+    vi.stubGlobal("location", {
+      hash: "",
+      search: "?rm_oauth_error=oauth_denied",
+      pathname: "/",
+      origin: "https://voice.michaelstewman.com",
+    });
+    expect(consumeOAuthReturn()).toBe("error");
+    expect(getPortalAuthToken()).toBe("");
+    expect(history.replaceState).toHaveBeenCalledWith(null, "", "/");
+  });
 });

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CandleFlame } from "./CandleFlame";
 
-type Phase = "candle" | "igniting" | "dark" | "bright" | "settle" | "done" | "denied";
+type Phase = "candle" | "igniting" | "dark" | "bright" | "settle" | "done";
 
 interface Props {
   /** External readiness gate: the final reveal waits until Sam is ready. */
@@ -10,8 +10,10 @@ interface Props {
   onIgnite?: () => boolean | void;
   /** Fired once the reveal finishes and the portal beneath is interactive. */
   onRevealed?: () => void;
-  /** When true, show dim candle + access denied (no reveal). */
-  accessDenied?: boolean;
+  /** Owner Google sign-in is required before the candle can ignite. */
+  needsSignIn?: boolean;
+  /** Quiet status under the Google button after a failed return. */
+  signInHint?: string;
   /** Starts owner authentication through rm_api's Google OAuth flow. */
   onGoogleSignIn?: () => void;
   /** Card artwork shown during the bright lead-up. */
@@ -29,7 +31,8 @@ export function BrandIntro({
   ready,
   onIgnite,
   onRevealed,
-  accessDenied = false,
+  needsSignIn = false,
+  signInHint = "",
   onGoogleSignIn,
   cardSrc = "/brand/card.svg",
 }: Props) {
@@ -40,18 +43,15 @@ export function BrandIntro({
   readyRef.current = ready;
 
   const ignite = useCallback(() => {
-    if (phase !== "candle" || accessDenied) return;
-    const ok = onIgnite?.();
-    if (ok === false) {
-      setPhase("denied");
+    if (phase !== "candle") return;
+    if (needsSignIn) {
+      onGoogleSignIn?.();
       return;
     }
+    const ok = onIgnite?.();
+    if (ok === false) return;
     setPhase("igniting");
-  }, [phase, accessDenied, onIgnite]);
-
-  useEffect(() => {
-    if (accessDenied) setPhase("denied");
-  }, [accessDenied]);
+  }, [phase, needsSignIn, onIgnite, onGoogleSignIn]);
 
   // Flare the flame up during ignite.
   useEffect(() => {
@@ -110,21 +110,22 @@ export function BrandIntro({
 
   return (
     <div
-      className={`brand-intro phase-${phase}`}
-      role={phase === "candle" ? "button" : undefined}
-      aria-label={phase === "candle" ? "Begin" : undefined}
-      tabIndex={phase === "candle" ? 0 : -1}
-      onClick={phase === "denied" ? undefined : ignite}
+      className={`brand-intro phase-${phase}${needsSignIn ? " needs-signin" : ""}`}
+      role={phase === "candle" && !needsSignIn ? "button" : undefined}
+      aria-label={phase === "candle" && !needsSignIn ? "Begin" : undefined}
+      tabIndex={phase === "candle" && !needsSignIn ? 0 : -1}
+      onClick={needsSignIn ? undefined : ignite}
       onKeyDown={(e) => {
-        if (phase === "candle" && (e.key === "Enter" || e.key === " ")) ignite();
+        if (phase === "candle" && !needsSignIn && (e.key === "Enter" || e.key === " ")) {
+          ignite();
+        }
       }}
     >
       <div className="bi-candle">
         <CandleFlame boost={boost} className="bi-candle-canvas" />
       </div>
-      {phase === "denied" && (
-        <p className="bi-denied-hint" role="status">
-          Access denied
+      {needsSignIn && (
+        <div className="bi-sign-in">
           <button
             type="button"
             className="bi-google-sign-in"
@@ -135,7 +136,8 @@ export function BrandIntro({
           >
             Continue with Google
           </button>
-        </p>
+          {signInHint ? <p className="bi-sign-in-hint">{signInHint}</p> : null}
+        </div>
       )}
       <div className="bi-card" aria-hidden="true">
         <img src={cardSrc} alt="" draggable={false} />
