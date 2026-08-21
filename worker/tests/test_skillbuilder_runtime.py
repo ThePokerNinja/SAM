@@ -11,6 +11,7 @@ from sam_worker.skillbuilder.models import (
     SkillCandidate,
 )
 from sam_worker.skillbuilder.runtime import SkillBuilderRuntime
+from sam_worker.skillbuilder.snapshot import live_snapshot
 from sam_worker.skillbuilder.states import CandidateStatus
 
 
@@ -35,6 +36,15 @@ def test_kpis_persist_and_latest_wins(tmp_path) -> None:
     current = SkillBuilderRuntime(tmp_path / "skills.db").latest_kpis("trading")
     assert current["task_success"].metric_value == 0.95
     assert current["v2v_p50_ms"].metric_value == 740.0
+
+
+def test_live_snapshot_uses_measured_session_latency(tmp_path) -> None:
+    runtime = SkillBuilderRuntime(tmp_path / "skills.db")
+    runtime.record_kpi("samuel_live_session", KPISnapshot("v2v_ms", 600.0))
+    runtime.record_kpi("samuel_live_session", KPISnapshot("v2v_ms", 1000.0))
+    runtime.record_kpi("samuel_live_session", KPISnapshot("v2v_ms", 800.0))
+    snapshot = live_snapshot(runtime)
+    assert snapshot["attributes"]["reflexes"] == 100
 
 
 def test_adoption_is_default_deny_until_explicit_consent(tmp_path) -> None:

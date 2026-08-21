@@ -197,6 +197,8 @@ class RoutedSamuelAgent(Agent):
         context_provider: Callable[[str], Awaitable[Any]] | None = None,
         performance_report: Callable[[RouteDecision, float], None] | None = None,
         publish_bench: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+        session_route: Callable[[str], Awaitable[None]] | None = None,
+        turn_override: Callable[[str], Awaitable[str | None]] | None = None,
         calendar_turn_state: dict[str, Any] | None = None,
         history_token_cap: int = DEFAULT_HISTORY_TOKEN_CAP,
         use_full_tool_set: bool = False,
@@ -209,12 +211,19 @@ class RoutedSamuelAgent(Agent):
         self._context_provider = context_provider
         self._performance_report = performance_report
         self._publish_bench = publish_bench
+        self._session_route = session_route
+        self._turn_override = turn_override
+        self._pending_override: str | None = None
         self._calendar_turn_state = calendar_turn_state
         self._history_token_cap = history_token_cap
         self._use_full_tool_set = use_full_tool_set
 
     async def on_user_turn_completed(self, turn_ctx, new_message) -> None:
         text = str(getattr(new_message, "text_content", "") or "")
+        if self._session_route is not None:
+            await self._session_route(text)
+        if self._turn_override is not None:
+            self._pending_override = await self._turn_override(text)
         decision = self._router.classify(text)
         if decision.route == "open_dashboard":
             await self._publish_command(
@@ -241,6 +250,10 @@ class RoutedSamuelAgent(Agent):
     async def llm_node(self, chat_ctx, tools, model_settings):
         user_messages = [message for message in chat_ctx.messages() if message.role == "user"]
         text = str(user_messages[-1].text_content or "") if user_messages else ""
+        if self._pending_override is not None:
+            override = self._pending_override
+            self._pending_override = None
+            return override
         items = list(chat_ctx.items)
         last_user_index = max(
             (

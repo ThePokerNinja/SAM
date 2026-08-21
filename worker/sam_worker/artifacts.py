@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sqlite3
 import time
@@ -98,6 +99,9 @@ class ArtifactStore:
             )
             conn.commit()
             return int(cur.lastrowid)
+
+    async def add_async(self, artifact: Artifact) -> int:
+        return await asyncio.to_thread(self.add, artifact)
 
     def list_for(self, session_id: str) -> list[Artifact]:
         with self._cx() as conn:

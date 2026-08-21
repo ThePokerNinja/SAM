@@ -20,6 +20,11 @@ from .episodic import memory_db_path
 
 _TOKEN_RE = re.compile(r"[a-z0-9']+")
 _EMBED_DIMS = 96
+_EXPLICIT_FACT_RE = re.compile(
+    r"^\s*(?P<correction>actually[,\s]+)?(?:please\s+)?remember(?:\s+that)?\s+"
+    r"my\s+(?P<key>[a-z0-9][a-z0-9 _'-]{0,63}?)\s+is\s+(?P<value>.+?)\s*[.!]?\s*$",
+    re.IGNORECASE,
+)
 
 
 def embed_text(text: str, *, dimensions: int = _EMBED_DIMS) -> tuple[float, ...]:
@@ -47,6 +52,29 @@ class ProfileFact:
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     id: int | None = None
+
+
+@dataclass(frozen=True)
+class ExplicitProfileUpdate:
+    key: str
+    value: str
+    owner_correction: bool = False
+
+
+def extract_explicit_profile_update(text: str) -> ExplicitProfileUpdate | None:
+    """Parse only explicit remember/correct language; never infer profile facts."""
+    match = _EXPLICIT_FACT_RE.match(text or "")
+    if match is None:
+        return None
+    key = re.sub(r"\s+", "_", match.group("key").strip().lower())
+    value = match.group("value").strip()[:500]
+    if not key or not value:
+        return None
+    return ExplicitProfileUpdate(
+        key=key,
+        value=value,
+        owner_correction=bool(match.group("correction")),
+    )
 
 
 class ProfileStore:

@@ -4,12 +4,20 @@ from __future__ import annotations
 
 import unittest
 
+from sam_worker.agent import _session_close_summary, _session_decisions
 from sam_worker.artifacts import Artifact, ArtifactStore
 from sam_worker.intake import BriefItem, assemble_brief
 from sam_worker.packs.appointment import confirm_booking
-from sam_worker.packs.moderator import classify, is_neutral, understanding_map
+from sam_worker.packs.moderator import ModeratorRuntime, classify, is_neutral, understanding_map
 from sam_worker.packs.registry import PackRegistry
-from sam_worker.pythia import BaselineStore, brier, maybe_trigger, predict
+from sam_worker.pythia import (
+    BaselineStore,
+    ForecastLedger,
+    brier,
+    maybe_trigger,
+    predict,
+    predict_threshold_event,
+)
 from sam_worker.safety import SafetyState
 from sam_worker.session import build_session, route_session_kind
 from sam_worker.skillbuilder.advisory import run_advisory
@@ -38,6 +46,23 @@ class SessionTests(unittest.TestCase):
             "moderator",
         )
 
+    def test_spoken_pack_activation_persists_until_explicit_switch(self) -> None:
+        session = build_session(session_id="m1", surface="phone")
+        self.assertTrue(session.activate_from_utterance("Samuel, moderate this disagreement"))
+        self.assertEqual(session.kind, "moderator")
+        self.assertEqual(session.pack, "moderator")
+        self.assertFalse(session.activate_from_utterance("I want to explain my position"))
+        self.assertEqual(session.kind, "moderator")
+        self.assertTrue(session.activate_from_utterance("go back to trading mode"))
+        self.assertEqual(session.kind, "trading")
+
+    def test_calendar_question_does_not_implicitly_switch_pack(self) -> None:
+        session = build_session(session_id="r1", surface="portal")
+        self.assertFalse(session.activate_from_utterance("what is on my calendar today?"))
+        self.assertEqual(session.kind, "trading")
+        self.assertTrue(session.activate_from_utterance("switch to scheduling mode"))
+        self.assertEqual(session.kind, "appointment")
+
     def test_phone_surface(self) -> None:
         s = build_session(session_id="call-1", surface="phone", room_name="call-abc")
         self.assertEqual(s.surface, "phone")
@@ -55,9 +80,18 @@ class PackTests(unittest.TestCase):
         reg = PackRegistry()
         self.assertTrue(reg.is_warm("trading"))
         self.assertEqual(reg.get("moderator").id, "moderator")
+        self.assertEqual(reg.get("skillbuilder").id, "skillbuilder")
         self.assertIn("neutrality", reg.get("moderator").safety_rules)
         self.assertIsNone(reg.tools_for("trading", ["get_pulse", "capture_note"]))
         self.assertEqual(reg.tools_for("moderator", ["capture_note", "get_pulse"]), ["capture_note"])
+
+    def test_activate_and_unload_track_runtime_pack(self) -> None:
+        reg = PackRegistry()
+        reg.activate("moderator")
+        self.assertEqual(reg.active_id, "moderator")
+        reg.unload("moderator")
+        self.assertEqual(reg.active_id, "trading")
+        self.assertFalse(reg.is_warm("moderator"))
 
 
 class ModeratorTests(unittest.TestCase):
@@ -69,6 +103,17 @@ class ModeratorTests(unittest.TestCase):
         self.assertTrue(is_neutral("Both of you want the same outcome."))
         self.assertFalse(is_neutral("that's your fault"))
 
+    def test_runtime_preserves_speaker_attribution(self) -> None:
+        runtime = ModeratorRuntime()
+        runtime.observe("alex", "I agree on timing.")
+        runtime.observe("jordan", "I will not change the budget.")
+        artifact = runtime.understanding_artifact()
+        self.assertEqual(artifact["topics"][0]["speaker_id"], "alex")
+        self.assertEqual(artifact["topics"][0]["band"], "agree")
+        self.assertEqual(artifact["topics"][1]["speaker_id"], "jordan")
+        self.assertEqual(artifact["topics"][1]["band"], "wont")
+        self.assertEqual(len(runtime.next_steps_artifact()["items"]), 1)
+
 
 class SafetyTests(unittest.TestCase):
     def test_recording_off_and_pause(self) -> None:
@@ -78,6 +123,8 @@ class SafetyTests(unittest.TestCase):
         msg = safety.request_pause(session)
         self.assertTrue(session.paused)
         self.assertIn("pause", msg.lower())
+        session.resume()
+        self.assertFalse(session.paused)
 
 
 class IntakeArtifactTests(unittest.TestCase):
@@ -94,6 +141,14 @@ class IntakeArtifactTests(unittest.TestCase):
         items = store.list_for("s1")
         self.assertEqual(items[0].payload["text"], "hi")
 
+    def test_session_close_summary_preserves_decisions(self) -> None:
+        turns = [
+            ("user", "We agreed to meet Tuesday."),
+            ("assistant", "I will capture that."),
+        ]
+        self.assertIn("meet Tuesday", _session_close_summary(turns))
+        self.assertEqual(_session_decisions(turns), ("We agreed to meet Tuesday.",))
+
 
 class PythiaTests(unittest.TestCase):
     def test_predict_off_path_and_brier(self) -> None:
@@ -104,6 +159,31 @@ class PythiaTests(unittest.TestCase):
         self.assertEqual(f.provenance, "pythia.rule.v0")
         self.assertIsNotNone(maybe_trigger(f, ready=False))
         self.assertGreaterEqual(brier([(0.7, 1.0), (0.2, 0.0)]), 0.0)
+
+    def test_durable_baselines_and_calibration(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as raw:
+            path = Path(raw) / "pythia.db"
+            baselines = BaselineStore(path)
+            baselines.observe("latency", 500)
+            baselines.observe("latency", 700)
+            self.assertNotEqual(BaselineStore(path).zscore("latency", 900), 0.0)
+
+            ledger = ForecastLedger(path)
+            forecast = predict_threshold_event(
+                "latency_over_800",
+                "next_turn",
+                last_value=1000,
+                threshold=800,
+                scale=200,
+            )
+            forecast_id = ledger.record(forecast)
+            ledger.resolve(forecast_id, 1.0)
+            count, score = ledger.calibration("latency_over_800")
+            self.assertEqual(count, 1)
+            self.assertIsNotNone(score)
 
 
 class AppointmentTests(unittest.TestCase):

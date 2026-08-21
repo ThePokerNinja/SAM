@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sqlite3
 import time
@@ -67,6 +68,9 @@ class SkillBuilderRuntime:
             )
             return int(cur.lastrowid)
 
+    async def record_kpi_async(self, skill_id: str, snapshot: KPISnapshot) -> int:
+        return await asyncio.to_thread(self.record_kpi, skill_id, snapshot)
+
     def latest_kpis(self, skill_id: str) -> dict[str, KPISnapshot]:
         with self._connect() as conn:
             rows = conn.execute(
@@ -83,6 +87,27 @@ class SkillBuilderRuntime:
             str(row["metric_name"]): KPISnapshot(**json.loads(row["snapshot_json"]))
             for row in rows
         }
+
+    def metric_values(
+        self,
+        skill_id: str,
+        metric_name: str,
+        *,
+        limit: int = 100,
+    ) -> list[float]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT snapshot_json FROM skill_kpis
+                WHERE skill_id=? AND metric_name=?
+                ORDER BY observed_at DESC LIMIT ?
+                """,
+                (skill_id, metric_name, max(1, limit)),
+            ).fetchall()
+        return [
+            float(json.loads(row["snapshot_json"])["metric_value"])
+            for row in rows
+        ]
 
     def record_consent(
         self,

@@ -12,6 +12,7 @@ from sam_worker.memory import (
     MemoryRetriever,
     ProfileFact,
     ProfileStore,
+    extract_explicit_profile_update,
 )
 
 
@@ -60,6 +61,19 @@ def test_profile_requires_provenance_and_owner_correction_identity(tmp_path) -> 
     facts = store.facts("owner")
     assert facts[0][0].value == "AAPL"
     assert facts[0][0].corrected_by == "owner"
+
+
+def test_profile_updates_require_explicit_remember_language() -> None:
+    assert extract_explicit_profile_update("My favorite color is blue") is None
+    update = extract_explicit_profile_update("Remember that my favorite color is blue.")
+    assert update is not None
+    assert update.key == "favorite_color"
+    assert update.value == "blue"
+    correction = extract_explicit_profile_update(
+        "Actually, remember that my favorite color is green."
+    )
+    assert correction is not None
+    assert correction.owner_correction
 
 
 def test_retrieval_prefers_relevance_and_respects_budget(tmp_path) -> None:
@@ -115,7 +129,7 @@ def test_context_timeout_returns_partial_snapshot() -> None:
         assemble_context(
             memory=lambda: ["ready"],
             profile=never,
-            tools=list,
+            tools=lambda: [],
             permissions=lambda: {"owner": True},
             timeout_s=0.02,
         )

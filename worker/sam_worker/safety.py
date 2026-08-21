@@ -23,8 +23,11 @@ class ConsentRecord:
 class SafetyState:
     consents: dict[str, ConsentRecord] = field(default_factory=dict)
 
+    def register(self, participant_id: str) -> ConsentRecord:
+        return self.consents.setdefault(participant_id, ConsentRecord(participant_id))
+
     def confirm_spoken(self, participant_id: str) -> None:
-        rec = self.consents.setdefault(participant_id, ConsentRecord(participant_id))
+        rec = self.register(participant_id)
         rec.spoken_confirmation = True
 
     def recording_allowed(self) -> bool:

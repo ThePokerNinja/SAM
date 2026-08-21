@@ -19,9 +19,11 @@ import asyncio
 import json
 import logging
 import os
+import re
 import sys
 import time
 from dataclasses import replace
+from datetime import datetime, timezone
 from typing import Any
 
 # Windows consoles default to cp1252; LiveKit's CLI banner prints an emoji that crashes
@@ -52,19 +54,34 @@ from livekit.plugins import (  # noqa: F401 — register on main thread
     silero,
 )
 
+from .artifacts import Artifact, ArtifactStore
 from .config import Settings, resolve_brain
 from .context import assemble_context
 from .latency import TurnProfile, latency_log_enabled, write_profile
-from .memory import Episode, EpisodicMemoryStore, MemoryRetriever, ProfileStore
+from .memory import (
+    Episode,
+    EpisodicMemoryStore,
+    MemoryRetriever,
+    ProfileFact,
+    ProfileStore,
+    extract_explicit_profile_update,
+)
 from .owner_gate import (
     build_owner_gate,
     sip_caller_is_authorized,
     wire_owner_gate_listeners,
 )
+from .packs.moderator import ModeratorRuntime
 from .prompt_budget import samuel_instructions
+from .pythia import BaselineStore, ForecastLedger, predict_threshold_event
 from .router import FastIntentRouter, RoutedSamuelAgent
 from .session import build_session
 from .session_log import SessionLogger
+from .safety import SafetyState
+from .skillbuilder.models import KPISnapshot
+from .skillbuilder.runtime import SkillBuilderRuntime
+from .skillbuilder.snapshot import live_snapshot, write_snapshot
+from .surfaces import surface_for
 from .stt import build_stt
 from .packs import PackRegistry
 from .tier import TierState
@@ -249,6 +266,21 @@ def _finish_barge_overlap(
     return measured
 
 
+def _session_close_summary(turns: list[tuple[str, str]], *, limit: int = 6) -> str:
+    recent = turns[-max(1, limit) :]
+    return " | ".join(f"{role}: {text[:240]}" for role, text in recent)
+
+
+def _session_decisions(turns: list[tuple[str, str]]) -> tuple[str, ...]:
+    markers = ("we decided", "we agreed", "let's ", "i will ", "we will ")
+    decisions = [
+        text[:320]
+        for role, text in turns
+        if role == "user" and any(marker in text.lower() for marker in markers)
+    ]
+    return tuple(decisions[-8:])
+
+
 async def entrypoint(ctx: JobContext) -> None:
     # Dedicated full-audio mode experiments run an in-process agent in these rooms.
     # The production worker must not create a second Samuel participant there.
@@ -256,7 +288,9 @@ async def entrypoint(ctx: JobContext) -> None:
         _log.info("Skipping embedded benchmark room dispatch")
         return
     room_name = ctx.room.name or ""
-    is_phone = room_name.startswith("call-")
+    surface = "phone" if room_name.startswith("call-") else "portal"
+    surface_profile = surface_for(surface)
+    is_phone = surface_profile.name == "phone"
     s = Settings.from_env()
     if is_phone:
         s = replace(s, stt_model=s.phone_stt_model)
@@ -321,16 +355,35 @@ async def entrypoint(ctx: JobContext) -> None:
         _log.debug("session error recovery hook unavailable", exc_info=True)
 
     session_id = ctx.room.name or ctx.job.id
-    surface = "phone" if is_phone else "portal"
     pack_registry = PackRegistry()
     sam_session = build_session(session_id=session_id, surface=surface, room_name=room_name)
-    pack = pack_registry.get(sam_session.pack)
+    safety_state = SafetyState()
+    moderator_runtime = ModeratorRuntime()
+    pack = pack_registry.activate(sam_session.pack)
     _log.info(
         "Session kind=%s pack=%s surface=%s",
         sam_session.kind,
         pack.id,
         sam_session.surface,
     )
+
+    @ctx.room.on("participant_connected")
+    def _track_session_participant(participant) -> None:
+        participant_id = str(getattr(participant, "identity", "") or "").strip()
+        if not participant_id:
+            return
+        display_name = str(getattr(participant, "name", "") or "").strip() or None
+        if sam_session.participants[0].id == "host":
+            sam_session.bind_host(participant_id, display_name)
+            role = "host"
+        else:
+            sam_session.add_party(participant_id, display_name)
+            role = next(
+                item.role for item in sam_session.participants if item.id == participant_id
+            )
+        safety_state.register(participant_id)
+        _log.info("SESSION_PARTICIPANT role=%s id=%s", role, participant_id)
+
     bench_events_enabled = session_id.startswith(("sam-wave8-", "call-"))
 
     async def _publish_bench_event(payload: dict) -> None:
@@ -440,6 +493,8 @@ async def entrypoint(ctx: JobContext) -> None:
                     "V2V turn %s: eou=%.0fms + ttft=%.0fms + ttfb=%.0fms = %.0fms  [%s]",
                     sid, t.eou_ms, t.llm_ttft_ms, t.tts_ttfb_ms, v, flag,
                 )
+                asyncio.ensure_future(_record_pythia_latency_forecast(t))
+                asyncio.ensure_future(_record_live_skill_kpis(t))
             if barge_state["measured_ms"] is not None:
                 t.barge_in_ms = barge_state["measured_ms"]
                 barge_state["measured_ms"] = None
@@ -502,11 +557,72 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     episode_store = EpisodicMemoryStore() if s.memory_enabled else None
     profile_store = ProfileStore() if s.memory_enabled else None
+    artifact_store = ArtifactStore() if s.memory_enabled else None
+    pythia_baselines = BaselineStore(episode_store.path) if episode_store is not None else None
+    pythia_ledger = ForecastLedger(episode_store.path) if episode_store is not None else None
+    skillbuilder_runtime = (
+        SkillBuilderRuntime(episode_store.path) if episode_store is not None else None
+    )
+    pythia_pending: dict[str, int | None] = {"forecast_id": None}
+    session_turns: list[tuple[str, str]] = []
     memory_retriever = (
         MemoryRetriever(episode_store, profile_store)
         if episode_store is not None and profile_store is not None
         else None
     )
+
+    async def _record_pythia_latency_forecast(turn: TurnProfile) -> None:
+        if (
+            pythia_baselines is None
+            or pythia_ledger is None
+            or artifact_store is None
+            or not turn.v2v_ready()
+        ):
+            return
+        pending_id = pythia_pending["forecast_id"]
+        if pending_id is not None:
+            await pythia_ledger.resolve_async(pending_id, 1.0 if turn.v2v_ms() >= 800 else 0.0)
+        forecast = predict_threshold_event(
+            "next_turn_latency_over_800",
+            "next_turn",
+            last_value=turn.v2v_ms(),
+            threshold=800.0,
+            scale=200.0,
+        )
+        forecast_id = await pythia_ledger.record_async(forecast)
+        pythia_pending["forecast_id"] = forecast_id
+        await pythia_baselines.observe_async("next_turn_latency_ms", turn.v2v_ms())
+        await artifact_store.add_async(
+            Artifact(
+                session_id=session_id,
+                kind="forecast",
+                payload={**forecast.as_artifact(), "forecast_id": forecast_id},
+            )
+        )
+
+    async def _record_live_skill_kpis(turn: TurnProfile) -> None:
+        if skillbuilder_runtime is None or not turn.v2v_ready():
+            return
+        observed_at = datetime.now(timezone.utc).isoformat()
+        values = {
+            "v2v_ms": turn.v2v_ms(),
+            "eou_ms": float(turn.eou_ms or 0.0),
+            "llm_ttft_ms": float(turn.llm_ttft_ms or 0.0),
+            "tts_ttfb_ms": float(turn.tts_ttfb_ms or 0.0),
+        }
+        if turn.barge_in_ms is not None:
+            values["barge_in_ms"] = float(turn.barge_in_ms)
+        for metric_name, metric_value in values.items():
+            await skillbuilder_runtime.record_kpi_async(
+                "samuel_live_session",
+                KPISnapshot(
+                    metric_name=metric_name,
+                    metric_value=metric_value,
+                    rolling_average=metric_value,
+                    period_start=observed_at,
+                    period_end=observed_at,
+                ),
+            )
 
     if bench_events_enabled:
         @session.on("conversation_item_added")
@@ -561,6 +677,12 @@ async def entrypoint(ctx: JobContext) -> None:
         text = str(getattr(ev, "transcript", "") or "").strip()
         if not text:
             return
+        session_turns.append(("user", text))
+        if sam_session.kind == "moderator":
+            moderator_runtime.observe(
+                str(getattr(ev, "speaker_id", "") or "host"),
+                text,
+            )
         if episode_store is not None:
             asyncio.ensure_future(
                 episode_store.append_async(
@@ -571,6 +693,20 @@ async def entrypoint(ctx: JobContext) -> None:
                         speaker_id=getattr(ev, "speaker_id", None),
                         provenance=f"livekit:{session_id}",
                     )
+                )
+            )
+        profile_update = extract_explicit_profile_update(text)
+        if profile_store is not None and profile_update is not None:
+            asyncio.ensure_future(
+                profile_store.upsert_async(
+                    ProfileFact(
+                        profile_id="owner",
+                        key=profile_update.key,
+                        value=profile_update.value,
+                        provenance=f"explicit_owner_voice:{session_id}",
+                        corrected_by="owner" if profile_update.owner_correction else None,
+                    ),
+                    owner_correction=profile_update.owner_correction,
                 )
             )
         asyncio.ensure_future(
@@ -594,6 +730,19 @@ async def entrypoint(ctx: JobContext) -> None:
             return
         text = str(getattr(item, "text_content", "") or "").strip()
         if text:
+            session_turns.append(("assistant", text))
+            if episode_store is not None:
+                asyncio.ensure_future(
+                    episode_store.append_async(
+                        Episode(
+                            session_id=session_id,
+                            kind="transcript",
+                            content=text,
+                            speaker_id="samuel",
+                            provenance=f"livekit:{session_id}",
+                        )
+                    )
+                )
             asyncio.ensure_future(
                 _persist_owner_turn(
                     "assistant",
@@ -601,6 +750,64 @@ async def entrypoint(ctx: JobContext) -> None:
                     {"source": "sam_worker", "room": session_id},
                 )
             )
+
+    async def _persist_session_close(reason: str) -> None:
+        if episode_store is None or artifact_store is None or not session_turns:
+            return
+        summary = _session_close_summary(session_turns)
+        decisions = _session_decisions(session_turns)
+        artifact_id = await artifact_store.add_async(
+            Artifact(
+                session_id=session_id,
+                kind="summary",
+                payload={
+                    "text": summary,
+                    "reason": reason,
+                    "decisions": list(decisions),
+                },
+            )
+        )
+        artifact_refs = [f"artifact:{artifact_id}"]
+        if moderator_runtime.has_content():
+            understanding_id = await artifact_store.add_async(
+                Artifact(
+                    session_id=session_id,
+                    kind="understanding_map",
+                    payload=moderator_runtime.understanding_artifact(),
+                )
+            )
+            next_steps_id = await artifact_store.add_async(
+                Artifact(
+                    session_id=session_id,
+                    kind="next_steps",
+                    payload=moderator_runtime.next_steps_artifact(),
+                )
+            )
+            artifact_refs.extend(
+                (f"artifact:{understanding_id}", f"artifact:{next_steps_id}")
+            )
+        await episode_store.append_async(
+            Episode(
+                session_id=session_id,
+                kind="summary",
+                content=summary,
+                summary=summary,
+                decisions=decisions,
+                artifact_refs=tuple(artifact_refs),
+                provenance=f"sam_worker:session_close:{reason}",
+            )
+        )
+        if skillbuilder_runtime is not None:
+            snapshot_path = episode_store.path.parent / "sam-hero-snapshot.json"
+            snapshot = await asyncio.to_thread(live_snapshot, skillbuilder_runtime)
+            await asyncio.to_thread(write_snapshot, snapshot_path, snapshot)
+
+    @session.on("close")
+    def _remember_session_close(ev) -> None:
+        if not _session_is_owner():
+            return
+        reason = str(getattr(ev, "reason", "") or "close")
+        asyncio.ensure_future(_persist_session_close(reason))
 
     session_logger = SessionLogger(
         room_name=ctx.room.name or ctx.job.id,
@@ -653,8 +860,8 @@ async def entrypoint(ctx: JobContext) -> None:
         perf_state["tool_ms"] = float(perf_state["tool_ms"] or 0.0) + elapsed_ms
 
     tool_latency_manager = ToolLatencyManager(on_timing=_tool_timing)
-    pack_tool_names = pack_registry.tools_for(pack.id, tool_registry.names())
-    rm_tools = tool_registry.build_livekit_tools(
+    all_tool_names = tool_registry.names()
+    all_rm_tools = tool_registry.build_livekit_tools(
         rm_client,
         _session_is_owner,
         function_tool=function_tool,
@@ -665,8 +872,16 @@ async def entrypoint(ctx: JobContext) -> None:
             "session_id": session_id,
             "calendar_turn_state": calendar_turn_state,
         },
-        only=pack_tool_names,
     )
+    tool_by_name = dict(zip(all_tool_names, all_rm_tools, strict=True))
+
+    def _tools_for_pack(pack_id: str) -> list[Any]:
+        selected_names = pack_registry.tools_for(pack_id, all_tool_names)
+        if selected_names is None:
+            return list(all_rm_tools)
+        return [tool_by_name[name] for name in selected_names if name in tool_by_name]
+
+    rm_tools = _tools_for_pack(pack.id)
     rm_mode = "mock" if (s.sam_mock_rm or not s.rm_api_base_url) else "http:" + s.rm_api_base_url
     _log.info(
         "Rainmaker tools enabled (%d) | client=%s | voice_verify=%s",
@@ -676,7 +891,8 @@ async def entrypoint(ctx: JobContext) -> None:
     )
 
     overlay = (pack.persona_overlay or "").strip()
-    instructions = samuel_instructions()
+    base_instructions = samuel_instructions()
+    instructions = base_instructions
     if overlay:
         instructions = f"{instructions}\n\n{overlay}"
 
@@ -700,6 +916,49 @@ async def entrypoint(ctx: JobContext) -> None:
                 tools=tool_registry.names,
                 permissions=lambda: {"owner": _session_is_owner()},
             )
+
+    async def _route_session_pack(text: str) -> None:
+        previous_pack_id = pack_registry.active_id
+        if not sam_session.activate_from_utterance(text):
+            return
+        if previous_pack_id != sam_session.pack:
+            pack_registry.unload(previous_pack_id)
+        active_pack = pack_registry.activate(sam_session.pack)
+        active_overlay = (active_pack.persona_overlay or "").strip()
+        active_instructions = (
+            f"{base_instructions}\n\n{active_overlay}" if active_overlay else base_instructions
+        )
+        await routed_agent.update_instructions(active_instructions)
+        await routed_agent.update_tools(_tools_for_pack(active_pack.id))
+        _log.info(
+            "SESSION_PACK_ACTIVATED kind=%s pack=%s surface=%s",
+            sam_session.kind,
+            active_pack.id,
+            sam_session.surface,
+        )
+        await _publish_bench_event(
+            {
+                "type": "session_pack_activated",
+                "kind": sam_session.kind,
+                "pack": active_pack.id,
+                "surface": sam_session.surface,
+            }
+        )
+
+    async def _session_turn_override(text: str) -> str | None:
+        normalized = re.sub(r"\s+", " ", (text or "").strip().lower())
+        if re.search(r"\b(pause|hold) (?:this|the) (?:conversation|session)\b", normalized):
+            return safety_state.request_pause(sam_session)
+        if re.search(r"\b(stop|end|exit) (?:this|the) (?:conversation|session)\b", normalized):
+            return safety_state.request_exit(sam_session)
+        if sam_session.paused and re.search(
+            r"\b(resume|continue|pick (?:this|it) back up)\b", normalized
+        ):
+            sam_session.resume()
+            return "We're back. Please continue when you're ready."
+        if sam_session.paused:
+            return "We're still paused. Say resume when you're ready to continue."
+        return None
         local_memory = (
             (
                 lambda: memory_retriever.retrieve_async(
@@ -748,6 +1007,8 @@ async def entrypoint(ctx: JobContext) -> None:
         context_provider=_context_provider,
         performance_report=_route_timing,
         publish_bench=_publish_bench_event,
+        session_route=_route_session_pack,
+        turn_override=_session_turn_override,
         calendar_turn_state=calendar_turn_state,
         history_token_cap=s.history_token_cap,
         use_full_tool_set=s.prompt_tool_mode == "stable_full",

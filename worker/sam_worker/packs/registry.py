@@ -48,12 +48,27 @@ APPOINTMENT = PackManifest(
     artifacts=("action_item",),
 )
 
+SKILLBUILDER = PackManifest(
+    id="skillbuilder",
+    persona_overlay=(
+        "You are Samuel coaching the owner through a measurable skill. "
+        "Ask one diagnostic question at a time, keep advice reversible, and record "
+        "evidence before changing a score or state."
+    ),
+    tools=("capture_note", "list_captures"),
+    workflow=("diagnose", "practice", "score", "recommend"),
+    memory_schema="skill_snapshot",
+    safety_rules=("advisory_only", "owner_correction"),
+    artifacts=("summary", "next_steps"),
+)
+
 
 class PackRegistry:
     def __init__(self) -> None:
         self._packs: dict[str, PackManifest] = {}
         self._warm: set[str] = set()
-        for pack in (TRADING, MODERATOR, APPOINTMENT):
+        self._active_id = "trading"
+        for pack in (TRADING, MODERATOR, APPOINTMENT, SKILLBUILDER):
             self.register(pack)
 
     def register(self, pack: PackManifest) -> None:
@@ -66,6 +81,18 @@ class PackRegistry:
 
     def unload(self, pack_id: str) -> None:
         self._warm.discard(pack_id)
+        if self._active_id == pack_id:
+            self._active_id = "trading"
+
+    def activate(self, pack_id: str) -> PackManifest:
+        pack = self.get(pack_id)
+        self._warm.add(pack.id)
+        self._active_id = pack.id
+        return pack
+
+    @property
+    def active_id(self) -> str:
+        return self._active_id
 
     def is_warm(self, pack_id: str) -> bool:
         return pack_id in self._warm
