@@ -21,7 +21,10 @@ venv/
 .mypy_cache/
 .ruff_cache/
 worker/bench/audio/*.wav
+worker/bench/evidence/**/*.wav
 worker/bench/results/
+.tmp-commit-msg.txt
+_forestmasters/
 
 # Editor / OS
 .DS_Store

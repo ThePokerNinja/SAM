@@ -11,13 +11,32 @@ the Rainmaker monorepo and the old Charles voice PWA (which this replaces once l
 > - `studios/research/sam-architecture.md` — realtime architecture & adaptive tiering research
 > - `studios/research/sam-adr.md` — Architecture Decision Record (locked decisions)
 > - `studios/research/sam-tiercontroller-spec.md` — the adaptive quality engine spec
+> - `studios/research/sam-capabilities-roadmap.md` — live vs planned capabilities + agent OS
+> - `studios/research/sam-agent-os-architecture.md` — cognition layer (dynamic context, memory, multi-party, surfaces)
+> - `docs/design/moderator-conflict-resolution-spec.md` — Moderator (first non-trading skill pack)
+> - `studios/research/sam-state-assessment.md` — technical + product scorecard (where Samuel is today)
+> - `studios/research/sam-product-strategy.md` — mission, value prop, two-flagship thesis, GTM, risk
+> - `studios/research/sam-benchmark-methodology.md` — two-arena benchmark vs ChatGPT voice (method)
+> - `studios/research/sam-performance-roadmap.md` — **latency program: tiered targets, 9 phases, Wave 8**
+> - `studios/research/sam-cost-benefit-model.md` — cost model + revenue scenarios + break-even
+> - `docs/design/skillbuilder-spec.md` — **SkillBuilder governance engine (flagship #2)**
+> - `docs/design/appointments-skill-spec.md` / `docs/design/speed-to-lead-skill-spec.md` — new skills + SantaCruz cross-sell
+> - `docs/design/sam-hero-card-spec.md` — `HERO` MMS character card (RPG stats surface)
+> - `docs/todos/SAMUEL-AGENT-WORK.md` — **agent work tickets (primary feature lane; Wave 6 = cognition, Wave 7 = SkillBuilder, Wave 8 = performance)**
 > - `.cursor/plans/charles_voice_flagship_33db4451.plan.md` — the build plan
+
+> SkillBuilder + benchmark + HERO + latency scaffolds live in this repo:
+> `worker/sam_worker/skillbuilder/`, `worker/sam_worker/bench/`,
+> `worker/sam_worker/latency.py` + `worker/sam_worker/bench/latency_profile.py`,
+> and `tools/rm_api/rm_api/hero_sms.py` (in the Rainmaker repo).
 
 ## Prime directive
 
-**Speech is never sacrificed.** The north-star KPI is voice-to-voice latency
-**≤ 800ms p50 / ≤ 1500ms p95**. Every adaptive-quality decision protects natural speech cadence
-above visuals, memory, brain model, and even voice richness.
+**Speech is never sacrificed.** Voice-to-voice latency is graded on tiered targets (ADR-8): the
+**Premium ship gate is ≤ 800ms p50 / ≤ 1200ms p95 / barge-in ≤ 250ms**, with Industry-Leading
+(≤ 600 / ≤ 1000 / ≤ 150ms) as the stretch. Every adaptive-quality decision protects natural speech
+cadence above visuals, memory, brain model, and even voice richness. See
+`studios/research/sam-performance-roadmap.md`.
 
 ## Architecture (cascaded streaming pipeline on LiveKit)
 
