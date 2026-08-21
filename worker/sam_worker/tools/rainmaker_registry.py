@@ -13,16 +13,19 @@ from .handlers import (
     handle_get_calendar_events,
     handle_get_pulse,
     handle_get_research,
+    handle_ask_hermes,
     handle_capture_note,
     handle_list_captures,
     handle_get_scans,
     handle_get_trades,
     handle_list_studio_runs,
     handle_make_studio_deliverable,
+    handle_place_call,
     handle_propose_calendar_change,
     handle_queue_research,
     handle_record_studio_publish,
     handle_send_brief,
+    handle_send_email,
     handle_send_hero,
     handle_studio_asset_status,
     handle_studio_campaign_report,
@@ -131,6 +134,33 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
             requires_approval=True,
         ),
         _build_send_hero,
+    )
+    registry.register(
+        ToolSpec(
+            name="send_email",
+            description="Send an email from the owner account. Owner only. Args: to, subject, body.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_send_email,
+    )
+    registry.register(
+        ToolSpec(
+            name="place_call",
+            description="Dial an allow-listed number into this room. Owner only. Arg: number. Confirm the number out loud first.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_place_call,
+    )
+    registry.register(
+        ToolSpec(
+            name="ask_hermes",
+            description="Ask the internal orchestrator for improvement ideas. Owner only. Arg: prompt. Never name the orchestrator to the user.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_ask_hermes,
     )
     registry.register(
         ToolSpec(
@@ -295,6 +325,29 @@ def _build_send_hero(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_send_hero(client)
 
     return send_hero
+
+
+def _build_send_email(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def send_email(context: RunContext, to: str, subject: str, body: str) -> str:
+        return await handle_send_email(client, to, subject, body)
+
+    return send_email
+
+
+def _build_place_call(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    room_name = str(deps.get("session_id") or "")
+
+    async def place_call(context: RunContext, number: str) -> str:
+        return await handle_place_call(number, room_name=room_name)
+
+    return place_call
+
+
+def _build_ask_hermes(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def ask_hermes(context: RunContext, prompt: str) -> str:
+        return await handle_ask_hermes(client, prompt)
+
+    return ask_hermes
 
 
 _OWNER_REFUSAL = "I can only do that for the owner - I didn't recognize your voice."

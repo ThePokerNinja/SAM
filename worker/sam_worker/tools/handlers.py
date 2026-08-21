@@ -257,6 +257,41 @@ async def handle_send_hero(client: RainmakerClient) -> str:
     return f"I couldn't send the HERO card right now ({reason})."
 
 
+async def handle_send_email(client: RainmakerClient, to: str, subject: str, body: str) -> str:
+    res = await client.send_email(to, subject, body)
+    if not res.get("ok") or not res.get("sent"):
+        err = res.get("gmailError") or res.get("resendError") or res.get("error") or "send_failed"
+        return f"I couldn't send the email ({err})."
+    provider = res.get("provider") or "email"
+    return f"Sent to {to} via {provider}."[:_MAX_SPOKEN]
+
+
+async def handle_ask_hermes(client: RainmakerClient, prompt: str) -> str:
+    res = await client.ask_hermes(prompt)
+    if not res.get("ok"):
+        return "I couldn't get a second opinion right now."
+    text = (res.get("text") or "").strip()
+    if not text:
+        return "No extra ideas came back."
+    return text[:_MAX_SPOKEN]
+
+
+async def handle_place_call(number: str, *, room_name: str) -> str:
+    from ..outbound import can_dial, create_outbound_participant
+
+    ok, detail = can_dial(number)
+    if not ok:
+        if detail == "number_not_allowlisted":
+            return "I can only dial numbers on your allow-list."
+        if detail == "outbound_not_configured":
+            return "Outbound calling is not wired yet."
+        return "That number doesn't look dialable."
+    res = await create_outbound_participant(number=detail, room_name=room_name)
+    if not res.get("ok"):
+        return "I couldn't place the call right now."
+    return f"Dialing {detail}."[:_MAX_SPOKEN]
+
+
 async def handle_get_calendar_events(client: RainmakerClient, days: int = 7) -> str:
     days = max(1, min(int(days or 1), 30))
     res = await client.get_calendar_events(days=days)

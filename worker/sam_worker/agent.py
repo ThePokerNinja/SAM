@@ -54,9 +54,11 @@ from livekit.plugins import (  # noqa: F401 — register on main thread
     silero,
 )
 
+from .alerts import GROQ_429, BurstTracker
 from .artifacts import Artifact, ArtifactStore
 from .config import Settings, resolve_brain
 from .context import assemble_context
+from .health import start_health_server
 from .intake import brief_from_artifacts
 from .latency import TurnProfile, latency_log_enabled, write_profile
 from .memory import (
@@ -79,6 +81,8 @@ from .router import FastIntentRouter, RoutedSamuelAgent
 from .session import build_session
 from .session_log import SessionLogger
 from .safety import SafetyState
+from .skillbuilder.advisory import run_advisory
+from .skillbuilder.gap import candidate_from_latency, candidate_from_pythia_brier
 from .skillbuilder.models import KPISnapshot
 from .skillbuilder.runtime import SkillBuilderRuntime
 from .skillbuilder.snapshot import live_snapshot, write_snapshot
@@ -301,11 +305,12 @@ async def entrypoint(ctx: JobContext) -> None:
     stt_label = s.stt_model if not s.deepgram_api_key else f"deepgram/{s.stt_model.removeprefix('deepgram/')}"
     groq_fallback = (s.groq_fallback_model or "openai/gpt-oss-120b") if resolved == "groq" else "-"
     _log.info(
-        "Samuel starting | brain=%s | groq_fallback=%s | openai_rung=%s | stt=%s | turn=%s | endpoint=%.2f/%.2f | voice=%s",
+        "Samuel starting | brain=%s | groq_fallback=%s | openai_rung=%s | stt=%s | tts=%s streaming=livekit-elevenlabs-ws | turn=%s | endpoint=%.2f/%.2f | voice=%s",
         brain,
         groq_fallback,
         bool(s.openai_api_key) if resolved == "groq" else False,
         stt_label,
+        s.elevenlabs_model,
         s.turn_mode,
         s.endpoint_min,
         s.endpoint_max,
@@ -324,11 +329,23 @@ async def entrypoint(ctx: JobContext) -> None:
         turn_handling=build_turn_handling(s),
     )
     recovery_state: dict[str, Any] = {"task": None, "last_at": 0.0}
+    groq_429_burst = BurstTracker(window_s=600.0, threshold=3)
+    rm_holder: dict[str, Any] = {"client": None}
 
     async def _speak_recovery(error: Any) -> None:
         # LiveKit retries a failed LLM turn about every 2s. Speak recovery once
         # per burst so Groq 429s do not loop "sorry I lost that."
         now = time.monotonic()
+        if groq_429_burst.observe(now, is_match=_error_status(error) == 429):
+            client = rm_holder.get("client")
+            if client is not None:
+                asyncio.ensure_future(
+                    client.post_sam_alert(
+                        GROQ_429,
+                        detail="tokens-per-minute burst",
+                        count=groq_429_burst.count,
+                    )
+                )
         if recovery_state["task"] is not None or now - recovery_state["last_at"] < 20.0:
             return
         recovery_state["last_at"] = now
@@ -385,7 +402,7 @@ async def entrypoint(ctx: JobContext) -> None:
         safety_state.register(participant_id)
         _log.info("SESSION_PARTICIPANT role=%s id=%s", role, participant_id)
 
-    bench_events_enabled = session_id.startswith(("sam-wave8-", "call-"))
+    bench_events_enabled = session_id.startswith(("sam-wave8-", "call-", "staging-"))
 
     async def _publish_bench_event(payload: dict) -> None:
         if not bench_events_enabled:
@@ -537,8 +554,12 @@ async def entrypoint(ctx: JobContext) -> None:
                     )
                     measured = _finish_barge_overlap(barge_state, ev)
                     if measured is not None:
+                        stop_ms = _event_time_ms(ev)
+                        detect_ms = stop_ms - measured
                         _log.info(
-                            "BARGE_IN measured_ms=%.1f target_ms=250 result=%s",
+                            "BARGE_IN inbound_detect_at_ms=%.1f playback_stop_at_ms=%.1f overlap_ms=%.1f target_ms=250 result=%s",
+                            detect_ms,
+                            stop_ms,
                             measured,
                             "PASS" if measured < 250 else "OVER",
                         )
@@ -548,6 +569,7 @@ async def entrypoint(ctx: JobContext) -> None:
             _log.debug("agent playback-state capture unavailable")
 
     rm_client = build_rainmaker_client(s)
+    rm_holder["client"] = rm_client
 
     # Owner gate for Tier-T tools: live voice match, verified JWT role=owner, or
     # an allow-listed SIP caller. The gate fails closed — a connected human is
@@ -858,6 +880,42 @@ async def entrypoint(ctx: JobContext) -> None:
                 snapshot_path = episode_store.path.parent / "sam-hero-snapshot.json"
                 snapshot = await asyncio.to_thread(live_snapshot, skillbuilder_runtime)
                 await asyncio.to_thread(write_snapshot, snapshot_path, snapshot)
+                v2v_values = skillbuilder_runtime.metric_values(
+                    "samuel_live_session", "v2v_ms", limit=40
+                )
+                if v2v_values:
+                    import statistics
+
+                    candidate = candidate_from_latency(
+                        session_id,
+                        v2v_p50_ms=float(statistics.median(v2v_values)),
+                    )
+                    if candidate is not None:
+                        run_advisory(
+                            skillbuilder_runtime,
+                            candidate,
+                            reason=candidate.problem_detected,
+                        )
+                        if candidate.gates.approved_for_adoption:
+                            await rm_client.request_skill_approval(
+                                candidate.candidate_id,
+                                candidate.problem_detected,
+                            )
+                if pythia_ledger is not None:
+                    raw = pythia_ledger.calibration_candidate(
+                        subject="next_turn_latency_over_800"
+                    )
+                    if raw is not None:
+                        pythia_candidate = candidate_from_pythia_brier(
+                            "next_turn_latency_over_800",
+                            sample_count=int(raw["sample_count"]),
+                            brier=float(raw["brier"]),
+                        )
+                        run_advisory(
+                            skillbuilder_runtime,
+                            pythia_candidate,
+                            reason=pythia_candidate.problem_detected,
+                        )
             close_persistence_state["done"] = True
 
     @session.on("close")
@@ -1231,4 +1289,5 @@ async def entrypoint(ctx: JobContext) -> None:
 
 
 if __name__ == "__main__":
+    start_health_server()
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))

@@ -100,6 +100,38 @@ async def main() -> None:
                 ),
             )
             print(f"reconciled dispatch rule {rule.sip_dispatch_rule_id}")
+
+        outbound_address = os.environ.get("SAM_SIP_OUTBOUND_ADDRESS", "").strip()
+        if outbound_address:
+            outbound_name = "Samuel pilot outbound"
+            outbound_number = os.environ.get("SAM_SIP_OUTBOUND_NUMBER", "").strip() or _required(
+                "SAM_SIP_PILOT_NUMBER"
+            )
+            trunks_out = await client.sip.list_sip_outbound_trunk(
+                api.ListSIPOutboundTrunkRequest()
+            )
+            existing = next(
+                (item for item in trunks_out.items if item.name == outbound_name), None
+            )
+            info = api.SIPOutboundTrunkInfo(
+                name=outbound_name,
+                address=outbound_address,
+                numbers=[outbound_number],
+                auth_username=auth_username,
+                auth_password=auth_password,
+            )
+            if existing is None:
+                created = await client.sip.create_sip_outbound_trunk(
+                    api.CreateSIPOutboundTrunkRequest(trunk=info)
+                )
+                print(f"created outbound trunk {created.sip_trunk_id}")
+            else:
+                updated = await client.sip.update_sip_outbound_trunk(
+                    existing.sip_trunk_id, info
+                )
+                print(f"reconciled outbound trunk {updated.sip_trunk_id}")
+        else:
+            print("SAM_SIP_OUTBOUND_ADDRESS unset; skipped outbound trunk")
     finally:
         await client.aclose()
 

@@ -72,6 +72,10 @@ class RainmakerClient(Protocol):
     async def get_brief(self) -> dict: ...
     async def send_brief(self) -> dict: ...
     async def send_hero(self) -> dict: ...
+    async def send_email(self, to: str, subject: str, body: str) -> dict: ...
+    async def post_sam_alert(self, kind: str, detail: str = "", count: int | None = None) -> dict: ...
+    async def request_skill_approval(self, candidate_id: str, summary: str) -> dict: ...
+    async def ask_hermes(self, prompt: str) -> dict: ...
     async def list_studio_runs(self, limit: int = 8) -> dict: ...
     async def studio_asset_status(self, asset_id: str) -> dict: ...
     async def studio_campaign_report(self, run_id: str) -> dict: ...
@@ -142,6 +146,20 @@ class MockRainmakerClient:
 
     async def send_hero(self) -> dict:
         return {"ok": True, "sent": True, "reason": "mock_mms"}
+
+    async def send_email(self, to: str, subject: str, body: str) -> dict:
+        return {"ok": True, "sent": True, "provider": "mock", "to": to, "subject": subject}
+
+    async def post_sam_alert(
+        self, kind: str, detail: str = "", count: int | None = None
+    ) -> dict:
+        return {"ok": True, "sent": True, "kind": kind, "count": count}
+
+    async def request_skill_approval(self, candidate_id: str, summary: str) -> dict:
+        return {"ok": True, "code": "MOCK1", "candidateId": candidate_id, "summary": summary}
+
+    async def ask_hermes(self, prompt: str) -> dict:
+        return {"ok": True, "text": f"Mock orchestrator idea for: {prompt[:80]}"}
 
     async def list_studio_runs(self, limit: int = 8) -> dict:
         return {"ok": True, "runs": [{"id": "pov-01", "name": "pov-01", "asset_count": 2}]}
@@ -264,6 +282,10 @@ class HttpRainmakerClient:
     BRIEF_PREVIEW_PATH = "/notify/owner-brief/preview"
     BRIEF_SEND_PATH = "/notify/owner-brief"
     HERO_SEND_PATH = "/notify/test-hero"
+    OWNER_EMAIL_PATH = "/notify/owner-email"
+    SAM_ALERT_PATH = "/ops/sam-alert"
+    SKILL_APPROVAL_PATH = "/samuel/skill-approval"
+    ASK_HERMES_PATH = "/samuel/ask-hermes"
     STUDIO_RUNS_PATH = "/studio/runs"
     STUDIO_ASSET_PATH = "/studio/asset"
     STUDIO_REPORT_PATH = "/studio/campaign/report"
@@ -549,6 +571,43 @@ class HttpRainmakerClient:
             "reason": data.get("reason"),
             "ascii": bool(data.get("ascii")),
         }
+
+    async def send_email(self, to: str, subject: str, body: str) -> dict:
+        res = await self._post(
+            self.OWNER_EMAIL_PATH,
+            body={"to": to, "subject": subject, "body": body},
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": True, **data}
+
+    async def post_sam_alert(
+        self, kind: str, detail: str = "", count: int | None = None
+    ) -> dict:
+        body: dict[str, Any] = {"kind": kind, "detail": detail}
+        if count is not None:
+            body["count"] = count
+        res = await self._post(self.SAM_ALERT_PATH, body=body)
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        return {"ok": True, **(res.get("data") or {})}
+
+    async def request_skill_approval(self, candidate_id: str, summary: str) -> dict:
+        res = await self._post(
+            self.SKILL_APPROVAL_PATH,
+            body={"candidateId": candidate_id, "summary": summary},
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        return {"ok": True, **(res.get("data") or {})}
+
+    async def ask_hermes(self, prompt: str) -> dict:
+        res = await self._post(self.ASK_HERMES_PATH, body={"prompt": prompt})
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": True, "text": data.get("text") or "", "reason": data.get("reason")}
 
     async def list_studio_runs(self, limit: int = 8) -> dict:
         res = await self._get(self.STUDIO_RUNS_PATH, params={"limit": limit})

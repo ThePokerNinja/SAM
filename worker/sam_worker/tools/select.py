@@ -29,6 +29,9 @@ VOICE_TOOLS: tuple[str, ...] = (
     "get_brief",
     "send_brief",
     "send_hero",
+    "send_email",
+    "place_call",
+    "ask_hermes",
 )
 
 STUDIO_TOOLS: tuple[str, ...] = (
@@ -144,6 +147,24 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
             selected.append("send_brief")
     if _has_any(text, ("hero", "character card", "stats card")):
         selected.append("send_hero")
+    if _has_any(text, ("email", "e mail", "send a note to")):
+        selected.append("send_email")
+    if _has_any(text, ("call", "dial", "phone")) and _has_any(
+        text, ("place", "make", "dial", "ring", "outbound")
+    ):
+        selected.append("place_call")
+    if _has_any(
+        text,
+        (
+            "what should i learn",
+            "what should you learn",
+            "improvement idea",
+            "ask for help",
+            "second opinion",
+            "skill idea",
+        ),
+    ):
+        selected.append("ask_hermes")
     calendar_action = calendar_action_for_utterance(utterance)
     if calendar_action:
         selected.append("propose_calendar_change")
