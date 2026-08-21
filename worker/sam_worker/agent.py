@@ -733,7 +733,7 @@ async def entrypoint(ctx: JobContext) -> None:
         if artifact_store is None or not session_turns:
             return
         summary = _session_close_summary(session_turns)
-        await artifact_store.put_async(
+        artifact_id = await artifact_store.put_async(
             Artifact(
                 session_id=session_id,
                 kind="summary",
@@ -743,6 +743,12 @@ async def entrypoint(ctx: JobContext) -> None:
                     "decisions": list(_session_decisions(session_turns)),
                 },
             )
+        )
+        await _publish_bench_event(
+            {
+                "type": "artifact_checkpoint",
+                "artifact_id": artifact_id,
+            }
         )
 
     @session.on("conversation_item_added")
@@ -983,13 +989,16 @@ async def entrypoint(ctx: JobContext) -> None:
             snapshot.memory = [*(snapshot.memory or []), *remote["items"]]
         if prior_brief is not None:
             snapshot.external = prior_brief
-            if prior_brief.items:
-                await _publish_bench_event(
-                    {
-                        "type": "prior_artifact_brief",
-                        "count": len(prior_brief.items),
-                    }
-                )
+            await _publish_bench_event(
+                {
+                    "type": (
+                        "prior_artifact_brief"
+                        if prior_brief.items
+                        else "prior_artifact_brief_empty"
+                    ),
+                    "count": len(prior_brief.items),
+                }
+            )
         _log.info(
             "CONTEXT_LATENCY total_ms=%.1f stages=%s errors=%s",
             snapshot.total_ms,
