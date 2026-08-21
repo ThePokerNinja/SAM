@@ -57,6 +57,7 @@ from livekit.plugins import (  # noqa: F401 — register on main thread
 from .artifacts import Artifact, ArtifactStore
 from .config import Settings, resolve_brain
 from .context import assemble_context
+from .intake import brief_from_artifacts
 from .latency import TurnProfile, latency_log_enabled, write_profile
 from .memory import (
     Episode,
@@ -558,6 +559,13 @@ async def entrypoint(ctx: JobContext) -> None:
     episode_store = EpisodicMemoryStore() if s.memory_enabled else None
     profile_store = ProfileStore() if s.memory_enabled else None
     artifact_store = ArtifactStore() if s.memory_enabled else None
+    prior_brief = (
+        brief_from_artifacts(
+            artifact_store.recent(limit=8, exclude_session_id=session_id)
+        )
+        if artifact_store is not None
+        else None
+    )
     pythia_baselines = BaselineStore(episode_store.path) if episode_store is not None else None
     pythia_ledger = ForecastLedger(episode_store.path) if episode_store is not None else None
     skillbuilder_runtime = (
@@ -916,6 +924,44 @@ async def entrypoint(ctx: JobContext) -> None:
                 tools=tool_registry.names,
                 permissions=lambda: {"owner": _session_is_owner()},
             )
+        local_memory = (
+            (
+                lambda: memory_retriever.retrieve_async(
+                    text,
+                    session_id=session_id,
+                    profile_id="owner",
+                    token_budget=350,
+                )
+            )
+            if memory_retriever is not None
+            else list
+        )
+        local_profile = (
+            (lambda: asyncio.to_thread(profile_store.facts, "owner"))
+            if profile_store is not None
+            else dict
+        )
+        snapshot = await assemble_context(
+            memory=local_memory,
+            profile=local_profile,
+            tools=tool_registry.names,
+            permissions=lambda: {"owner": True},
+            external=lambda: rm_client.get_memory_context(text, token_cap=250),
+            timeout_s=0.75,
+        )
+        remote = snapshot.external if isinstance(snapshot.external, dict) else {}
+        if remote.get("ok") and isinstance(remote.get("items"), list):
+            snapshot.memory = [*(snapshot.memory or []), *remote["items"]]
+        if prior_brief is not None:
+            snapshot.external = prior_brief
+        _log.info(
+            "CONTEXT_LATENCY total_ms=%.1f stages=%s errors=%s",
+            snapshot.total_ms,
+            json.dumps(snapshot.timings_ms, sort_keys=True),
+            json.dumps(snapshot.errors, sort_keys=True),
+        )
+        perf_state["context_ms"] = snapshot.total_ms
+        return snapshot
 
     async def _route_session_pack(text: str) -> None:
         previous_pack_id = pack_registry.active_id
@@ -959,42 +1005,6 @@ async def entrypoint(ctx: JobContext) -> None:
         if sam_session.paused:
             return "We're still paused. Say resume when you're ready to continue."
         return None
-        local_memory = (
-            (
-                lambda: memory_retriever.retrieve_async(
-                    text,
-                    session_id=session_id,
-                    profile_id="owner",
-                    token_budget=350,
-                )
-            )
-            if memory_retriever is not None
-            else list
-        )
-        local_profile = (
-            (lambda: asyncio.to_thread(profile_store.facts, "owner"))
-            if profile_store is not None
-            else dict
-        )
-        snapshot = await assemble_context(
-            memory=local_memory,
-            profile=local_profile,
-            tools=tool_registry.names,
-            permissions=lambda: {"owner": True},
-            external=lambda: rm_client.get_memory_context(text, token_cap=250),
-            timeout_s=0.75,
-        )
-        remote = snapshot.external if isinstance(snapshot.external, dict) else {}
-        if remote.get("ok") and isinstance(remote.get("items"), list):
-            snapshot.memory = [*(snapshot.memory or []), *remote["items"]]
-        _log.info(
-            "CONTEXT_LATENCY total_ms=%.1f stages=%s errors=%s",
-            snapshot.total_ms,
-            json.dumps(snapshot.timings_ms, sort_keys=True),
-            json.dumps(snapshot.errors, sort_keys=True),
-        )
-        perf_state["context_ms"] = snapshot.total_ms
-        return snapshot
 
     def _route_timing(decision, elapsed_ms: float) -> None:
         perf_state["route"] = decision.route

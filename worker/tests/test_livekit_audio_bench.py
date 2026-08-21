@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import struct
 import time
@@ -34,6 +35,21 @@ def test_worker_info_gate_refuses_missing_or_mismatched_worker() -> None:
     assert not _worker_info_mismatches(
         {"turn_mode": "stt", "resolved_brain": "groq"}, expected
     )
+
+
+def test_owner_benchmark_token_carries_explicit_role() -> None:
+    token = mint_token(
+        "test-key",
+        "test-secret-test-secret-test-secret",
+        room="room",
+        identity="bench-owner",
+        attributes={"role": "owner"},
+    )
+    encoded_payload = token.split(".")[1]
+    payload = json.loads(
+        base64.urlsafe_b64decode(encoded_payload + "=" * (-len(encoded_payload) % 4))
+    )
+    assert payload["attributes"] == {"role": "owner"}
 
 
 def test_pcm_fixture_reader_chunks_20ms(tmp_path) -> None:

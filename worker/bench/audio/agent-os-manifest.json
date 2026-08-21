@@ -26,6 +26,18 @@
       "transcript": "Resume the conversation."
     },
     {
+      "id": "remember-owner-fact",
+      "kind": "short",
+      "file": "agent-os-remember-owner-fact.wav",
+      "transcript": "Remember that my favorite color is ultramarine."
+    },
+    {
+      "id": "recall-owner-fact",
+      "kind": "short",
+      "file": "agent-os-recall-owner-fact.wav",
+      "transcript": "What is my favorite color?"
+    },
+    {
       "id": "activate-appointment",
       "kind": "short",
       "file": "agent-os-activate-appointment.wav",

@@ -120,3 +120,25 @@ class ArtifactStore:
             )
             for r in rows
         ]
+
+    def recent(self, *, limit: int = 20, exclude_session_id: str = "") -> list[Artifact]:
+        query = "SELECT * FROM artifacts"
+        params: list[object] = []
+        if exclude_session_id:
+            query += " WHERE session_id != ?"
+            params.append(exclude_session_id)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(max(1, limit))
+        with self._cx() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [
+            Artifact(
+                id=row["id"],
+                session_id=row["session_id"],
+                kind=row["kind"],
+                payload=json.loads(row["payload_json"]),
+                credited_to=row["credited_to"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]

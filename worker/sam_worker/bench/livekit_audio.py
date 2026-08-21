@@ -114,7 +114,14 @@ def pcm_rms(data: bytes | memoryview) -> float:
     return math.sqrt(sum(sample * sample for sample in samples) / len(samples))
 
 
-def mint_token(api_key: str, api_secret: str, *, room: str, identity: str) -> str:
+def mint_token(
+    api_key: str,
+    api_secret: str,
+    *,
+    room: str,
+    identity: str,
+    attributes: dict[str, str] | None = None,
+) -> str:
     grant = api.VideoGrants(
         room_join=True,
         room=room,
@@ -122,13 +129,15 @@ def mint_token(api_key: str, api_secret: str, *, room: str, identity: str) -> st
         can_subscribe=True,
         can_publish_data=True,
     )
-    return (
+    token = (
         api.AccessToken(api_key, api_secret)
         .with_identity(identity)
         .with_name(identity)
         .with_grants(grant)
-        .to_jwt()
     )
+    if attributes:
+        token = token.with_attributes(attributes)
+    return token.to_jwt()
 
 
 class LiveKitAudioDriver:

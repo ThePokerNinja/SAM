@@ -246,6 +246,18 @@ class RoutedSamuelAgent(Agent):
                     f"preserve provenance and do not invent beyond it:\n{rendered}"
                 ),
             )
+        brief = getattr(snapshot, "external", None)
+        render_brief = getattr(brief, "as_prompt", None)
+        if callable(render_brief):
+            rendered_brief = str(render_brief(token_budget=400) or "").strip()
+            if rendered_brief:
+                turn_ctx.add_message(
+                    role="developer",
+                    content=(
+                        "Prior consented session artifacts. Use only when relevant and preserve "
+                        f"their provenance:\n{rendered_brief}"
+                    ),
+                )
 
     async def llm_node(self, chat_ctx, tools, model_settings):
         user_messages = [message for message in chat_ctx.messages() if message.role == "user"]

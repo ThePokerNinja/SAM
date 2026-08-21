@@ -6,7 +6,7 @@ import unittest
 
 from sam_worker.agent import _session_close_summary, _session_decisions
 from sam_worker.artifacts import Artifact, ArtifactStore
-from sam_worker.intake import BriefItem, assemble_brief
+from sam_worker.intake import BriefItem, assemble_brief, brief_from_artifacts
 from sam_worker.packs.appointment import confirm_booking
 from sam_worker.packs.moderator import ModeratorRuntime, classify, is_neutral, understanding_map
 from sam_worker.packs.registry import PackRegistry
@@ -148,6 +148,18 @@ class IntakeArtifactTests(unittest.TestCase):
         ]
         self.assertIn("meet Tuesday", _session_close_summary(turns))
         self.assertEqual(_session_decisions(turns), ("We agreed to meet Tuesday.",))
+
+    def test_prior_artifact_seeds_next_brief_with_provenance(self) -> None:
+        store = ArtifactStore(":memory:")
+        artifact_id = store.add(
+            Artifact(session_id="prior", kind="summary", payload={"text": "Agreed Tuesday."})
+        )
+        store.add(Artifact(session_id="current", kind="summary", payload={"text": "Exclude me."}))
+        prior = store.recent(limit=8, exclude_session_id="current")
+        rendered = brief_from_artifacts(prior).as_prompt()
+        self.assertIn("Agreed Tuesday", rendered)
+        self.assertIn(f"artifact:{artifact_id}", rendered)
+        self.assertNotIn("Exclude me", rendered)
 
 
 class PythiaTests(unittest.TestCase):

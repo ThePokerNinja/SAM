@@ -259,7 +259,13 @@ async def _run(args) -> dict:
 
     prefix = "sam-wave8-embedded" if args.embedded_agent else "sam-wave8"
     room_name = args.room or f"{prefix}-{uuid.uuid4().hex[:12]}"
-    token = mint_token(api_key, api_secret, room=room_name, identity=f"bench-{uuid.uuid4().hex[:8]}")
+    token = mint_token(
+        api_key,
+        api_secret,
+        room=room_name,
+        identity=f"bench-{uuid.uuid4().hex[:8]}",
+        attributes={"role": "owner"} if args.owner_test_token else None,
+    )
     fixtures = load_manifest(args.manifest)
     turns = [fixture for fixture in fixtures if fixture.kind in {"short", "long"}]
     if args.max_turns is not None:
@@ -477,6 +483,11 @@ def main() -> int:
         default="adaptive",
     )
     parser.add_argument("--room", default="")
+    parser.add_argument(
+        "--owner-test-token",
+        action="store_true",
+        help="Mint the benchmark participant with role=owner for consented owner-path tests.",
+    )
     parser.add_argument("--embedded-agent", action="store_true")
     parser.add_argument(
         "--agent-name",
