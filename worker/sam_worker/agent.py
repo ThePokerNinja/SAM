@@ -759,56 +759,63 @@ async def entrypoint(ctx: JobContext) -> None:
                 )
             )
 
+    close_persistence_lock = asyncio.Lock()
+    close_persistence_state = {"done": False}
+
     async def _persist_session_close(reason: str) -> None:
         if episode_store is None or artifact_store is None or not session_turns:
             return
-        summary = _session_close_summary(session_turns)
-        decisions = _session_decisions(session_turns)
-        artifact_id = await artifact_store.add_async(
-            Artifact(
-                session_id=session_id,
-                kind="summary",
-                payload={
-                    "text": summary,
-                    "reason": reason,
-                    "decisions": list(decisions),
-                },
-            )
-        )
-        artifact_refs = [f"artifact:{artifact_id}"]
-        if moderator_runtime.has_content():
-            understanding_id = await artifact_store.add_async(
+        async with close_persistence_lock:
+            if close_persistence_state["done"]:
+                return
+            summary = _session_close_summary(session_turns)
+            decisions = _session_decisions(session_turns)
+            artifact_id = await artifact_store.add_async(
                 Artifact(
                     session_id=session_id,
-                    kind="understanding_map",
-                    payload=moderator_runtime.understanding_artifact(),
+                    kind="summary",
+                    payload={
+                        "text": summary,
+                        "reason": reason,
+                        "decisions": list(decisions),
+                    },
                 )
             )
-            next_steps_id = await artifact_store.add_async(
-                Artifact(
+            artifact_refs = [f"artifact:{artifact_id}"]
+            if moderator_runtime.has_content():
+                understanding_id = await artifact_store.add_async(
+                    Artifact(
+                        session_id=session_id,
+                        kind="understanding_map",
+                        payload=moderator_runtime.understanding_artifact(),
+                    )
+                )
+                next_steps_id = await artifact_store.add_async(
+                    Artifact(
+                        session_id=session_id,
+                        kind="next_steps",
+                        payload=moderator_runtime.next_steps_artifact(),
+                    )
+                )
+                artifact_refs.extend(
+                    (f"artifact:{understanding_id}", f"artifact:{next_steps_id}")
+                )
+            await episode_store.append_async(
+                Episode(
                     session_id=session_id,
-                    kind="next_steps",
-                    payload=moderator_runtime.next_steps_artifact(),
+                    kind="summary",
+                    content=summary,
+                    summary=summary,
+                    decisions=decisions,
+                    artifact_refs=tuple(artifact_refs),
+                    provenance=f"sam_worker:session_close:{reason}",
                 )
             )
-            artifact_refs.extend(
-                (f"artifact:{understanding_id}", f"artifact:{next_steps_id}")
-            )
-        await episode_store.append_async(
-            Episode(
-                session_id=session_id,
-                kind="summary",
-                content=summary,
-                summary=summary,
-                decisions=decisions,
-                artifact_refs=tuple(artifact_refs),
-                provenance=f"sam_worker:session_close:{reason}",
-            )
-        )
-        if skillbuilder_runtime is not None:
-            snapshot_path = episode_store.path.parent / "sam-hero-snapshot.json"
-            snapshot = await asyncio.to_thread(live_snapshot, skillbuilder_runtime)
-            await asyncio.to_thread(write_snapshot, snapshot_path, snapshot)
+            if skillbuilder_runtime is not None:
+                snapshot_path = episode_store.path.parent / "sam-hero-snapshot.json"
+                snapshot = await asyncio.to_thread(live_snapshot, skillbuilder_runtime)
+                await asyncio.to_thread(write_snapshot, snapshot_path, snapshot)
+            close_persistence_state["done"] = True
 
     @session.on("close")
     def _remember_session_close(ev) -> None:
@@ -816,6 +823,11 @@ async def entrypoint(ctx: JobContext) -> None:
             return
         reason = str(getattr(ev, "reason", "") or "close")
         asyncio.ensure_future(_persist_session_close(reason))
+
+    async def _persist_on_job_shutdown(reason: str = "job_shutdown") -> None:
+        await _persist_session_close(reason or "job_shutdown")
+
+    ctx.add_shutdown_callback(_persist_on_job_shutdown)
 
     session_logger = SessionLogger(
         room_name=ctx.room.name or ctx.job.id,
