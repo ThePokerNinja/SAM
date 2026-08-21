@@ -10,7 +10,13 @@ From the SAM repo:
 .\scripts\run-golden-path.ps1
 ```
 
-That covers pack activation (SAM-039 already live). For artifacts (SAM-043/044) use the write then recall manifests with `--owner-test-token` and confirm `prior_artifact_brief` has count > 0.
+That covers pack activation (SAM-039 already live). For artifacts (SAM-043/044):
+
+```
+.\scripts\run-artifact-proof.ps1
+```
+
+Closed 2026-08-21 on sam-agent `0b95e2c` with `SAM_MEMORY_ENABLED=1`. Confirm recall evidence contains `prior_artifact_brief` (not `_empty`). Default settle is 35s so the write job can finish session-close persist.
 
 ## Physical (operator)
 

@@ -100,18 +100,22 @@ Runs client typecheck + build and worker pytest.
 
 ### Blueprint env vs deploy hook (Wave 8.1)
 
-A **deploy hook** rebuilds the current service. It does **not** re-apply `render.yaml` env
-values onto a service that already has those keys set in the Render dashboard.
+A **deploy hook** rebuilds the current service. It does **not** sync `render.yaml` env
+onto the dashboard:
 
-Wave 8.1 shipped `SAM_ENDPOINTING_MAX=0.6` in `render.yaml`, hooked a deploy, and production
-kept the old dashboard value `1.2` — the 777ms EOU floor. Code defaults only win when the
-var is **unset**.
+- Keys **already set** keep the dashboard value (Wave 8.1: `SAM_ENDPOINTING_MAX` shipped
+  0.6, prod kept 1.2 — the 777ms EOU floor).
+- Keys that exist **only in yaml** stay unset (Wave 2.1: `SAM_MEMORY_ENABLED` and
+  `SAM_CACHE_DIR` were never on sam-agent, so session artifacts never wrote).
+
+Code defaults only win when the var is **unset**. PUT new keys with
+`.\scripts\set-sam-agent-env.ps1`, then `.\scripts\verify-sam-agent.ps1 -Wait`.
 
 After changing a non-secret in `render.yaml`:
 
-1. Confirm the live value on Render → **sam-agent** → Environment (or the `Samuel starting |
-   endpoint=min/max` worker log line).
-2. If it is stale, edit the dashboard value or sync the Blueprint, then redeploy.
+1. Confirm the live value on Render → **sam-agent** → Environment (or
+   `.\scripts\verify-sam-agent.ps1` / the `Samuel starting |` worker log).
+2. If it is missing or stale, PUT the dashboard value or sync the Blueprint, then redeploy.
 3. Do not treat “hook returned 200” as “new env is live.”
 
 Wave 8.2: dashboard ``SAM_BRAIN=openai`` is treated as a stale 8.1 pin. The worker
@@ -119,7 +123,15 @@ uses Groq 8b whenever ``GROQ_API_KEY`` is set. Roll back with ``SAM_BRAIN=openai
 
 Wave 8.3: use ``.\scripts\verify-sam-agent.ps1 -Wait`` (needs ``RENDER_API_KEY`` +
 ``SAM_AGENT_SERVICE_ID``). Hook 200 is not proof the build is live or that env changed.
-``deploy-sam-agent.ps1 -Wait`` polls until status is ``live`` and prints live env.
+``deploy-sam-agent.ps1 -Wait`` polls until status is ``live`` and prints live env
+(including ``SAM_MEMORY_ENABLED`` / ``SAM_CACHE_DIR``).
+
+### Artifact persist across rooms (Wave 2.1)
+
+LiveKit Agents uses **one process per job**. After the bench client disconnects, the
+write job can take ~20s to reach ``process exiting``. Session-close SQLite persist
+may not be visible to the next room until then. ``.\scripts\run-artifact-proof.ps1``
+defaults to a **35s** settle; 8s produced ``prior_artifact_brief_empty``.
 
 ### Deploy hook env vars (optional)
 
