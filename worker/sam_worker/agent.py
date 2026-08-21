@@ -732,24 +732,33 @@ async def entrypoint(ctx: JobContext) -> None:
     async def _checkpoint_summary_artifact() -> None:
         if artifact_store is None or not session_turns:
             return
-        summary = _session_close_summary(session_turns)
-        artifact_id = await artifact_store.put_async(
-            Artifact(
-                session_id=session_id,
-                kind="summary",
-                payload={
-                    "text": summary,
-                    "reason": "turn_checkpoint",
-                    "decisions": list(_session_decisions(session_turns)),
-                },
+        try:
+            summary = _session_close_summary(session_turns)
+            artifact_id = await artifact_store.put_async(
+                Artifact(
+                    session_id=session_id,
+                    kind="summary",
+                    payload={
+                        "text": summary,
+                        "reason": "turn_checkpoint",
+                        "decisions": list(_session_decisions(session_turns)),
+                    },
+                )
             )
-        )
-        await _publish_bench_event(
-            {
-                "type": "artifact_checkpoint",
-                "artifact_id": artifact_id,
-            }
-        )
+            await _publish_bench_event(
+                {
+                    "type": "artifact_checkpoint",
+                    "artifact_id": artifact_id,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 - report without affecting speech
+            _log.exception("artifact checkpoint failed")
+            await _publish_bench_event(
+                {
+                    "type": "artifact_checkpoint_failed",
+                    "error": type(exc).__name__,
+                }
+            )
 
     @session.on("conversation_item_added")
     def _remember_assistant_turn(ev) -> None:
