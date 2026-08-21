@@ -680,7 +680,17 @@ async def entrypoint(ctx: JobContext) -> None:
 
     @session.on("user_input_transcribed")
     def _remember_user_turn(ev) -> None:
-        if not getattr(ev, "is_final", False) or not _session_is_owner():
+        if not getattr(ev, "is_final", False):
+            return
+        owner = _session_is_owner()
+        asyncio.ensure_future(
+            _publish_bench_event(
+                {
+                    "type": "owner_gate_pass" if owner else "owner_gate_fail",
+                }
+            )
+        )
+        if not owner:
             return
         text = str(getattr(ev, "transcript", "") or "").strip()
         if not text:
