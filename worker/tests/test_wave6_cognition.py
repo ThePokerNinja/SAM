@@ -141,6 +141,19 @@ class IntakeArtifactTests(unittest.TestCase):
         items = store.list_for("s1")
         self.assertEqual(items[0].payload["text"], "hi")
 
+    def test_artifact_checkpoint_replaces_same_session_kind(self) -> None:
+        store = ArtifactStore(":memory:")
+        first_id = store.put(
+            Artifact(session_id="s1", kind="summary", payload={"text": "first"})
+        )
+        second_id = store.put(
+            Artifact(session_id="s1", kind="summary", payload={"text": "second"})
+        )
+        self.assertEqual(second_id, first_id)
+        items = store.list_for("s1")
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].payload["text"], "second")
+
     def test_session_close_summary_preserves_decisions(self) -> None:
         turns = [
             ("user", "We agreed to meet Tuesday."),

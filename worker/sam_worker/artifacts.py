@@ -103,6 +103,51 @@ class ArtifactStore:
     async def add_async(self, artifact: Artifact) -> int:
         return await asyncio.to_thread(self.add, artifact)
 
+    def put(self, artifact: Artifact) -> int:
+        """Insert or replace the latest artifact of this kind for one session."""
+        with self._cx() as conn:
+            row = conn.execute(
+                "SELECT id FROM artifacts WHERE session_id=? AND kind=? "
+                "ORDER BY created_at DESC LIMIT 1",
+                (artifact.session_id, artifact.kind),
+            ).fetchone()
+            if row is None:
+                cur = conn.execute(
+                    """
+                    INSERT INTO artifacts (
+                        session_id, kind, payload_json, credited_to, created_at
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        artifact.session_id,
+                        artifact.kind,
+                        json.dumps(artifact.payload),
+                        artifact.credited_to,
+                        artifact.created_at,
+                    ),
+                )
+                artifact_id = int(cur.lastrowid)
+            else:
+                artifact_id = int(row["id"])
+                conn.execute(
+                    """
+                    UPDATE artifacts
+                    SET payload_json=?, credited_to=?, created_at=?
+                    WHERE id=?
+                    """,
+                    (
+                        json.dumps(artifact.payload),
+                        artifact.credited_to,
+                        artifact.created_at,
+                        artifact_id,
+                    ),
+                )
+            conn.commit()
+            return artifact_id
+
+    async def put_async(self, artifact: Artifact) -> int:
+        return await asyncio.to_thread(self.put, artifact)
+
     def list_for(self, session_id: str) -> list[Artifact]:
         with self._cx() as conn:
             rows = conn.execute(

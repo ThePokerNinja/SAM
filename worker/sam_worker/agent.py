@@ -729,6 +729,22 @@ async def entrypoint(ctx: JobContext) -> None:
             )
         )
 
+    async def _checkpoint_summary_artifact() -> None:
+        if artifact_store is None or not session_turns:
+            return
+        summary = _session_close_summary(session_turns)
+        await artifact_store.put_async(
+            Artifact(
+                session_id=session_id,
+                kind="summary",
+                payload={
+                    "text": summary,
+                    "reason": "turn_checkpoint",
+                    "decisions": list(_session_decisions(session_turns)),
+                },
+            )
+        )
+
     @session.on("conversation_item_added")
     def _remember_assistant_turn(ev) -> None:
         if not _session_is_owner():
@@ -758,6 +774,7 @@ async def entrypoint(ctx: JobContext) -> None:
                     {"source": "sam_worker", "room": session_id},
                 )
             )
+            asyncio.ensure_future(_checkpoint_summary_artifact())
 
     close_persistence_lock = asyncio.Lock()
     close_persistence_state = {"done": False}
@@ -770,7 +787,7 @@ async def entrypoint(ctx: JobContext) -> None:
                 return
             summary = _session_close_summary(session_turns)
             decisions = _session_decisions(session_turns)
-            artifact_id = await artifact_store.add_async(
+            artifact_id = await artifact_store.put_async(
                 Artifact(
                     session_id=session_id,
                     kind="summary",
@@ -783,14 +800,14 @@ async def entrypoint(ctx: JobContext) -> None:
             )
             artifact_refs = [f"artifact:{artifact_id}"]
             if moderator_runtime.has_content():
-                understanding_id = await artifact_store.add_async(
+                understanding_id = await artifact_store.put_async(
                     Artifact(
                         session_id=session_id,
                         kind="understanding_map",
                         payload=moderator_runtime.understanding_artifact(),
                     )
                 )
-                next_steps_id = await artifact_store.add_async(
+                next_steps_id = await artifact_store.put_async(
                     Artifact(
                         session_id=session_id,
                         kind="next_steps",
