@@ -728,6 +728,7 @@ async def entrypoint(ctx: JobContext) -> None:
                 },
             )
         )
+        asyncio.ensure_future(_checkpoint_summary_artifact())
 
     async def _checkpoint_summary_artifact() -> None:
         if artifact_store is None or not session_turns:
