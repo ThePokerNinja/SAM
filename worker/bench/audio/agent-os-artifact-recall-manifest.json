@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "fixtures": [
+    {
+      "id": "recall-session-artifact",
+      "kind": "short",
+      "file": "agent-os-artifact-recall.wav",
+      "transcript": "What codename did we agree to use?"
+    }
+  ]
+}

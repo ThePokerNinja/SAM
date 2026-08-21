@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "fixtures": [
+    {
+      "id": "remember-owner-fact",
+      "kind": "short",
+      "file": "agent-os-remember-owner-fact.wav",
+      "transcript": "Remember that my favorite color is ultramarine."
+    }
+  ]
+}

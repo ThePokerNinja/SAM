@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "fixtures": [
+    {
+      "id": "write-session-artifact",
+      "kind": "short",
+      "file": "agent-os-artifact-write.wav",
+      "transcript": "We agreed to use the codename lighthouse."
+    }
+  ]
+}

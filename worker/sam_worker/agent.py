@@ -954,6 +954,13 @@ async def entrypoint(ctx: JobContext) -> None:
             snapshot.memory = [*(snapshot.memory or []), *remote["items"]]
         if prior_brief is not None:
             snapshot.external = prior_brief
+            if prior_brief.items:
+                await _publish_bench_event(
+                    {
+                        "type": "prior_artifact_brief",
+                        "count": len(prior_brief.items),
+                    }
+                )
         _log.info(
             "CONTEXT_LATENCY total_ms=%.1f stages=%s errors=%s",
             snapshot.total_ms,

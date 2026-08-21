@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "fixtures": [
+    {
+      "id": "recall-owner-fact",
+      "kind": "short",
+      "file": "agent-os-recall-owner-fact.wav",
+      "transcript": "What is my favorite color?"
+    }
+  ]
+}
