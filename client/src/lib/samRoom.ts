@@ -93,10 +93,11 @@ export async function connectSam(): Promise<SamSession> {
     headers[PORTAL_ACCESS_HEADER] = access;
   }
 
-  const tokenUrl =
-    access && !authToken
-      ? `${base}/token?access=${encodeURIComponent(access)}`
-      : `${base}/token`;
+  const sharedRoom = new URLSearchParams(window.location.search).get("room")?.trim();
+  const query = new URLSearchParams();
+  if (access && !authToken) query.set("access", access);
+  if (sharedRoom) query.set("room", sharedRoom);
+  const tokenUrl = query.toString() ? `${base}/token?${query}` : `${base}/token`;
 
   const res = await fetch(tokenUrl, {
     method: "POST",

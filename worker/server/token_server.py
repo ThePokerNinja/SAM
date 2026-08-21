@@ -161,7 +161,8 @@ def create_app():
             raise HTTPException(status_code=503, detail="LiveKit not configured on the server.")
 
         ident = identity or f"sam-user-{uuid.uuid4().hex[:8]}"
-        room_name = room or f"sam-{uuid.uuid4().hex[:12]}"
+        requested_room = (request.query_params.get("room") or "").strip()
+        room_name = requested_room or f"sam-{uuid.uuid4().hex[:12]}"
 
         grant = api.VideoGrants(room_join=True, room=room_name, can_publish=True, can_subscribe=True)
         builder = (
