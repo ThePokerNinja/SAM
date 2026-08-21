@@ -80,6 +80,23 @@ def _has_any(text: str, needles: tuple[str, ...]) -> bool:
     return any(needle in text for needle in needles)
 
 
+_CONFIRM_FORCE = re.compile(r"\b(book it|do it|go ahead|please book|confirm)\b")
+_CONFIRM_YES = re.compile(r"\b(yes|yep|yeah|yup)\b")
+_YES_OR_NO = re.compile(r"\byes or no\b")
+
+
+def is_calendar_confirm(utterance: str) -> bool:
+    """True only for a real commit, not "yes or no?" or "yeah, book an appointment"."""
+    text = _normalize(utterance)
+    if not text or _YES_OR_NO.search(text):
+        return False
+    if _CONFIRM_FORCE.search(text):
+        return True
+    if calendar_action_for_utterance(utterance):
+        return False
+    return bool(_CONFIRM_YES.search(text))
+
+
 def calendar_action_for_utterance(utterance: str) -> str | None:
     """Map explicit scheduling verbs to the proposal action they permit."""
     text = _normalize(utterance)
@@ -124,7 +141,7 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         return []
     if _has_any(text, ("story", "joke", "trivia", "poem")):
         return []
-    if _has_any(text, ("yes", "confirm", "do it", "book it", "go ahead")):
+    if is_calendar_confirm(utterance):
         return ["commit_calendar_change"]
     selected: list[str] = []
 

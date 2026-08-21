@@ -19,6 +19,7 @@ from sam_worker.tools.select import (
     VOICE_TOOLS,
     calendar_action_for_utterance,
     filter_tools,
+    is_calendar_confirm,
     select_tools_for_utterance,
 )
 
@@ -107,6 +108,17 @@ def test_select_calendar_proposal_then_confirmation() -> None:
 
     confirm_names = select_tools_for_utterance("Yes, confirm it")
     assert confirm_names == ["commit_calendar_change"]
+    assert select_tools_for_utterance("Yes, book it") == ["commit_calendar_change"]
+    assert select_tools_for_utterance("Yes or no?") == []
+    assert select_tools_for_utterance(
+        "Yeah. I wanna book a fifteen minute appointment tomorrow at three"
+    ) == ["propose_calendar_change"]
+    assert is_calendar_confirm("Yes.")
+    assert is_calendar_confirm("Yes, book it")
+    assert not is_calendar_confirm("Yes or no?")
+    assert not is_calendar_confirm(
+        "Yeah. I wanna book a fifteen minute appointment tomorrow"
+    )
 
 
 def test_add_another_appointment_selects_calendar_proposal() -> None:

@@ -92,7 +92,7 @@ from .packs import PackRegistry
 from .tier import TierState
 from .tier_session import apply_tier_to_session, parse_tier_payload
 from .tool_latency import ToolLatencyManager
-from .tools.handlers import build_rainmaker_client
+from .tools.handlers import build_rainmaker_client, handle_commit_calendar_change
 from .tools.rainmaker_registry import register_rainmaker_tools
 from .tools.registry import ToolRegistry
 from .turns import build_turn_handling
@@ -1147,6 +1147,9 @@ async def entrypoint(ctx: JobContext) -> None:
         perf_state["route"] = decision.route
         perf_state["route_ms"] = elapsed_ms
 
+    async def _commit_calendar() -> str:
+        return await handle_commit_calendar_change(rm_client, session_id=session_id)
+
     routed_agent = RoutedSamuelAgent(
         router=fast_router,
         direct_execute=_direct_execute,
@@ -1157,6 +1160,7 @@ async def entrypoint(ctx: JobContext) -> None:
         session_route=_route_session_pack,
         turn_override=_session_turn_override,
         calendar_turn_state=calendar_turn_state,
+        calendar_commit=_commit_calendar,
         history_token_cap=s.history_token_cap,
         use_full_tool_set=s.prompt_tool_mode == "stable_full",
         instructions=instructions,

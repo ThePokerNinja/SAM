@@ -275,14 +275,96 @@ def test_calendar_turn_requires_the_selected_tool_call() -> None:
         "propose_calendar_change",
         "commit_calendar_change",
     ]
-    assert initial_tool_choice == "required"
+    assert initial_tool_choice == "auto"
     assert seen["tools"] == initial_tools
-    assert seen["tool_choice"] == "required"
+    assert seen["tool_choice"] == "auto"
     assert any(
         "action='update'" in message for message in seen["developer"]
     )
     assert calendar_turn_state["action"] == "update"
     assert calendar_turn_state["preserve_duration"] is True
+
+
+def test_yes_or_no_does_not_force_a_tool_call() -> None:
+    seen: dict[str, object] = {}
+
+    def fake_parent(self, chat_ctx, tools, model_settings):
+        seen["tools"] = [getattr(tool, "__name__", "") for tool in (tools or [])]
+        seen["tool_choice"] = model_settings.tool_choice
+        return "ask"
+
+    async def direct(_decision):
+        raise AssertionError
+
+    async def publish(_command):
+        return None
+
+    class _Tool:
+        def __init__(self, name: str) -> None:
+            self.__name__ = name
+
+    from livekit.agents import Agent
+
+    original = Agent.llm_node
+    Agent.llm_node = fake_parent
+    try:
+        agent = RoutedSamuelAgent(
+            router=FastIntentRouter(),
+            direct_execute=direct,
+            publish_command=publish,
+            instructions="test",
+        )
+        context = ChatContext.empty()
+        context.add_message(role="user", content="Yes or no?")
+        tools = [
+            _Tool("get_calendar_events"),
+            _Tool("propose_calendar_change"),
+            _Tool("commit_calendar_change"),
+        ]
+        result = asyncio.run(
+            agent.llm_node(context, tools, ModelSettings(tool_choice="required"))
+        )
+    finally:
+        Agent.llm_node = original
+    assert result == "ask"
+    assert seen["tool_choice"] == "auto"
+
+
+def test_yes_commits_without_the_llm() -> None:
+    async def direct(_decision):
+        raise AssertionError
+
+    async def publish(_command):
+        return None
+
+    async def commit() -> str:
+        return "Booked. Saturday at 3pm."
+
+    class _Tool:
+        def __init__(self, name: str) -> None:
+            self.__name__ = name
+
+    from livekit.agents import Agent
+
+    original = Agent.llm_node
+    Agent.llm_node = lambda *args, **kwargs: "llm"  # noqa: ARG005
+    try:
+        agent = RoutedSamuelAgent(
+            router=FastIntentRouter(),
+            direct_execute=direct,
+            publish_command=publish,
+            calendar_commit=commit,
+            instructions="test",
+        )
+        context = ChatContext.empty()
+        context.add_message(role="user", content="Yes.")
+        tools = [_Tool("commit_calendar_change")]
+        result = asyncio.run(
+            agent.llm_node(context, tools, ModelSettings(tool_choice="required"))
+        )
+    finally:
+        Agent.llm_node = original
+    assert result == "Booked. Saturday at 3pm."
 
 
 def test_direct_route_bypasses_primary_llm_node() -> None:

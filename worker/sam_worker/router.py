@@ -26,6 +26,7 @@ from .tools.select import (
     CALENDAR_PACK_TOOLS,
     calendar_action_for_utterance,
     filter_tools,
+    is_calendar_confirm,
     select_tools_for_utterance,
     tool_callable_name,
 )
@@ -203,6 +204,7 @@ class RoutedSamuelAgent(Agent):
         session_route: Callable[[str], Awaitable[None]] | None = None,
         turn_override: Callable[[str], Awaitable[str | None]] | None = None,
         calendar_turn_state: dict[str, Any] | None = None,
+        calendar_commit: Callable[[], Awaitable[str]] | None = None,
         history_token_cap: int = DEFAULT_HISTORY_TOKEN_CAP,
         use_full_tool_set: bool = False,
         **kwargs: Any,
@@ -218,6 +220,7 @@ class RoutedSamuelAgent(Agent):
         self._turn_override = turn_override
         self._pending_override: str | None = None
         self._calendar_turn_state = calendar_turn_state
+        self._calendar_commit = calendar_commit
         self._history_token_cap = history_token_cap
         self._use_full_tool_set = use_full_tool_set
 
@@ -324,6 +327,22 @@ class RoutedSamuelAgent(Agent):
                 if self._use_full_tool_set and not tool_completed
                 else filter_tools(available, names)
             )
+        if (
+            not tool_completed
+            and self._calendar_commit is not None
+            and is_calendar_confirm(text)
+            and "commit_calendar_change" in available_names
+        ):
+            _log.info(
+                "CALENDAR_CONFIRM_DIRECT utterance=%r",
+                _safe_utterance_for_log(text),
+            )
+            spoken = await self._calendar_commit()
+            if self._publish_bench is not None:
+                await self._publish_bench(
+                    {"type": "tool_calls", "names": ["commit_calendar_change"]}
+                )
+            return spoken
         calendar_action = calendar_action_for_utterance(text)
         if self._calendar_turn_state is not None and not tool_completed:
             self._calendar_turn_state.clear()
@@ -367,11 +386,10 @@ class RoutedSamuelAgent(Agent):
             _safe_utterance_for_log(text),
         )
         if model_settings is not None:
-            if not selected:
-                model_settings = replace(model_settings, tool_choice=NOT_GIVEN)
-            elif any(
-                name in {"propose_calendar_change", "commit_calendar_change"}
-                for name in names
-            ):
-                model_settings = replace(model_settings, tool_choice="required")
+            # Groq 20b stalls the whole fallback chain when tool_choice is
+            # required and it answers in prose instead ("yes or no?").
+            model_settings = replace(
+                model_settings,
+                tool_choice=NOT_GIVEN if not selected else "auto",
+            )
         return super().llm_node(chat_ctx, selected, model_settings)
