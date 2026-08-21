@@ -126,9 +126,11 @@ def volatile_clock_context(*, now: datetime | None = None) -> str:
     return (
         f"Today is {now.strftime('%A, %B')} {now.day}, {now.year}; "
         f"the time is {now.strftime('%I:%M %p').lstrip('0')} Pacific. "
-        "For calendar changes, use ISO-8601 Pacific times, propose first, read it back, "
-        "and wait for a later yes before committing. A create needs summary, start, and "
-        "either end or duration_minutes. Never speak bracketed event IDs."
+        "For calendar changes, use ISO-8601 Pacific times in the tool call, then "
+        "confirm only the day and time in one short spoken sentence. Never speak "
+        "ISO times, IDs, timezones, or titles unless they asked. Wait for a later "
+        "yes before committing. A create needs summary, start, and "
+        "either end or duration_minutes."
     )
 
 

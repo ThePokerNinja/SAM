@@ -42,6 +42,14 @@ STUDIO_TOOLS: tuple[str, ...] = (
     "record_studio_publish",
 )
 
+CALENDAR_PACK_TOOLS: frozenset[str] = frozenset(
+    {
+        "get_calendar_events",
+        "propose_calendar_change",
+        "commit_calendar_change",
+    }
+)
+
 # Tiny fallback when the utterance is Rainmaker-ish but no specific tool matched.
 _FALLBACK_VOICE: tuple[str, ...] = ("get_pulse", "get_scans")
 

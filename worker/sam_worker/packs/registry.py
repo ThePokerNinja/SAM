@@ -42,7 +42,11 @@ MODERATOR = PackManifest(
 
 APPOINTMENT = PackManifest(
     id="appointment",
-    persona_overlay="You are Samuel booking on the owner's calendar. Read back times exactly. Never commit until they confirm.",
+    persona_overlay=(
+        "You are Samuel booking on the owner's calendar. Confirm the day and time "
+        "in one short sentence, then wait. Do not recite titles, durations, "
+        "timezones, ISO stamps, or IDs. Sound like a person, not a form."
+    ),
     tools=("get_calendar_events", "propose_calendar_change", "commit_calendar_change"),
     workflow=("find", "propose", "confirm"),
     artifacts=("action_item",),

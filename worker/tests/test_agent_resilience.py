@@ -13,8 +13,14 @@ def test_recovery_utterance_distinguishes_rate_limit_from_generic() -> None:
         error=SimpleNamespace(error=APIStatusError("busy", status_code=429))
     )
     assert agent._error_status(rate_limit) == 429
-    assert "catching up" in agent._recovery_utterance(rate_limit)
-    assert "Say it again" in agent._recovery_utterance(RuntimeError("offline"))
+    assert agent._recovery_utterance(rate_limit) == "Give me one moment."
+    assert agent._recovery_utterance(RuntimeError("offline")) == "One sec."
+    assert (
+        agent._recovery_utterance(
+            RuntimeError("attempted to call tool 'propose_calendar_change' which was not in request.tools")
+        )
+        is None
+    )
 
 
 def test_error_status_reads_429_from_message_without_status_code() -> None:
@@ -25,7 +31,7 @@ def test_error_status_reads_429_from_message_without_status_code() -> None:
         "(Request ID: abc) code: rate_limit_exceeded"
     )
     assert agent._error_status(wrapped) == 429
-    assert "catching up" in agent._recovery_utterance(wrapped)
+    assert agent._recovery_utterance(wrapped) == "Give me one moment."
 
 
 def test_error_status_reads_rate_limit_body_code() -> None:

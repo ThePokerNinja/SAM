@@ -270,9 +270,13 @@ def test_calendar_turn_requires_the_selected_tool_call() -> None:
         Agent.llm_node = original
     assert result == "calendar"
     assert followup == "Update the event to four? Say yes to confirm."
-    assert initial_tools == ["propose_calendar_change"]
+    assert initial_tools == [
+        "get_calendar_events",
+        "propose_calendar_change",
+        "commit_calendar_change",
+    ]
     assert initial_tool_choice == "required"
-    assert seen["tools"] == ["propose_calendar_change"]
+    assert seen["tools"] == initial_tools
     assert seen["tool_choice"] == "required"
     assert any(
         "action='update'" in message for message in seen["developer"]

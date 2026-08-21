@@ -23,9 +23,11 @@ from .tools.handlers import (
     handle_get_trades,
 )
 from .tools.select import (
+    CALENDAR_PACK_TOOLS,
     calendar_action_for_utterance,
     filter_tools,
     select_tools_for_utterance,
+    tool_callable_name,
 )
 
 _log = logging.getLogger("sam.router")
@@ -56,7 +58,8 @@ def _calendar_tool_readback(items: list[Any], after_index: int) -> str:
             continue
         output = str(getattr(item, "output", "") or "").strip()
         if output:
-            return output
+            cleaned = re.sub(r"\[[^\]]*\]", "", output)
+            return " ".join(cleaned.split()).strip()
     return ""
 
 
@@ -307,12 +310,20 @@ class RoutedSamuelAgent(Agent):
                 await self._publish_bench({"type": "tool_calls", "names": [result.tool_name]})
             return result.spoken
         available = list(tools or [])
+        available_names = {tool_callable_name(tool) for tool in available}
+        appointment_pack = bool(available_names) and available_names <= CALENDAR_PACK_TOOLS
         names = [] if tool_completed else select_tools_for_utterance(text)
-        selected = (
-            available
-            if self._use_full_tool_set and not tool_completed
-            else filter_tools(available, names)
-        )
+        if appointment_pack:
+            # Groq still emits leftover calendar tool calls. An empty request.tools
+            # fails every fallback rung with "not in request.tools" and Samuel
+            # starts repeating the recovery line.
+            selected = available
+        else:
+            selected = (
+                available
+                if self._use_full_tool_set and not tool_completed
+                else filter_tools(available, names)
+            )
         calendar_action = calendar_action_for_utterance(text)
         if self._calendar_turn_state is not None and not tool_completed:
             self._calendar_turn_state.clear()

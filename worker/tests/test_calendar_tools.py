@@ -17,7 +17,7 @@ def test_read_includes_machine_event_reference() -> None:
         handle_get_calendar_events(MockRainmakerClient(), days=7)
     )
     assert "Team sync" in result
-    assert "[event_id=mock-event]" in result
+    assert "[event_id=" not in result
 
 
 def test_today_read_clamps_zero_days_to_one() -> None:
@@ -42,8 +42,9 @@ def test_proposal_reads_back_and_waits() -> None:
             summary="Coffee",
         )
     )
-    assert "Say yes to confirm" in result
-    assert "[proposal_id=mock-proposal]" in result
+    assert "tomorrow" in result.lower()
+    assert "[proposal_id=" not in result
+    assert "Say yes to confirm" not in result
 
 
 def test_commit_reports_created_event() -> None:
@@ -53,4 +54,5 @@ def test_commit_reports_created_event() -> None:
             session_id="call-1",
         )
     )
-    assert "Booked Event" in result
+    assert result.startswith("Booked.")
+    assert "Thursday at 10am" in result

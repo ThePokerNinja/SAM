@@ -228,10 +228,17 @@ def _error_status(error: Any) -> int | None:
     return None
 
 
-def _recovery_utterance(error: Any) -> str:
+def _is_missing_tool_error(error: Any) -> bool:
+    text = str(error or "").lower()
+    return "not in request.tools" in text or "tool call validation failed" in text
+
+
+def _recovery_utterance(error: Any) -> str | None:
+    if _is_missing_tool_error(error):
+        return None
     if _error_status(error) == 429:
-        return "Give me one moment, I'm catching up."
-    return "Sorry, I lost that. Say it again."
+        return "Give me one moment."
+    return "One sec."
 
 
 def _event_time_ms(event: Any) -> float:
@@ -334,7 +341,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     async def _speak_recovery(error: Any) -> None:
         # LiveKit retries a failed LLM turn about every 2s. Speak recovery once
-        # per burst so Groq 429s do not loop "sorry I lost that."
+        # per burst so Groq 429s do not loop a recovery line.
         now = time.monotonic()
         if groq_429_burst.observe(now, is_match=_error_status(error) == 429):
             client = rm_holder.get("client")
@@ -348,10 +355,17 @@ async def entrypoint(ctx: JobContext) -> None:
                 )
         if recovery_state["task"] is not None or now - recovery_state["last_at"] < 20.0:
             return
+        spoken = _recovery_utterance(error)
+        if not spoken:
+            return
         recovery_state["last_at"] = now
         recovery_state["task"] = asyncio.current_task()
         try:
-            await session.say(_recovery_utterance(error), allow_interruptions=False)
+            await session.say(
+                spoken,
+                allow_interruptions=False,
+                add_to_chat_ctx=False,
+            )
         except Exception:  # noqa: BLE001
             _log.exception("session recovery speech failed")
         finally:

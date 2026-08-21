@@ -14,11 +14,35 @@ The LiveKit ``function_tool`` wrappers are built from ``registry.py`` + ``rainma
 
 from __future__ import annotations
 
+import re
+from datetime import datetime
 from typing import Any
 
 from .rainmaker import HttpRainmakerClient, MockRainmakerClient, RainmakerClient
 
 _MAX_SPOKEN = 280  # keep tool output short; the canon prompt wants 1-2 spoken sentences
+_BRACKETED = re.compile(r"\[[^\]]*\]")
+
+
+def _spoken_only(text: str) -> str:
+    cleaned = _BRACKETED.sub("", text or "")
+    return " ".join(cleaned.split()).strip()
+
+
+def _spoken_when(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    hour12 = parsed.hour % 12 or 12
+    suffix = "am" if parsed.hour < 12 else "pm"
+    clock = (
+        f"{hour12}:{parsed.strftime('%M')}{suffix}" if parsed.minute else f"{hour12}{suffix}"
+    )
+    return f"{parsed.strftime('%A')} at {clock}"
 
 
 def build_rainmaker_client(settings: Any) -> RainmakerClient:
@@ -304,8 +328,7 @@ async def handle_get_calendar_events(client: RainmakerClient, days: int = 7) -> 
     for ev in events[:6]:
         title = ev.get("summary") or "(no title)"
         start = ev.get("start") or "?"
-        event_id = ev.get("id") or ""
-        lines.append(f"{title} at {start} [event_id={event_id}]")
+        lines.append(f"{title} at {start}")
     return ("Upcoming: " + "; ".join(lines))[:_MAX_SPOKEN]
 
 
@@ -316,10 +339,8 @@ async def handle_propose_calendar_change(
     if not res.get("ok"):
         return f"I couldn't prepare that calendar change ({res.get('error') or 'unknown'})."
     proposal = res.get("proposal") or {}
-    return (
-        f"{proposal.get('readback')} Say yes to confirm. "
-        f"[proposal_id={proposal.get('proposal_id')}]"
-    )[:_MAX_SPOKEN]
+    readback = str(proposal.get("readback") or "I have that time.").strip()
+    return _spoken_only(readback)[:_MAX_SPOKEN]
 
 
 async def handle_commit_calendar_change(
@@ -339,10 +360,10 @@ async def handle_commit_calendar_change(
     if action == "cancel":
         return "Canceled the calendar event."
     verb = "Booked" if action == "create" else "Updated"
-    return (
-        f"{verb} {event.get('summary') or 'the event'} "
-        f"starting {event.get('start') or 'as confirmed'}."
-    )[:_MAX_SPOKEN]
+    when = _spoken_when(event.get("start"))
+    if when:
+        return f"{verb}. {when}."[:_MAX_SPOKEN]
+    return f"{verb}."[:_MAX_SPOKEN]
 
 
 async def handle_create_calendar_event(client: RainmakerClient, **fields: Any) -> str:
@@ -350,10 +371,11 @@ async def handle_create_calendar_event(client: RainmakerClient, **fields: Any) -
     if not res.get("ok"):
         return "I couldn't create that calendar event."
     event = res.get("event") or {}
-    return (
-        f"Booked {event.get('summary')} starting {event.get('start')} "
-        f"[event_id={event.get('id') or ''}]."
-    )[:_MAX_SPOKEN]
+    when = _spoken_when(event.get("start"))
+    title = event.get("summary") or "it"
+    if when:
+        return f"Booked. {when}."[:_MAX_SPOKEN]
+    return f"Booked {title}."[:_MAX_SPOKEN]
 
 
 async def handle_update_calendar_event(client: RainmakerClient, event_id: str, **fields: Any) -> str:
