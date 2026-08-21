@@ -178,15 +178,6 @@ def _build_llm(s: Settings):
                 max_completion_tokens=s.llm_max_completion_tokens,
             )
         )
-    if s.cerebras_api_key:
-        rungs.append(
-            openai.LLM(
-                model=s.cerebras_model,
-                base_url=s.cerebras_base_url,
-                api_key=s.cerebras_api_key,
-                max_completion_tokens=s.llm_max_completion_tokens,
-            )
-        )
     if len(rungs) == 1:
         return rungs[0]
     return llm.FallbackAdapter(

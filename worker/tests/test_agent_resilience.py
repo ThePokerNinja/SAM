@@ -82,11 +82,9 @@ def test_groq_fallback_chain_builds_configured_rungs(monkeypatch) -> None:
         groq_api_key="groq-key",
         groq_model="primary",
         groq_fallback_model="secondary",
-        cerebras_api_key="cerebras-key",
-        cerebras_model="last",
     )
     assert agent._build_llm(settings) == "fallback"
-    assert [row[0] for row in built] == ["primary", "secondary", "last"]
+    assert [row[0] for row in built] == ["primary", "secondary"]
     assert captured["attempt_timeout"] == 1.5
     assert captured["max_retry_per_llm"] == 0
 
