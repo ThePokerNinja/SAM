@@ -1,0 +1,265 @@
+{
+  "analysis": {
+    "by_turn_mode": {},
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 0,
+      "tier": "none",
+      "v2v_p50_ms": null,
+      "v2v_p95_ms": null
+    },
+    "stages": {},
+    "turns": 0
+  },
+  "captured_at": "2026-08-18T03:32:32Z",
+  "cut_off_rate": null,
+  "endpoint_max": null,
+  "endpoint_min": null,
+  "eou_drift": {
+    "by_turn_index": {},
+    "early_eou_ms": null,
+    "late_eou_ms": null,
+    "n": 0,
+    "prompt_token_pairs": [],
+    "step_ms": null,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [],
+  "intelligence": {
+    "arm": "wave84-production-barge",
+    "context_retention_rate": 0.0,
+    "failures": [
+      "missing:pulse",
+      "missing:scans",
+      "missing:research_recall",
+      "missing:pricing_trap",
+      "missing:account_trap"
+    ],
+    "general_arena_score": 0.0,
+    "grounded_arena_score": 0.3,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 0.0,
+    "interruption_accuracy": 0.6667,
+    "latency_p50_ms": 0.0,
+    "latency_p95_ms": 0.0,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 0,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": false,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": null,
+    "f1": 0.0,
+    "false_trigger_rate": 0.0
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": null,
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": "TimeoutError",
+      "false_trigger": false,
+      "fixture_id": "interrupt-stop",
+      "heard_audio": false,
+      "kind": "barge_in",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": null
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": "TimeoutError",
+      "false_trigger": false,
+      "fixture_id": "decoy-mmhmm",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": null
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "decoy-yeah",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 1011.7
+    }
+  ],
+  "room": "sam-wave8-b09dfef135d8",
+  "sam_brain": null,
+  "stt_model": null,
+  "tier_claim": {
+    "allowed": true,
+    "refusal_reasons": []
+  },
+  "turn_mode": "stt",
+  "worker_info": {
+    "brain": "groq:openai/gpt-oss-20b",
+    "endpoint_max": 0.6,
+    "endpoint_min": 0.25,
+    "git": "7f59b44069a7",
+    "history_token_cap": 250,
+    "llm_max_completion_tokens": 256,
+    "received_at": 489512.7135112,
+    "resolved_brain": "groq",
+    "sam_brain_env": "groq",
+    "stt_model": "deepgram/nova-3",
+    "surface": "portal",
+    "turn_mode": "stt",
+    "type": "worker_info"
+  },
+  "worker_profile": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 2,
+        "tier": "none",
+        "v2v_p50_ms": 604.2,
+        "v2v_p95_ms": 604.2
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 2,
+      "tier": "none",
+      "v2v_p50_ms": 604.2,
+      "v2v_p95_ms": 604.2
+    },
+    "stages": {
+      "eou_ms": {
+        "n": 2.0,
+        "p50": 200.4,
+        "p90": 200.4,
+        "p95": 200.4
+      },
+      "llm_duration_ms": {
+        "n": 2.0,
+        "p50": 355.9,
+        "p90": 355.9,
+        "p95": 355.9
+      },
+      "llm_ttft_ms": {
+        "n": 2.0,
+        "p50": 264.8,
+        "p90": 264.8,
+        "p95": 264.8
+      },
+      "route_ms": {
+        "n": 2.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0
+      },
+      "transcription_delay_ms": {
+        "n": 2.0,
+        "p50": 197.1,
+        "p90": 197.1,
+        "p95": 197.1
+      },
+      "tts_audio_ms": {
+        "n": 2.0,
+        "p50": 26279.2,
+        "p90": 26279.2,
+        "p95": 26279.2
+      },
+      "tts_duration_ms": {
+        "n": 2.0,
+        "p50": 1623.7,
+        "p90": 1623.7,
+        "p95": 1623.7
+      },
+      "tts_ttfb_ms": {
+        "n": 2.0,
+        "p50": 181.7,
+        "p90": 181.7,
+        "p95": 181.7
+      },
+      "turn_callback_ms": {
+        "n": 2.0,
+        "p50": 1.0,
+        "p90": 1.0,
+        "p95": 1.0
+      },
+      "v2v_ms": {
+        "n": 2.0,
+        "p50": 604.2,
+        "p90": 604.2,
+        "p95": 604.2
+      }
+    },
+    "turns": 2
+  },
+  "worker_turn_profiles": [
+    {
+      "created_ms": 1787023885420.5596,
+      "eou_ms": 200.37055015563965,
+      "llm_duration_ms": 276.99101716279984,
+      "llm_ttft_ms": 156.91460808739066,
+      "prompt_tokens": 663,
+      "route": "llm",
+      "route_ms": 0.039842212572693825,
+      "speech_id": "speech_3ff20dc4677e",
+      "transcript_chars": 26,
+      "transcription_delay_ms": 197.1421241760254,
+      "tts_audio_ms": 26279.18367346946,
+      "tts_duration_ms": 1623.6670250073075,
+      "tts_ttfb_ms": 181.6541370935738,
+      "turn_callback_ms": 1.0066409595310688,
+      "turn_index": 1,
+      "turn_mode": "stt",
+      "v2v_ms": 538.9
+    },
+    {
+      "created_ms": 1787023939678.6394,
+      "eou_ms": 160.75778007507324,
+      "llm_duration_ms": 355.9199080336839,
+      "llm_ttft_ms": 264.8271301295608,
+      "prompt_tokens": 722,
+      "route": "llm",
+      "route_ms": 0.03732205368578434,
+      "speech_id": "speech_3944e76207dd",
+      "transcript_chars": 27,
+      "transcription_delay_ms": 158.96892547607422,
+      "tts_audio_ms": 21629.387755102092,
+      "tts_duration_ms": 1222.9525230359286,
+      "tts_ttfb_ms": 178.61630907282233,
+      "turn_callback_ms": 0.6973331328481436,
+      "turn_index": 5,
+      "turn_mode": "stt",
+      "v2v_ms": 604.2
+    }
+  ]
+}

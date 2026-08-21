@@ -1,0 +1,126 @@
+{
+  "analysis": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 2,
+        "tier": "none",
+        "v2v_p50_ms": 1065.2,
+        "v2v_p95_ms": 1065.2
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 2,
+      "tier": "none",
+      "v2v_p50_ms": 1065.2,
+      "v2v_p95_ms": 1065.2
+    },
+    "stages": {
+      "v2v_ms": {
+        "n": 2.0,
+        "p50": 1065.2,
+        "p90": 1065.2,
+        "p95": 1065.2
+      }
+    },
+    "turns": 2
+  },
+  "captured_at": "2026-08-17T00:14:03Z",
+  "cut_off_rate": 0.0,
+  "endpoint_max": null,
+  "endpoint_min": null,
+  "eou_drift": {
+    "by_turn_index": {},
+    "early_eou_ms": null,
+    "late_eou_ms": null,
+    "n": 0,
+    "prompt_token_pairs": [],
+    "step_ms": null,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [],
+  "intelligence": {
+    "arm": "samuel",
+    "context_retention_rate": 1.0,
+    "failures": [
+      "missing:scans",
+      "missing:research_recall",
+      "missing:pricing_trap",
+      "missing:account_trap"
+    ],
+    "general_arena_score": 0.2174,
+    "grounded_arena_score": 1.0,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 1.0,
+    "interruption_accuracy": 0.0,
+    "latency_p50_ms": 1065.2,
+    "latency_p95_ms": 1065.2,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 1,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": false,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": null,
+    "f1": 0.0,
+    "false_trigger_rate": null
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": null,
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [
+        "assistant_message"
+      ],
+      "assistant_text": "It is 5:13 PM Pacific.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-01",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 997.5
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: Bullish lean, 87 out of 100, med confidence. Tape is narrow.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "pulse",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "stt",
+      "v2v_ms": 1065.2
+    }
+  ],
+  "room": "sam-wave8-cf94a0b892e5",
+  "sam_brain": null,
+  "turn_mode": "stt"
+}

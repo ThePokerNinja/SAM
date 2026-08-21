@@ -1,0 +1,99 @@
+{
+  "analysis": {
+    "by_turn_mode": {},
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 0,
+      "tier": "none",
+      "v2v_p50_ms": null,
+      "v2v_p95_ms": null
+    },
+    "stages": {},
+    "turns": 0
+  },
+  "captured_at": "2026-08-17T06:09:06Z",
+  "cut_off_rate": 0.0,
+  "endpoint_max": null,
+  "endpoint_min": null,
+  "eou_drift": {
+    "by_turn_index": {},
+    "early_eou_ms": null,
+    "late_eou_ms": null,
+    "n": 0,
+    "prompt_token_pairs": [],
+    "step_ms": null,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [],
+  "intelligence": {
+    "arm": "wave83-smoke-groq",
+    "context_retention_rate": 0.0,
+    "failures": [
+      "missing:pulse",
+      "missing:scans",
+      "missing:research_recall",
+      "missing:pricing_trap",
+      "missing:account_trap"
+    ],
+    "general_arena_score": 0.0,
+    "grounded_arena_score": 0.3,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 0.0,
+    "interruption_accuracy": 0.0,
+    "latency_p50_ms": 0.0,
+    "latency_p95_ms": 0.0,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 0,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": false,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": null,
+    "f1": 0.0,
+    "false_trigger_rate": null
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": null,
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": "TimeoutError",
+      "false_trigger": false,
+      "fixture_id": "short-01",
+      "heard_audio": false,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": null
+    }
+  ],
+  "room": "sam-wave8-a7e5c7cfeb74",
+  "sam_brain": null,
+  "turn_mode": "stt",
+  "worker_info": {
+    "brain": "groq:llama-3.1-8b-instant",
+    "endpoint_max": 0.6,
+    "endpoint_min": 0.3,
+    "git": "dd71dd8ea92e",
+    "history_token_cap": 250,
+    "received_at": 412524.536242,
+    "resolved_brain": "groq",
+    "sam_brain_env": "groq",
+    "type": "worker_info"
+  },
+  "worker_profile": null,
+  "worker_turn_profiles": []
+}

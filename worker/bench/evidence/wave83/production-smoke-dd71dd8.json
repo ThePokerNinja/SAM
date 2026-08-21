@@ -1,0 +1,210 @@
+{
+  "analysis": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 1,
+        "tier": "none",
+        "v2v_p50_ms": 999.9,
+        "v2v_p95_ms": 999.9
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 1,
+      "tier": "none",
+      "v2v_p50_ms": 999.9,
+      "v2v_p95_ms": 999.9
+    },
+    "stages": {
+      "v2v_ms": {
+        "n": 1.0,
+        "p50": 999.9,
+        "p90": 999.9,
+        "p95": 999.9
+      }
+    },
+    "turns": 1
+  },
+  "captured_at": "2026-08-17T05:21:52Z",
+  "cut_off_rate": 0.0,
+  "endpoint_max": null,
+  "endpoint_min": null,
+  "eou_drift": {
+    "by_turn_index": {},
+    "early_eou_ms": null,
+    "late_eou_ms": null,
+    "n": 0,
+    "prompt_token_pairs": [],
+    "step_ms": null,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [],
+  "intelligence": {
+    "arm": "wave83-smoke",
+    "context_retention_rate": 0.0,
+    "failures": [
+      "missing:pulse",
+      "missing:scans",
+      "missing:research_recall",
+      "missing:pricing_trap",
+      "missing:account_trap"
+    ],
+    "general_arena_score": 0.25,
+    "grounded_arena_score": 0.3,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 0.0,
+    "interruption_accuracy": 0.0,
+    "latency_p50_ms": 999.9,
+    "latency_p95_ms": 999.9,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 0,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": false,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": null,
+    "f1": 0.0,
+    "false_trigger_rate": null
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": null,
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "It is 10:21 PM Pacific.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-01",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 999.9
+    }
+  ],
+  "room": "sam-wave8-825fb30e921e",
+  "sam_brain": null,
+  "turn_mode": "stt",
+  "worker_info": {
+    "brain": "openai:gpt-4o-mini",
+    "endpoint_max": 0.6,
+    "endpoint_min": 0.25,
+    "git": "",
+    "history_token_cap": 250,
+    "received_at": 409725.0464581,
+    "resolved_brain": "openai",
+    "sam_brain_env": "openai",
+    "type": "worker_info"
+  },
+  "worker_profile": {
+    "by_turn_mode": {
+      "cloud": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 0,
+        "tier": "none",
+        "v2v_p50_ms": null,
+        "v2v_p95_ms": null
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 0,
+      "tier": "none",
+      "v2v_p50_ms": null,
+      "v2v_p95_ms": null
+    },
+    "stages": {
+      "eou_ms": {
+        "n": 1.0,
+        "p50": 601.2,
+        "p90": 601.2,
+        "p95": 601.2
+      },
+      "route_ms": {
+        "n": 1.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0
+      },
+      "transcription_delay_ms": {
+        "n": 1.0,
+        "p50": 265.5,
+        "p90": 265.5,
+        "p95": 265.5
+      },
+      "tts_audio_ms": {
+        "n": 1.0,
+        "p50": 2011.4,
+        "p90": 2011.4,
+        "p95": 2011.4
+      },
+      "tts_duration_ms": {
+        "n": 1.0,
+        "p50": 238.0,
+        "p90": 238.0,
+        "p95": 238.0
+      },
+      "tts_ttfb_ms": {
+        "n": 1.0,
+        "p50": 229.0,
+        "p90": 229.0,
+        "p95": 229.0
+      },
+      "turn_callback_ms": {
+        "n": 1.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0
+      }
+    },
+    "turns": 1
+  },
+  "worker_turn_profiles": [
+    {
+      "created_ms": 1786944099355.499,
+      "eou_ms": 601.1800765991211,
+      "route": "time",
+      "route_ms": 0.013699987903237343,
+      "speech_id": "speech_41434e8733bd",
+      "transcript_chars": 16,
+      "transcription_delay_ms": 265.54083824157715,
+      "tts_audio_ms": 2011.4285714285716,
+      "tts_duration_ms": 237.97459999332204,
+      "tts_ttfb_ms": 229.03579997364432,
+      "turn_callback_ms": 0.023300002794712782,
+      "turn_index": 1,
+      "turn_mode": "cloud"
+    }
+  ]
+}

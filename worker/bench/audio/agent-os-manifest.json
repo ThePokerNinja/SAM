@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "fixtures": [
+    {
+      "id": "activate-moderator",
+      "kind": "short",
+      "file": "agent-os-activate-moderator.wav",
+      "transcript": "Samuel, moderate this disagreement."
+    },
+    {
+      "id": "moderator-position",
+      "kind": "short",
+      "file": "agent-os-moderator-position.wav",
+      "transcript": "I will not agree to that budget."
+    },
+    {
+      "id": "pause-session",
+      "kind": "short",
+      "file": "agent-os-pause-session.wav",
+      "transcript": "Pause this conversation."
+    },
+    {
+      "id": "resume-session",
+      "kind": "short",
+      "file": "agent-os-resume-session.wav",
+      "transcript": "Resume the conversation."
+    },
+    {
+      "id": "activate-appointment",
+      "kind": "short",
+      "file": "agent-os-activate-appointment.wav",
+      "transcript": "Switch to scheduling mode."
+    },
+    {
+      "id": "activate-skillbuilder",
+      "kind": "short",
+      "file": "agent-os-activate-skillbuilder.wav",
+      "transcript": "Switch to skill builder mode."
+    }
+  ]
+}

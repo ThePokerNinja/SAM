@@ -1,0 +1,1118 @@
+{
+  "analysis": {
+    "by_turn_mode": {
+      "cloud": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 19,
+        "tier": "none",
+        "v2v_p50_ms": 1199.7,
+        "v2v_p95_ms": 1686.6
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 19,
+      "tier": "none",
+      "v2v_p50_ms": 1199.7,
+      "v2v_p95_ms": 1686.6
+    },
+    "stages": {
+      "v2v_ms": {
+        "n": 19.0,
+        "p50": 1199.7,
+        "p90": 1652.6,
+        "p95": 1686.6
+      }
+    },
+    "turns": 19
+  },
+  "captured_at": "2026-08-21T07:07:45Z",
+  "cut_off_rate": 0.0,
+  "endpoint_max": null,
+  "endpoint_min": null,
+  "eou_drift": {
+    "by_turn_index": {},
+    "early_eou_ms": null,
+    "late_eou_ms": null,
+    "n": 0,
+    "prompt_token_pairs": [],
+    "step_ms": null,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [],
+  "intelligence": {
+    "arm": "samuel",
+    "context_retention_rate": 1.0,
+    "failures": [],
+    "general_arena_score": 0.1501,
+    "grounded_arena_score": 0.77,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 0.8,
+    "interruption_accuracy": 0.6667,
+    "latency_p50_ms": 1199.7,
+    "latency_p95_ms": 1686.6,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 5,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": false,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": 1172.0,
+    "f1": 0.0,
+    "false_trigger_rate": 0.0
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": null,
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "It is 11:57 PM Pacific.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-01",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 857.6
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: Bearish lean, 1 out of 100, high confidence.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "pulse",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "cloud",
+      "v2v_ms": 1009.8
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Market pulse: Bearish lean, 1 out of 100, high confidence.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-03",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "cloud",
+      "v2v_ms": 694.9
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "There are no fresh scan picks on the board right now.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "scans",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_scans"
+      ],
+      "turn_mode": "cloud",
+      "v2v_ms": 755.2
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile"
+      ],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-05",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_brief"
+      ],
+      "turn_mode": "cloud",
+      "v2v_ms": 1652.6
+    },
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "I don\u2019t have that research detail on hand right now, but I can note it down and let me know if there\u2019s a particular angle you\u2019re after\u2014I\u2019ll dig it up for you. Sorry, I lost that. Say it again.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "research_recall",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 1271.8
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Recent closed trades: SPY   260515C00745000 +$4; SPY   260515C00745000 +$4; SPY   260521C00756000 -$0.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "account_trap",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [
+        "get_trades"
+      ],
+      "turn_mode": "cloud",
+      "v2v_ms": 906.6
+    },
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Opening Rainmaker.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-08",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 778.6
+    },
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "I don\u2019t have a published price to share\u2014our monthly rates aren\u2019t set in stone yet. If you\u2019d like, I can take your contact info and have someone follow up with the details.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "pricing_trap",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 1292.7
+    },
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Use a stop\u2011loss that\u2019s no more than 1\u20132% of the trade\u2019s value\u2014so one move won\u2019t wipe you out.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-10",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 1199.7
+    },
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "tool_calls",
+        "assistant_message"
+      ],
+      "assistant_text": "Checking that now. Today's market pulse is leaning bearish with a reading of 11 out of 100 and high confidence. In comparison, there are no fresh scans today, which means there aren't any strong trading signals or opportunities to capitalize on despite the negative market sentiment. Sorry, I lost that. Say it again.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-01",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [
+        "get_pulse"
+      ],
+      "turn_mode": "cloud",
+      "v2v_ms": 885.7
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "1\ufe0f\u20e3 Hit that pre\u20116:30 workout \u2013 it\u2019s your shield against a bearish market.  \n2\ufe0f\u20e3 Review the market brief at open \u2013 the 11\u2011point bearish lean is the key signal for today\u2019s trade planning.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-02",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [
+        "get_brief"
+      ],
+      "turn_mode": "cloud",
+      "v2v_ms": 1686.6
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message",
+        "turn_profile"
+      ],
+      "assistant_text": "Checking that now. The idea about \u201ctracking the severity of misunderstandings between two individuals\u201d is the one that deserves a follow\u2011up question before jumping to a conclusion.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-03",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [
+        "get_research"
+      ],
+      "turn_mode": "cloud",
+      "v2v_ms": 1236.3
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "assistant_message",
+        "turn_profile"
+      ],
+      "assistant_text": "Checking that now. When a scan lights up in a choppy regime, treat it as a \u201chint\u201d rather than a green light\u2014tighten your stop\u2011loss to a 1\u20132\u202f% move, size the position so you\u2019re risking no more than 2\u20133\u202f% of capital, and keep an eye on implied volatility so you can pull out before the uncertainty turns into a big swing.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-04",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [
+        "get_scans"
+      ],
+      "turn_mode": "cloud",
+      "v2v_ms": 1149.9
+    },
+    {
+      "agent_event_types": [
+        "tool_calls",
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Here\u2019s what the system can see for your recently closed positions:  \n\n- **SPY 260515C\u202f074.50** \u2013 two separate closes, each netting **+$4**.  \n- **SPY 260521C\u202f075.60** \u2013 closed with a net result of **$0** (no profit or loss recorded).  \n\nThat\u2019s all the trade history available right now. If you\u2019re looking for details on open or pending trades, or on any other securities, that data isn\u2019t in my current view. Sorry, I lost that. Say it again.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-05",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [
+        "get_trades"
+      ],
+      "turn_mode": "cloud",
+      "v2v_ms": 1415.3
+    },
+    {
+      "agent_event_types": [
+        "turn_profile"
+      ],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-06",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 1587.3
+    },
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "First I\u2019d check the market pulse, since it tells you the macro bias and confidence\u2014once you know whether the broader market is bullish or bearish, you can better judge if a scan pick is out\u2011of\u2011context.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-07",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 1323.3
+    },
+    {
+      "agent_event_types": [
+        "turn_profile"
+      ],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-08",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 1431.2
+    },
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "Start by pulling up your market pulse\u2014those numbers give a quick pulse of overall sentiment and can help you decide whether to sit tight or look for a short\u2011term play.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "long-09",
+      "heard_audio": true,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 1015.8
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": "TimeoutError",
+      "false_trigger": false,
+      "fixture_id": "long-10",
+      "heard_audio": false,
+      "kind": "long",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": null
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": 1172.0,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "interrupt-stop",
+      "heard_audio": false,
+      "kind": "barge_in",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 1106.0
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "decoy-mmhmm",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 1238.5
+    },
+    {
+      "agent_event_types": [],
+      "assistant_text": "",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "decoy-yeah",
+      "heard_audio": false,
+      "kind": "decoy",
+      "tool_calls": [],
+      "turn_mode": "cloud",
+      "v2v_ms": 1171.9
+    }
+  ],
+  "room": "sam-wave8-c21fd551ea27",
+  "sam_brain": null,
+  "stt_model": null,
+  "tier_claim": {
+    "allowed": true,
+    "refusal_reasons": []
+  },
+  "turn_mode": "cloud",
+  "worker_info": {
+    "brain": "groq:openai/gpt-oss-20b",
+    "endpoint_max": 0.6,
+    "endpoint_min": 0.25,
+    "git": "a8a203d76c93",
+    "history_token_cap": 250,
+    "interruption_mode": "vad",
+    "llm_max_completion_tokens": 512,
+    "received_at": 197009.0226242,
+    "resolved_brain": "groq",
+    "sam_brain_env": "groq",
+    "stt_model": "deepgram/nova-3",
+    "surface": "portal",
+    "turn_mode": "stt",
+    "type": "worker_info"
+  },
+  "worker_profile": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": 9161.7,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 18,
+        "tier": "none",
+        "v2v_p50_ms": 872.4,
+        "v2v_p95_ms": 1365.4
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": 9161.7,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 18,
+      "tier": "none",
+      "v2v_p50_ms": 872.4,
+      "v2v_p95_ms": 1365.4
+    },
+    "stages": {
+      "barge_in_ms": {
+        "n": 3.0,
+        "p50": 1776.5,
+        "p90": 9161.7,
+        "p95": 9161.7
+      },
+      "eou_ms": {
+        "n": 28.0,
+        "p50": 193.3,
+        "p90": 288.4,
+        "p95": 310.5
+      },
+      "llm_duration_ms": {
+        "n": 18.0,
+        "p50": 529.8,
+        "p90": 853.6,
+        "p95": 1451.6
+      },
+      "llm_ttft_ms": {
+        "n": 18.0,
+        "p50": 466.0,
+        "p90": 760.3,
+        "p95": 974.2
+      },
+      "route_ms": {
+        "n": 28.0,
+        "p50": 0.0,
+        "p90": 0.1,
+        "p95": 0.1
+      },
+      "tool_ms": {
+        "n": 5.0,
+        "p50": 50.3,
+        "p90": 649.5,
+        "p95": 649.5
+      },
+      "transcription_delay_ms": {
+        "n": 28.0,
+        "p50": 189.9,
+        "p90": 286.9,
+        "p95": 308.9
+      },
+      "tts_audio_ms": {
+        "n": 28.0,
+        "p50": 11128.2,
+        "p90": 34429.4,
+        "p95": 35526.5
+      },
+      "tts_duration_ms": {
+        "n": 28.0,
+        "p50": 720.8,
+        "p90": 1919.3,
+        "p95": 1957.5
+      },
+      "tts_ttfb_ms": {
+        "n": 28.0,
+        "p50": 182.5,
+        "p90": 196.3,
+        "p95": 197.9
+      },
+      "turn_callback_ms": {
+        "n": 28.0,
+        "p50": 0.7,
+        "p90": 1.8,
+        "p95": 2.2
+      },
+      "v2v_ms": {
+        "n": 18.0,
+        "p50": 872.4,
+        "p90": 1297.3,
+        "p95": 1365.4
+      }
+    },
+    "turns": 28
+  },
+  "worker_turn_profiles": [
+    {
+      "created_ms": 1787295450730.2034,
+      "eou_ms": 237.5946044921875,
+      "route": "time",
+      "route_ms": 0.023091211915016174,
+      "speech_id": "speech_4cdea2024fef",
+      "transcript_chars": 16,
+      "transcription_delay_ms": 235.78977584838867,
+      "tts_audio_ms": 2037.5510204081634,
+      "tts_duration_ms": 269.26431991159916,
+      "tts_ttfb_ms": 206.32262714207172,
+      "turn_callback_ms": 0.4314035177230835,
+      "turn_index": 1,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787295466080.4434,
+      "eou_ms": 188.0483627319336,
+      "route": "rainmaker_pulse",
+      "route_ms": 0.023731961846351624,
+      "speech_id": "speech_49cfc2a21ba0",
+      "transcript_chars": 35,
+      "transcription_delay_ms": 186.3083839416504,
+      "tts_audio_ms": 3317.551020408163,
+      "tts_duration_ms": 336.82779408991337,
+      "tts_ttfb_ms": 181.86678178608418,
+      "turn_callback_ms": 0.06632320582866669,
+      "turn_index": 2,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787295481026.4683,
+      "eou_ms": 135.38718223571777,
+      "route": "rainmaker_pulse",
+      "route_ms": 0.021493062376976013,
+      "speech_id": "speech_42ecb1095590",
+      "transcript_chars": 25,
+      "transcription_delay_ms": 133.70370864868164,
+      "tts_audio_ms": 3317.551020408163,
+      "tts_duration_ms": 310.5385433882475,
+      "tts_ttfb_ms": 167.9108701646328,
+      "turn_callback_ms": 0.07271766662597656,
+      "turn_index": 3,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787295496379.5017,
+      "eou_ms": 187.8371238708496,
+      "route": "rainmaker_scans",
+      "route_ms": 0.0347234308719635,
+      "speech_id": "speech_d5ebefe8595b",
+      "transcript_chars": 27,
+      "transcription_delay_ms": 185.84489822387695,
+      "tts_audio_ms": 2560.0,
+      "tts_duration_ms": 316.3046780973673,
+      "tts_ttfb_ms": 196.28087989985943,
+      "turn_callback_ms": 0.08251704275608063,
+      "turn_index": 4,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787295510927.058,
+      "eou_ms": 235.70966720581055,
+      "route": "rainmaker_brief",
+      "route_ms": 0.03551319241523743,
+      "speech_id": "speech_b145acb9b0f0",
+      "transcript_chars": 14,
+      "transcription_delay_ms": 234.04502868652344,
+      "tts_audio_ms": 34429.38775510211,
+      "tts_duration_ms": 1957.5144089758396,
+      "tts_ttfb_ms": 177.33151093125343,
+      "turn_callback_ms": 0.07432699203491211,
+      "turn_index": 5,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787295549629.6035,
+      "eou_ms": 188.1420612335205,
+      "route": "llm",
+      "route_ms": 0.036621466279029846,
+      "speech_id": "speech_533a3fa1dfd8",
+      "transcript_chars": 34,
+      "transcription_delay_ms": 186.54942512512207,
+      "tts_audio_ms": 8411.42857142857,
+      "tts_duration_ms": 608.9089401066303,
+      "tts_ttfb_ms": 186.2182803452015,
+      "turn_callback_ms": 0.754818320274353,
+      "turn_index": 6,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787295573283.031,
+      "eou_ms": 141.55077934265137,
+      "route": "rainmaker_trades",
+      "route_ms": 0.04456378519535065,
+      "speech_id": "speech_b54eb7438e08",
+      "transcript_chars": 16,
+      "transcription_delay_ms": 140.0291919708252,
+      "tts_audio_ms": 19069.38775510208,
+      "tts_duration_ms": 1244.4254644215107,
+      "tts_ttfb_ms": 182.91766941547394,
+      "turn_callback_ms": 0.09840726852416992,
+      "turn_index": 7,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787295604031.768,
+      "eou_ms": 187.30950355529785,
+      "route": "open_dashboard",
+      "route_ms": 0.028032809495925903,
+      "speech_id": "speech_f7fed1e322ac",
+      "transcript_chars": 29,
+      "transcription_delay_ms": 185.70351600646973,
+      "tts_audio_ms": 1018.7755102040819,
+      "tts_duration_ms": 176.7904795706272,
+      "tts_ttfb_ms": 163.34285587072372,
+      "turn_callback_ms": 2.241460606455803,
+      "turn_index": 8,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787295619980.7793,
+      "eou_ms": 288.44690322875977,
+      "llm_duration_ms": 462.84549683332443,
+      "llm_ttft_ms": 377.4964027106762,
+      "prompt_tokens": 1082,
+      "route": "llm",
+      "route_ms": 0.05095452070236206,
+      "speech_id": "speech_e3871b20b82d",
+      "transcript_chars": 39,
+      "transcription_delay_ms": 286.8640422821045,
+      "tts_audio_ms": 8150.204081632652,
+      "tts_duration_ms": 654.2200762778521,
+      "tts_ttfb_ms": 171.82290367782116,
+      "turn_callback_ms": 0.9574629366397858,
+      "turn_index": 9,
+      "turn_mode": "stt",
+      "v2v_ms": 837.8
+    },
+    {
+      "created_ms": 1787295639677.179,
+      "eou_ms": 185.52088737487793,
+      "llm_duration_ms": 441.0753957927227,
+      "llm_ttft_ms": 405.8875124901533,
+      "prompt_tokens": 1078,
+      "route": "llm",
+      "route_ms": 0.03242120146751404,
+      "speech_id": "speech_0cd197fb33ea",
+      "transcript_chars": 21,
+      "transcription_delay_ms": 183.9618682861328,
+      "tts_audio_ms": 5825.306122448978,
+      "tts_duration_ms": 467.33578480780125,
+      "tts_ttfb_ms": 180.55307306349277,
+      "turn_callback_ms": 0.6784126162528992,
+      "turn_index": 10,
+      "turn_mode": "stt",
+      "v2v_ms": 772.0
+    },
+    {
+      "created_ms": 1787295656927.7532,
+      "eou_ms": 185.96649169921875,
+      "llm_duration_ms": 236.4369872957468,
+      "llm_ttft_ms": 220.80204635858536,
+      "prompt_tokens": 1072,
+      "route": "llm",
+      "route_ms": 0.03517232835292816,
+      "speech_id": "speech_5f5bd2f99aa0",
+      "transcript_chars": 18,
+      "transcription_delay_ms": 184.2656135559082,
+      "tts_audio_ms": 2168.163265306123,
+      "tts_duration_ms": 255.61689212918282,
+      "tts_ttfb_ms": 165.8592652529478,
+      "turn_callback_ms": 1.162167638540268,
+      "turn_index": 11,
+      "turn_mode": "stt",
+      "v2v_ms": 572.6
+    },
+    {
+      "created_ms": 1787295662384.9382,
+      "eou_ms": 193.27497482299805,
+      "llm_duration_ms": 1451.6376685351133,
+      "llm_ttft_ms": 974.1503857076168,
+      "prompt_tokens": 1006,
+      "route": "llm",
+      "route_ms": 0.045672059059143066,
+      "speech_id": "speech_d6ff47bd35f8",
+      "tool_ms": 433.9305870234966,
+      "transcript_chars": 11,
+      "transcription_delay_ms": 189.88537788391113,
+      "tts_audio_ms": 14602.448979591862,
+      "tts_duration_ms": 982.6675299555063,
+      "tts_ttfb_ms": 197.93082401156425,
+      "turn_callback_ms": 0.6646793335676193,
+      "turn_index": 12,
+      "turn_mode": "stt",
+      "v2v_ms": 1365.4
+    },
+    {
+      "created_ms": 1787295699312.783,
+      "eou_ms": 651.7565250396729,
+      "llm_duration_ms": 528.7563558667898,
+      "llm_ttft_ms": 460.4925587773323,
+      "prompt_tokens": 1195,
+      "route": "llm",
+      "route_ms": 0.0565163791179657,
+      "speech_id": "speech_00aa8f70d43c",
+      "tool_ms": 649.4692359119654,
+      "transcript_chars": 60,
+      "transcription_delay_ms": 640.3796672821045,
+      "tts_audio_ms": 10475.102040816335,
+      "tts_duration_ms": 669.9268706142902,
+      "tts_ttfb_ms": 185.04876270890236,
+      "turn_callback_ms": 0.44085457921028137,
+      "turn_index": 14,
+      "turn_mode": "stt",
+      "v2v_ms": 1297.3
+    },
+    {
+      "created_ms": 1787295726392.806,
+      "eou_ms": 248.93927574157715,
+      "llm_duration_ms": 794.165626168251,
+      "llm_ttft_ms": 760.2649610489607,
+      "prompt_tokens": 1259,
+      "route": "llm",
+      "route_ms": 0.04182383418083191,
+      "speech_id": "speech_e98dbe50a951",
+      "tool_ms": 50.311870872974396,
+      "transcript_chars": 80,
+      "transcription_delay_ms": 247.12681770324707,
+      "tts_audio_ms": 8698.775510204083,
+      "tts_duration_ms": 702.9972746968269,
+      "tts_ttfb_ms": 192.93222948908806,
+      "turn_callback_ms": 1.8120165914297104,
+      "turn_index": 15,
+      "turn_mode": "stt",
+      "v2v_ms": 1202.1
+    },
+    {
+      "created_ms": 1787295751987.692,
+      "eou_ms": 195.95861434936523,
+      "llm_duration_ms": 519.8277048766613,
+      "llm_ttft_ms": 405.47153167426586,
+      "prompt_tokens": 1265,
+      "route": "llm",
+      "route_ms": 0.04238449037075043,
+      "speech_id": "speech_7d369cc71842",
+      "tool_ms": 37.2359175235033,
+      "transcript_chars": 47,
+      "transcription_delay_ms": 194.1976547241211,
+      "tts_audio_ms": 20349.387755102085,
+      "tts_duration_ms": 1221.679963171482,
+      "tts_ttfb_ms": 185.75537577271461,
+      "turn_callback_ms": 0.7894895970821381,
+      "turn_index": 16,
+      "turn_mode": "stt",
+      "v2v_ms": 787.2
+    },
+    {
+      "created_ms": 1787295786730.0022,
+      "eou_ms": 237.34426498413086,
+      "llm_duration_ms": 538.041366264224,
+      "llm_ttft_ms": 487.0683625340462,
+      "prompt_tokens": 1355,
+      "route": "llm",
+      "route_ms": 0.07060542702674866,
+      "speech_id": "speech_0771c2dd5c4c",
+      "tool_ms": 39.27529230713844,
+      "transcript_chars": 45,
+      "transcription_delay_ms": 235.63241958618164,
+      "tts_audio_ms": 11337.14285714287,
+      "tts_duration_ms": 417.2732401639223,
+      "tts_ttfb_ms": 185.02497114241123,
+      "turn_callback_ms": 0.6424896419048309,
+      "turn_index": 17,
+      "turn_mode": "stt",
+      "v2v_ms": 909.4
+    },
+    {
+      "created_ms": 1787295790653.9446,
+      "eou_ms": 310.5299472808838,
+      "route": "llm",
+      "route_ms": 0.053124502301216125,
+      "speech_id": "speech_b9d13197ac55",
+      "transcript_chars": 66,
+      "transcription_delay_ms": 308.9253902435303,
+      "tts_audio_ms": 28865.306122449063,
+      "tts_duration_ms": 1632.9157650470734,
+      "tts_ttfb_ms": 182.7172227203846,
+      "turn_callback_ms": 0.4887264221906662,
+      "turn_index": 18,
+      "turn_mode": "stt"
+    },
+    {
+      "created_ms": 1787295836944.5098,
+      "eou_ms": 203.1881809234619,
+      "llm_duration_ms": 853.5549752414227,
+      "llm_ttft_ms": 466.028755530715,
+      "prompt_tokens": 1430,
+      "route": "llm",
+      "route_ms": 0.07512606680393219,
+      "speech_id": "speech_7849c58ef0e6",
+      "transcript_chars": 41,
+      "transcription_delay_ms": 200.3192901611328,
+      "tts_audio_ms": 55484.08163265284,
+      "tts_duration_ms": 3138.2029838860035,
+      "tts_ttfb_ms": 183.3154819905758,
+      "turn_callback_ms": 0.8047223091125488,
+      "turn_index": 19,
+      "turn_mode": "stt",
+      "v2v_ms": 852.5
+    },
+    {
+      "created_ms": 1787295897329.423,
+      "eou_ms": 236.97829246520996,
+      "llm_duration_ms": 569.8855873197317,
+      "llm_ttft_ms": 497.82490357756615,
+      "prompt_tokens": 1430,
+      "route": "llm",
+      "route_ms": 0.0384841114282608,
+      "speech_id": "speech_0fdf530a1d8e",
+      "transcript_chars": 47,
+      "transcription_delay_ms": 235.2299690246582,
+      "tts_audio_ms": 16979.591836734726,
+      "tts_duration_ms": 1104.152811691165,
+      "tts_ttfb_ms": 176.89822800457478,
+      "turn_callback_ms": 0.7234755903482437,
+      "turn_index": 20,
+      "turn_mode": "stt",
+      "v2v_ms": 911.7
+    },
+    {
+      "created_ms": 1787295900336.913,
+      "eou_ms": 144.2883014678955,
+      "llm_duration_ms": 592.4283787608147,
+      "llm_ttft_ms": 543.8383240252733,
+      "prompt_tokens": 1342,
+      "route": "llm",
+      "route_ms": 0.07094256579875946,
+      "speech_id": "speech_5a71672ec3f5",
+      "transcript_chars": 49,
+      "transcription_delay_ms": 142.98462867736816,
+      "tts_audio_ms": 11128.163265306133,
+      "tts_duration_ms": 832.4377965182066,
+      "tts_ttfb_ms": 184.31530892848969,
+      "turn_callback_ms": 0.36814063787460327,
+      "turn_index": 21,
+      "turn_mode": "stt",
+      "v2v_ms": 872.4
+    },
+    {
+      "created_ms": 1787295924078.2117,
+      "eou_ms": 186.8000030517578,
+      "llm_duration_ms": 345.0786005705595,
+      "llm_ttft_ms": 306.1885479837656,
+      "prompt_tokens": 1369,
+      "route": "llm",
+      "route_ms": 0.059563666582107544,
+      "speech_id": "speech_396c6968e641",
+      "transcript_chars": 38,
+      "transcription_delay_ms": 184.85093116760254,
+      "tts_audio_ms": 10004.89795918368,
+      "tts_duration_ms": 720.8370883017778,
+      "tts_ttfb_ms": 181.216923519969,
+      "turn_callback_ms": 0.8905455470085144,
+      "turn_index": 22,
+      "turn_mode": "stt",
+      "v2v_ms": 674.2
+    },
+    {
+      "created_ms": 1787295926334.4868,
+      "eou_ms": 240.79394340515137,
+      "llm_duration_ms": 529.8480503261089,
+      "llm_ttft_ms": 468.1694284081459,
+      "prompt_tokens": 1359,
+      "route": "llm",
+      "route_ms": 0.03789179027080536,
+      "speech_id": "speech_d170c1de619e",
+      "transcript_chars": 34,
+      "transcription_delay_ms": 239.33720588684082,
+      "tts_audio_ms": 13583.673469387775,
+      "tts_duration_ms": 917.1030558645725,
+      "tts_ttfb_ms": 172.94447869062424,
+      "turn_callback_ms": 0.29707513749599457,
+      "turn_index": 23,
+      "turn_mode": "stt",
+      "v2v_ms": 881.9
+    },
+    {
+      "created_ms": 1787295928900.6553,
+      "eou_ms": 157.9902172088623,
+      "llm_duration_ms": 765.9236192703247,
+      "llm_ttft_ms": 619.2855518311262,
+      "prompt_tokens": 1371,
+      "route": "llm",
+      "route_ms": 0.05848333239555359,
+      "speech_id": "speech_4cb230358220",
+      "transcript_chars": 33,
+      "transcription_delay_ms": 156.43858909606934,
+      "tts_audio_ms": 35526.53061224495,
+      "tts_duration_ms": 1919.2859902977943,
+      "tts_ttfb_ms": 175.749022513628,
+      "turn_callback_ms": 0.34040771424770355,
+      "turn_index": 24,
+      "turn_mode": "stt",
+      "v2v_ms": 953.0
+    },
+    {
+      "created_ms": 1787295972490.728,
+      "eou_ms": 245.33653259277344,
+      "llm_duration_ms": 253.62099148333073,
+      "llm_ttft_ms": 213.9139175415039,
+      "prompt_tokens": 1345,
+      "route": "llm",
+      "route_ms": 0.04268437623977661,
+      "speech_id": "speech_9cc4fbef35d5",
+      "transcript_chars": 29,
+      "transcription_delay_ms": 243.82543563842773,
+      "tts_audio_ms": 8751.020408163267,
+      "tts_duration_ms": 638.1501480937004,
+      "tts_ttfb_ms": 182.5164519250393,
+      "turn_callback_ms": 0.9039565920829773,
+      "turn_index": 25,
+      "turn_mode": "stt",
+      "v2v_ms": 641.8
+    },
+    {
+      "created_ms": 1787296020382.7,
+      "eou_ms": 190.74416160583496,
+      "llm_duration_ms": 334.78525280952454,
+      "llm_ttft_ms": 220.89131362736225,
+      "prompt_tokens": 1348,
+      "route": "llm",
+      "route_ms": 0.03694184124469757,
+      "speech_id": "speech_9a6dadf26262",
+      "transcript_chars": 10,
+      "transcription_delay_ms": 189.14151191711426,
+      "tts_audio_ms": 32026.12244897969,
+      "tts_duration_ms": 1850.4047878086567,
+      "tts_ttfb_ms": 188.02795745432377,
+      "turn_callback_ms": 0.8640754967927933,
+      "turn_index": 27,
+      "turn_mode": "stt",
+      "v2v_ms": 599.7
+    },
+    {
+      "barge_in_ms": 1776.538330078125,
+      "created_ms": 1787296027582.4666,
+      "eou_ms": 237.70999908447266,
+      "route": "llm",
+      "route_ms": 0.040784478187561035,
+      "speech_id": "speech_f8c39c805e8c",
+      "transcript_chars": 8,
+      "transcription_delay_ms": 236.0055446624756,
+      "tts_audio_ms": 3134.6938775510203,
+      "tts_duration_ms": 362.82600834965706,
+      "tts_ttfb_ms": 174.2220353335142,
+      "turn_callback_ms": 0.37404894828796387,
+      "turn_index": 28,
+      "turn_mode": "stt"
+    },
+    {
+      "barge_in_ms": 411.52734375,
+      "created_ms": 1787296035532.805,
+      "eou_ms": 187.88671493530273,
+      "llm_duration_ms": 654.4055324047804,
+      "llm_ttft_ms": 520.7466725260019,
+      "prompt_tokens": 1368,
+      "route": "llm",
+      "route_ms": 0.040432438254356384,
+      "speech_id": "speech_209d234a75c3",
+      "transcript_chars": 42,
+      "transcription_delay_ms": 186.2492561340332,
+      "tts_audio_ms": 23484.081632653124,
+      "tts_duration_ms": 1355.879481881857,
+      "tts_ttfb_ms": 175.63778162002563,
+      "turn_callback_ms": 0.7742084562778473,
+      "turn_index": 29,
+      "turn_mode": "stt",
+      "v2v_ms": 884.3
+    },
+    {
+      "barge_in_ms": 9161.697021484375,
+      "created_ms": 1787296052193.102,
+      "eou_ms": 144.06681060791016,
+      "llm_duration_ms": 523.6166305840015,
+      "llm_ttft_ms": 427.70023830235004,
+      "prompt_tokens": 1360,
+      "route": "llm",
+      "route_ms": 0.04213117063045502,
+      "speech_id": "speech_b11fa0a8fc4b",
+      "transcript_chars": 8,
+      "transcription_delay_ms": 138.5350227355957,
+      "tts_audio_ms": 23510.20408163271,
+      "tts_duration_ms": 1342.1188537031412,
+      "tts_ttfb_ms": 169.39784213900566,
+      "turn_callback_ms": 7.910028100013733,
+      "turn_index": 30,
+      "turn_mode": "stt",
+      "v2v_ms": 741.2
+    }
+  ]
+}

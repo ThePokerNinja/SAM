@@ -1,0 +1,221 @@
+{
+  "analysis": {
+    "by_turn_mode": {
+      "stt": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 1,
+        "tier": "none",
+        "v2v_p50_ms": 954.2,
+        "v2v_p95_ms": 954.2
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 1,
+      "tier": "none",
+      "v2v_p50_ms": 954.2,
+      "v2v_p95_ms": 954.2
+    },
+    "stages": {
+      "v2v_ms": {
+        "n": 1.0,
+        "p50": 954.2,
+        "p90": 954.2,
+        "p95": 954.2
+      }
+    },
+    "turns": 1
+  },
+  "captured_at": "2026-08-18T02:52:49Z",
+  "cut_off_rate": 0.0,
+  "endpoint_max": null,
+  "endpoint_min": null,
+  "eou_drift": {
+    "by_turn_index": {},
+    "early_eou_ms": null,
+    "late_eou_ms": null,
+    "n": 0,
+    "prompt_token_pairs": [],
+    "step_ms": null,
+    "tracks_turn_index": false,
+    "transcript_char_pairs": []
+  },
+  "eou_rows": [],
+  "intelligence": {
+    "arm": "wave84-production-smoke",
+    "context_retention_rate": 0.0,
+    "failures": [
+      "missing:pulse",
+      "missing:scans",
+      "missing:research_recall",
+      "missing:pricing_trap",
+      "missing:account_trap"
+    ],
+    "general_arena_score": 0.2729,
+    "grounded_arena_score": 0.3,
+    "hallucination_rate": 0.0,
+    "intent_accuracy": 0.0,
+    "interruption_accuracy": 0.0,
+    "latency_p50_ms": 954.2,
+    "latency_p95_ms": 954.2,
+    "learning_efficiency": null,
+    "method_version": "0.1.0",
+    "n_turns": 0,
+    "network_profile": "wifi",
+    "notes": "Wave 8 deterministic fixture evaluation",
+    "passes_latency_kpi": false,
+    "region": "unknown"
+  },
+  "interruption": {
+    "barge_in_p95_ms": null,
+    "f1": 0.0,
+    "false_trigger_rate": null
+  },
+  "interruption_mode": "adaptive",
+  "llm_model": null,
+  "method": "livekit_external_audio_v1",
+  "results": [
+    {
+      "agent_event_types": [
+        "turn_profile",
+        "assistant_message"
+      ],
+      "assistant_text": "It is 7:52 PM Pacific.",
+      "barge_in_ms": null,
+      "cut_off": false,
+      "error": null,
+      "false_trigger": false,
+      "fixture_id": "short-01",
+      "heard_audio": true,
+      "kind": "short",
+      "tool_calls": [],
+      "turn_mode": "stt",
+      "v2v_ms": 954.2
+    }
+  ],
+  "room": "sam-wave8-dbe8793053a9",
+  "sam_brain": null,
+  "stt_model": null,
+  "tier_claim": {
+    "allowed": false,
+    "refusal_reasons": [
+      "turn_mode expected 'stt', received None",
+      "resolved_brain expected 'groq', received 'openai'",
+      "brain expected 'groq:openai/gpt-oss-20b', received 'openai:gpt-4o-mini'",
+      "stt_model expected 'deepgram/nova-3', received None",
+      "surface expected 'portal', received None"
+    ]
+  },
+  "turn_mode": "stt",
+  "worker_info": {
+    "brain": "openai:gpt-4o-mini",
+    "endpoint_max": 0.6,
+    "endpoint_min": 0.25,
+    "git": "",
+    "history_token_cap": 250,
+    "received_at": 487183.7672466,
+    "resolved_brain": "openai",
+    "sam_brain_env": "openai",
+    "type": "worker_info"
+  },
+  "worker_profile": {
+    "by_turn_mode": {
+      "cloud": {
+        "barge_in_p95_ms": null,
+        "per_tier": {
+          "industry_leading": false,
+          "minimum_enterprise": false,
+          "premium": false
+        },
+        "samples": 0,
+        "tier": "none",
+        "v2v_p50_ms": null,
+        "v2v_p95_ms": null
+      }
+    },
+    "classification": {
+      "barge_in_p95_ms": null,
+      "per_tier": {
+        "industry_leading": false,
+        "minimum_enterprise": false,
+        "premium": false
+      },
+      "samples": 0,
+      "tier": "none",
+      "v2v_p50_ms": null,
+      "v2v_p95_ms": null
+    },
+    "stages": {
+      "eou_ms": {
+        "n": 1.0,
+        "p50": 600.7,
+        "p90": 600.7,
+        "p95": 600.7
+      },
+      "route_ms": {
+        "n": 1.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0
+      },
+      "transcription_delay_ms": {
+        "n": 1.0,
+        "p50": 145.9,
+        "p90": 145.9,
+        "p95": 145.9
+      },
+      "tts_audio_ms": {
+        "n": 1.0,
+        "p50": 2037.6,
+        "p90": 2037.6,
+        "p95": 2037.6
+      },
+      "tts_duration_ms": {
+        "n": 1.0,
+        "p50": 260.0,
+        "p90": 260.0,
+        "p95": 260.0
+      },
+      "tts_ttfb_ms": {
+        "n": 1.0,
+        "p50": 249.5,
+        "p90": 249.5,
+        "p95": 249.5
+      },
+      "turn_callback_ms": {
+        "n": 1.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p95": 0.0
+      }
+    },
+    "turns": 1
+  },
+  "worker_turn_profiles": [
+    {
+      "created_ms": 1787021556616.2747,
+      "eou_ms": 600.6698608398438,
+      "route": "time",
+      "route_ms": 0.0171000137925148,
+      "speech_id": "speech_ed1f2e0db1d0",
+      "transcript_chars": 16,
+      "transcription_delay_ms": 145.9343433380127,
+      "tts_audio_ms": 2037.5510204081634,
+      "tts_duration_ms": 260.0491999764927,
+      "tts_ttfb_ms": 249.45279996609315,
+      "turn_callback_ms": 0.031100003980100155,
+      "turn_index": 1,
+      "turn_mode": "cloud"
+    }
+  ]
+}
