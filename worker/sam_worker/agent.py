@@ -86,6 +86,7 @@ from .packs.moderator import ModeratorRuntime
 from .prompt_budget import samuel_instructions
 from .pythia import BaselineStore, ForecastLedger, predict_threshold_event
 from .router import FastIntentRouter, RoutedSamuelAgent
+from .demo_cap import GOODBYE, TURN_MINUTES, TURN_TOKENS, is_capped_room, should_hangup
 from .session import build_session
 from .session_log import SessionLogger
 from .safety import SafetyState
@@ -735,12 +736,16 @@ async def entrypoint(ctx: JobContext) -> None:
         text = str(getattr(ev, "transcript", "") or "").strip()
         if not text:
             return
+        if is_capped_room(room_name):
+            asyncio.ensure_future(_enforce_demo_cap())
         if sam_session.kind == "moderator":
             moderator_runtime.observe(
                 str(getattr(ev, "speaker_id", "") or ("host" if owner else "guest")),
                 text,
             )
         if not owner and not is_outbound_guest:
+            if sam_session.kind == "intake":
+                session_turns.append(("guest", text))
             return
         session_turns.append(("user" if owner else "guest", text))
         if episode_store is not None and owner:
@@ -847,7 +852,7 @@ async def entrypoint(ctx: JobContext) -> None:
             asyncio.ensure_future(_checkpoint_summary_artifact())
 
     close_persistence_lock = asyncio.Lock()
-    close_persistence_state = {"done": False}
+    close_persistence_state = {"done": False, "engagement": False}
 
     async def _notify_owner_call_record() -> None:
         if not is_outbound_guest or not outbound_meta.get("notify_owner", True):
@@ -860,10 +865,57 @@ async def entrypoint(ctx: JobContext) -> None:
         except Exception:  # noqa: BLE001
             _log.exception("outbound call record text failed")
 
+    async def _enforce_demo_cap() -> None:
+        if not is_capped_room(room_name):
+            return
+        try:
+            result = await rm_client.tick_room(
+                room_name, minutes=TURN_MINUTES, tokens=TURN_TOKENS
+            )
+        except Exception:  # noqa: BLE001
+            _log.exception("demo cap tick failed")
+            return
+        if not should_hangup(result):
+            return
+        _log.info("DEMO_CAP hangup room=%s error=%s", room_name, result.get("error"))
+        try:
+            await session.say(GOODBYE, allow_interruptions=False, add_to_chat_ctx=False)
+        except Exception:  # noqa: BLE001
+            _log.exception("demo cap goodbye failed")
+        ctx.shutdown("demo_cap")
+
+    async def _write_voice_engagement() -> None:
+        if close_persistence_state["engagement"]:
+            return
+        if sam_session.kind != "intake" or not session_turns:
+            return
+        guest = next(
+            (
+                str(item.display_name or "").strip()
+                for item in sam_session.participants
+                if item.role == "party" and item.display_name
+            ),
+            "",
+        )
+        try:
+            await rm_client.write_intake(
+                name=guest,
+                source="voice-demo",
+                answers={
+                    "room": room_name,
+                    "summary": _session_close_summary(session_turns),
+                    "offer": "studio",
+                },
+            )
+            close_persistence_state["engagement"] = True
+        except Exception:  # noqa: BLE001
+            _log.exception("voice engagement write failed")
+
     async def _persist_session_close(reason: str) -> None:
         async with close_persistence_lock:
             if close_persistence_state["done"]:
                 return
+            await _write_voice_engagement()
             if is_outbound_guest:
                 await _notify_owner_call_record()
             if episode_store is None or artifact_store is None or not session_turns:

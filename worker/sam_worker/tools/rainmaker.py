@@ -101,6 +101,17 @@ class RainmakerClient(Protocol):
     async def cancel_calendar_event(self, event_id: str) -> dict: ...
     async def text_me(self, body: str, media_url: str = "") -> dict: ...
     async def run_tool(self, name: str, args: dict[str, Any] | None = None) -> dict: ...
+    async def tick_room(
+        self, room_id: str, *, minutes: float = 1.0, tokens: int = 80
+    ) -> dict: ...
+    async def write_intake(
+        self,
+        *,
+        name: str = "",
+        email: str = "",
+        source: str = "voice-demo",
+        answers: dict[str, Any] | None = None,
+    ) -> dict: ...
 
 
 class MockRainmakerClient:
@@ -269,6 +280,27 @@ class MockRainmakerClient:
     async def run_tool(self, name: str, args: dict[str, Any] | None = None) -> dict:
         return {"ok": True, "name": name, "text": f"mock {name}"}
 
+    async def tick_room(
+        self, room_id: str, *, minutes: float = 1.0, tokens: int = 80
+    ) -> dict:
+        return {"ok": True, "room": {"id": room_id}, "minutes": minutes, "tokens": tokens}
+
+    async def write_intake(
+        self,
+        *,
+        name: str = "",
+        email: str = "",
+        source: str = "voice-demo",
+        answers: dict[str, Any] | None = None,
+    ) -> dict:
+        return {
+            "ok": True,
+            "engagement": {"id": "eng-mock", "stage": "proposal", "source": source},
+            "name": name,
+            "email": email,
+            "answers": answers or {},
+        }
+
 
 class HttpRainmakerClient:
     """Read-only rm_api client (SAM-005). httpx + ``X-RM-CRON-TOKEN``.
@@ -305,6 +337,7 @@ class HttpRainmakerClient:
     MEMORY_TURNS_PATH = "/samuel/memory/turns"
     CALENDAR_EVENTS_PATH = "/calendar/events"
     CALENDAR_PROPOSALS_PATH = "/calendar/proposals"
+    INTAKE_PATH = "/intake"
     _LONG_TIMEOUT = 30.0
 
     def __init__(
@@ -772,3 +805,35 @@ class HttpRainmakerClient:
             return {"ok": False, "error": res["error"], "text": ""}
         data = res.get("data") or {}
         return {"ok": True, **data}
+
+    async def tick_room(
+        self, room_id: str, *, minutes: float = 1.0, tokens: int = 80
+    ) -> dict:
+        path = f"/moderate/rooms/{room_id}/tick"
+        res = await self._post(path, body={"minutes": minutes, "tokens": tokens})
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": bool(data.get("ok", True)), **data}
+
+    async def write_intake(
+        self,
+        *,
+        name: str = "",
+        email: str = "",
+        source: str = "voice-demo",
+        answers: dict[str, Any] | None = None,
+    ) -> dict:
+        res = await self._post(
+            self.INTAKE_PATH,
+            body={
+                "name": name,
+                "email": email,
+                "source": source,
+                "answers": answers or {},
+            },
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": bool(data.get("ok", True)), **data}

@@ -399,6 +399,15 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
         ),
         _build_set_memory,
     )
+    registry.register(
+        ToolSpec(
+            name="centaur_idea",
+            description="Turn a spoken idea into a Centaur PRD and queue it. Owner only. Args: title, idea.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_centaur_idea,
+    )
 
 
 def _build_get_scans(client: Any, _is_owner: Any, _deps: dict[str, Any]):
@@ -781,3 +790,13 @@ def _build_set_memory(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_named_tool(client, "set_memory", {"state": state})
 
     return set_memory
+
+
+def _build_centaur_idea(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def centaur_idea(context: RunContext, title: str, idea: str = "") -> str:
+        args: dict[str, Any] = {"title": title}
+        if idea:
+            args["idea"] = idea
+        return await handle_named_tool(client, "centaur_idea", args)
+
+    return centaur_idea

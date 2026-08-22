@@ -271,6 +271,8 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         selected.append("send_demo")
     if _has_any(text, ("memory on", "memory off", "forget me")):
         selected.append("set_memory")
+    if _has_any(text, ("centaur idea", "queue this idea", "write a prd")):
+        selected.append("centaur_idea")
     calendar_action = calendar_action_for_utterance(utterance)
     if calendar_action:
         selected.append("propose_calendar_change")
