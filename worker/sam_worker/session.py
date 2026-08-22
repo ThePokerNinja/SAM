@@ -89,6 +89,8 @@ def route_session_kind(
     room = (room_name or "").lower()
     if room.startswith("staging-") or "staging-" in blob:
         return "skillbuilder"
+    if room.startswith("samuel-dial-"):
+        return "intake"
     if room.startswith("mod-"):
         return "moderator"
     if room.startswith("demo-") or room.startswith("intake-"):

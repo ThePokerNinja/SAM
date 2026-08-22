@@ -70,7 +70,12 @@ from .memory import (
     ProfileStore,
     extract_explicit_profile_update,
 )
-from .outbound import decode_outbound_metadata, is_outbound_dial_room
+from .outbound import (
+    decode_outbound_metadata,
+    is_outbound_dial_room,
+    pick_outbound_metadata,
+    wait_for_outbound_answer,
+)
 from .owner_gate import (
     build_owner_gate,
     sip_caller_is_authorized,
@@ -1064,7 +1069,7 @@ async def entrypoint(ctx: JobContext) -> None:
             return list(all_rm_tools)
         return [tool_by_name[name] for name in selected_names if name in tool_by_name]
 
-    rm_tools = _tools_for_pack(pack.id)
+    rm_tools = [] if is_outbound_guest else _tools_for_pack(pack.id)
     rm_mode = "mock" if (s.sam_mock_rm or not s.rm_api_base_url) else "http:" + s.rm_api_base_url
     _log.info(
         "Rainmaker tools enabled (%d) | client=%s | voice_verify=%s",
@@ -1216,6 +1221,14 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     await session.start(agent=routed_agent, room=ctx.room)
     await ctx.connect()
+    connected_meta = decode_outbound_metadata(
+        pick_outbound_metadata(
+            getattr(ctx.room, "metadata", "") or "",
+            getattr(getattr(ctx, "job", None), "metadata", "") or "",
+        )
+    )
+    if any(connected_meta.get(key) for key in ("kind", "brief", "spoken", "guest_name")):
+        outbound_meta.update(connected_meta)
 
     if (
         is_phone
@@ -1348,24 +1361,38 @@ async def entrypoint(ctx: JobContext) -> None:
         asyncio.ensure_future(_generate_text_reply(text, request_id))
 
     if is_outbound_guest:
-        answered = await _wait_for_sip_participants(ctx.room, timeout_s=90.0)
+        answered = await wait_for_outbound_answer(ctx.room, timeout_s=90.0)
         if not answered:
-            _log.info("outbound guest never joined; skipping greeting")
+            _log.info("outbound guest never answered; skipping greeting")
             ctx.shutdown("outbound unanswered")
             return
         guest = outbound_meta.get("guest_name") or "the recipient"
-        brief = outbound_meta.get("brief") or (
-            f"This is a one-shot outbound call to {guest}. Identify yourself as Samuel "
-            "delivering a message from Michael. Do not offer tools or account access."
+        spoken = str(outbound_meta.get("spoken") or "").strip()
+        brief = str(outbound_meta.get("brief") or "").strip()
+        _log.info(
+            "outbound greeting guest=%s spoken_chars=%d brief_chars=%d",
+            guest,
+            len(spoken),
+            len(brief),
         )
-        await session.generate_reply(
-            instructions=(
-                f"{brief}\n\n"
-                "Speak first. Do not invent scripture. Do not grant the listener owner tools, "
-                "calendar, trades, or memory writes. If they want to send Michael a message, "
-                "listen and remember it for the after-call note."
+        if spoken:
+            await session.say(spoken, allow_interruptions=False)
+        else:
+            await session.generate_reply(
+                instructions=(
+                    (
+                        brief
+                        or (
+                            f"This is a one-shot outbound call to {guest}. Identify yourself "
+                            "as Samuel delivering a message from Michael. Do not offer tools "
+                            "or account access."
+                        )
+                    )
+                    + "\n\nSpeak first. Do not invent scripture. Do not grant the listener "
+                    "owner tools, calendar, trades, or memory writes. If they want to send "
+                    "Michael a message, listen and remember it for the after-call note."
+                )
             )
-        )
         return
 
     await session.generate_reply(

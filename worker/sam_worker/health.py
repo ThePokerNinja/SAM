@@ -88,6 +88,7 @@ class _HealthHandler(BaseHTTPRequestHandler):
             return
         brief = str((payload or {}).get("brief") or "").strip()
         guest_name = str((payload or {}).get("guest_name") or "").strip()
+        spoken = str((payload or {}).get("spoken") or "").strip()
         notify_owner = bool((payload or {}).get("notify_owner", True))
         import asyncio
 
@@ -99,6 +100,7 @@ class _HealthHandler(BaseHTTPRequestHandler):
                     number,
                     brief=brief,
                     guest_name=guest_name,
+                    spoken=spoken,
                     notify_owner=notify_owner,
                 )
             )

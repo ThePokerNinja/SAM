@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from sam_worker.alerts import BurstTracker, GROQ_429
 from sam_worker.health import health_payload
 from sam_worker.outbound import (
@@ -10,6 +12,9 @@ from sam_worker.outbound import (
     encode_outbound_metadata,
     is_outbound_dial_room,
     normalize_e164,
+    pick_outbound_metadata,
+    sip_participant_is_answered,
+    wait_for_outbound_answer,
 )
 from sam_worker.session import route_session_kind
 from sam_worker.skillbuilder.advisory import run_advisory
@@ -79,12 +84,41 @@ def test_outbound_room_metadata_roundtrip() -> None:
     raw = encode_outbound_metadata(
         brief="Say hello from Michael.",
         guest_name="Cathy Arines",
+        spoken="Hi Cathy, this is Samuel.",
         notify_owner=True,
     )
     meta = decode_outbound_metadata(raw)
     assert meta["kind"] == "outbound_guest"
     assert meta["guest_name"] == "Cathy Arines"
     assert "Michael" in meta["brief"]
+    assert meta["spoken"].startswith("Hi Cathy")
     assert meta["notify_owner"] is True
     assert is_outbound_dial_room("samuel-dial-abc")
     assert not is_outbound_dial_room("call-abc")
+    assert pick_outbound_metadata("", raw) == raw
+    assert pick_outbound_metadata("  ", "") == ""
+
+
+def test_outbound_answer_ignores_ringing() -> None:
+    ringing = SimpleNamespace(attributes={"sip.callStatus": "ringing"})
+    active = SimpleNamespace(attributes={"sip.callStatus": "active"})
+    assert sip_participant_is_answered(ringing) is False
+    assert sip_participant_is_answered(active) is True
+
+
+def test_wait_for_outbound_answer_flips_from_ringing() -> None:
+    import asyncio
+
+    room = SimpleNamespace(
+        remote_participants={"sip": SimpleNamespace(attributes={"sip.callStatus": "ringing"})}
+    )
+
+    async def _run() -> bool:
+        async def _answer() -> None:
+            await asyncio.sleep(0.05)
+            room.remote_participants["sip"].attributes["sip.callStatus"] = "active"
+
+        asyncio.create_task(_answer())
+        return await wait_for_outbound_answer(room, timeout_s=1.0)
+
+    assert asyncio.run(_run()) is True

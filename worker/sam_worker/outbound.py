@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
+import time
 from typing import Any
+
+_ANSWERED_SIP_STATUSES = frozenset({"active", "automation"})
 
 _E164 = re.compile(r"^\+[1-9]\d{7,14}$")
 
@@ -39,6 +43,7 @@ def encode_outbound_metadata(
     *,
     brief: str = "",
     guest_name: str = "",
+    spoken: str = "",
     notify_owner: bool = True,
 ) -> str:
     return json.dumps(
@@ -46,6 +51,7 @@ def encode_outbound_metadata(
             "kind": "outbound_guest",
             "brief": (brief or "").strip(),
             "guest_name": (guest_name or "").strip(),
+            "spoken": (spoken or "").strip(),
             "notify_owner": bool(notify_owner),
         }
     )
@@ -62,8 +68,40 @@ def decode_outbound_metadata(raw: str) -> dict[str, Any]:
         "kind": str(data.get("kind") or ""),
         "brief": str(data.get("brief") or "").strip(),
         "guest_name": str(data.get("guest_name") or "").strip(),
+        "spoken": str(data.get("spoken") or "").strip(),
         "notify_owner": bool(data.get("notify_owner", True)),
     }
+
+
+def pick_outbound_metadata(*raw: str) -> str:
+    """First non-empty metadata blob. Room metadata is often empty before connect."""
+    for item in raw:
+        text = (item or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def sip_call_status(participant: Any) -> str:
+    attrs = getattr(participant, "attributes", None) or {}
+    return str(attrs.get("sip.callStatus") or "").strip().lower()
+
+
+def sip_participant_is_answered(participant: Any) -> bool:
+    """True only after the PSTN leg is up. Presence/ringing is not enough."""
+    return sip_call_status(participant) in _ANSWERED_SIP_STATUSES
+
+
+async def wait_for_outbound_answer(room: Any, *, timeout_s: float = 90.0) -> bool:
+    """Wait until a remote SIP participant is actually answered, not merely ringing."""
+    deadline = time.perf_counter() + timeout_s
+    while time.perf_counter() < deadline:
+        participants = list(getattr(room, "remote_participants", {}).values())
+        if any(sip_participant_is_answered(item) for item in participants):
+            return True
+        await asyncio.sleep(0.15)
+    participants = list(getattr(room, "remote_participants", {}).values())
+    return any(sip_participant_is_answered(item) for item in participants)
 
 
 def outbound_configured() -> bool:
@@ -130,6 +168,7 @@ async def dial_from_text(
     *,
     brief: str = "",
     guest_name: str = "",
+    spoken: str = "",
     notify_owner: bool = True,
 ) -> dict[str, Any]:
     """Mint a room, auto-dispatch Samuel, and SIP-dial the allow-listed number into it.
@@ -150,20 +189,26 @@ async def dial_from_text(
         api_secret=os.environ["LIVEKIT_API_SECRET"],
     )
     try:
+        metadata = encode_outbound_metadata(
+            brief=brief,
+            guest_name=guest_name,
+            spoken=spoken,
+            notify_owner=notify_owner,
+        )
         await client.room.create_room(
             api.CreateRoomRequest(
                 name=room_name,
-                metadata=encode_outbound_metadata(
-                    brief=brief,
-                    guest_name=guest_name,
-                    notify_owner=notify_owner,
-                ),
+                metadata=metadata,
             )
         )
         agent_name = (os.environ.get("SAM_AGENT_NAME") or "").strip()
         if agent_name:
             await client.agent_dispatch.create_dispatch(
-                api.CreateAgentDispatchRequest(agent_name=agent_name, room=room_name)
+                api.CreateAgentDispatchRequest(
+                    agent_name=agent_name,
+                    room=room_name,
+                    metadata=metadata,
+                )
             )
     except Exception as exc:  # noqa: BLE001
         await client.aclose()
