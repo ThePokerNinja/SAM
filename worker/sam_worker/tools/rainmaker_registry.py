@@ -29,6 +29,8 @@ from .handlers import (
     handle_send_hero,
     handle_studio_asset_status,
     handle_studio_campaign_report,
+    handle_named_tool,
+    handle_text_me,
 )
 from .registry import ToolRegistry, ToolSpec
 
@@ -240,6 +242,87 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
             requires_approval=True,
         ),
         _build_commit_calendar_change,
+    )
+    registry.register(
+        ToolSpec(
+            name="text_me",
+            description="Text any answer to the owner's phone. Owner only. Args: body, optional media_url.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_text_me,
+    )
+    registry.register(
+        ToolSpec(
+            name="get_health",
+            description="Read rainmaker-api health.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_get_health,
+    )
+    registry.register(
+        ToolSpec(
+            name="read_research",
+            description="Read one research idea by id. Args: id.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_read_research,
+    )
+    registry.register(
+        ToolSpec(
+            name="send_manual",
+            description="Email the Samuel user manual to the owner. Owner only.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_send_manual,
+    )
+    registry.register(
+        ToolSpec(
+            name="get_studio_run",
+            description="Read one Studio run. Args: run_id.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_get_studio_run,
+    )
+    registry.register(
+        ToolSpec(
+            name="whois_person",
+            description="Look up a person by email. Args: email.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_whois_person,
+    )
+    registry.register(
+        ToolSpec(
+            name="draft_for_person",
+            description="Draft a warm email board for a person. Owner only. Args: email.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_draft_for_person,
+    )
+    registry.register(
+        ToolSpec(
+            name="get_campaign",
+            description="Read campaign send/reply totals. Args: optional campaign.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_get_campaign,
+    )
+    registry.register(
+        ToolSpec(
+            name="request_doctor",
+            description="Mint a YES/NO restart code. Owner only. Never restarts itself.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_request_doctor,
     )
 
 
@@ -462,3 +545,67 @@ def _build_commit_calendar_change(
         )
 
     return commit_calendar_change
+
+
+def _build_text_me(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def text_me(context: RunContext, body: str, media_url: str = "") -> str:
+        return await handle_text_me(client, body, media_url=media_url)
+
+    return text_me
+
+
+def _build_get_health(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def get_health(context: RunContext) -> str:
+        return await handle_named_tool(client, "get_health")
+
+    return get_health
+
+
+def _build_read_research(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def read_research(context: RunContext, id: str) -> str:
+        return await handle_named_tool(client, "read_research", {"id": id})
+
+    return read_research
+
+
+def _build_send_manual(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def send_manual(context: RunContext) -> str:
+        return await handle_named_tool(client, "send_manual")
+
+    return send_manual
+
+
+def _build_get_studio_run(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def get_studio_run(context: RunContext, run_id: str) -> str:
+        return await handle_named_tool(client, "get_studio_run", {"run_id": run_id})
+
+    return get_studio_run
+
+
+def _build_whois_person(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def whois_person(context: RunContext, email: str) -> str:
+        return await handle_named_tool(client, "whois_person", {"email": email})
+
+    return whois_person
+
+
+def _build_draft_for_person(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def draft_for_person(context: RunContext, email: str) -> str:
+        return await handle_named_tool(client, "draft_for_person", {"email": email})
+
+    return draft_for_person
+
+
+def _build_get_campaign(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def get_campaign(context: RunContext, campaign: str = "") -> str:
+        args = {"campaign": campaign} if campaign else {}
+        return await handle_named_tool(client, "get_campaign", args)
+
+    return get_campaign
+
+
+def _build_request_doctor(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def request_doctor(context: RunContext) -> str:
+        return await handle_named_tool(client, "request_doctor")
+
+    return request_doctor

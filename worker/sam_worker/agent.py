@@ -718,17 +718,17 @@ async def entrypoint(ctx: JobContext) -> None:
                 }
             )
         )
-        if not owner:
-            return
         text = str(getattr(ev, "transcript", "") or "").strip()
         if not text:
             return
-        session_turns.append(("user", text))
         if sam_session.kind == "moderator":
             moderator_runtime.observe(
-                str(getattr(ev, "speaker_id", "") or "host"),
+                str(getattr(ev, "speaker_id", "") or ("host" if owner else "guest")),
                 text,
             )
+        if not owner:
+            return
+        session_turns.append(("user", text))
         if episode_store is not None:
             asyncio.ensure_future(
                 episode_store.append_async(
@@ -871,6 +871,20 @@ async def entrypoint(ctx: JobContext) -> None:
                 artifact_refs.extend(
                     (f"artifact:{understanding_id}", f"artifact:{next_steps_id}")
                 )
+                if moderator_runtime.feedback:
+                    feedback_id = await artifact_store.put_async(
+                        Artifact(
+                            session_id=session_id,
+                            kind="feedback",
+                            payload={
+                                "kind": "feedback",
+                                "feedback": moderator_runtime.feedback,
+                                "names": moderator_runtime.names,
+                                "phase": moderator_runtime.phase,
+                            },
+                        )
+                    )
+                    artifact_refs.append(f"artifact:{feedback_id}")
             await episode_store.append_async(
                 Episode(
                     session_id=session_id,

@@ -95,6 +95,23 @@ def _google_identity_ok(token: str) -> bool:
         return False
 
 
+def _notify_moderate_joined(room_name: str, who: str) -> None:
+    """Waiting-room notice: first joiner texts the other party via rm_api."""
+    cron = os.getenv("RM_CRON_TOKEN", "").strip()
+    base = _rm_api_base_url()
+    if not (cron and base):
+        return
+    try:
+        httpx.post(
+            f"{base}/moderate/joined",
+            json={"room": room_name, "who": who},
+            headers={"X-RM-Cron-Token": cron, "Accept": "application/json"},
+            timeout=4.0,
+        )
+    except (httpx.HTTPError, ValueError, TypeError):
+        return
+
+
 def _allowed_origins() -> list[str]:
     raw = os.getenv("SAM_ALLOWED_ORIGINS", "").strip()
     if not raw:
@@ -161,14 +178,15 @@ def create_app():
             raise HTTPException(status_code=503, detail="LiveKit not configured on the server.")
 
         ident = identity or f"sam-user-{uuid.uuid4().hex[:8]}"
-        requested_room = (request.query_params.get("room") or "").strip()
+        requested_room = (request.query_params.get("room") or room or "").strip()
         room_name = requested_room or f"sam-{uuid.uuid4().hex[:12]}"
+        display_name = (request.query_params.get("name") or "").strip() or ident
 
         grant = api.VideoGrants(room_join=True, room=room_name, can_publish=True, can_subscribe=True)
         builder = (
             api.AccessToken(key, secret)
             .with_identity(ident)
-            .with_name("You")
+            .with_name(display_name[:80])
             .with_grants(grant)
             .with_ttl(timedelta(seconds=_TOKEN_TTL_SECONDS))
         )
@@ -177,7 +195,9 @@ def create_app():
         if google_owner or legacy_owner:
             builder = builder.with_attributes({"role": "owner"})
         jwt = builder.to_jwt()
-        return {"token": jwt, "url": url, "room": room_name, "identity": ident}
+        if room_name.startswith(("mod-", "demo-")):
+            _notify_moderate_joined(room_name, "host" if (google_owner or legacy_owner) else "guest")
+        return {"token": jwt, "url": url, "room": room_name, "identity": ident, "name": display_name}
 
     return app
 

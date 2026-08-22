@@ -30,11 +30,53 @@ def understanding_map(topics: list[tuple[str, str]]) -> dict:
     return {"kind": "understanding_map", "topics": rows}
 
 
+Phase = Literal["intake", "moderate", "close"]
+
+
 @dataclass
 class ModeratorRuntime:
     """Session-local agreement tracking; durable output is emitted at close."""
 
     statements: dict[str, list[str]] = field(default_factory=dict)
+    names: dict[str, str] = field(default_factory=dict)
+    phase: Phase = "intake"
+    opener: str = ""
+    feedback: dict[str, str] = field(default_factory=dict)
+
+    def set_name(self, speaker_id: str, name: str) -> None:
+        clean = (name or "").strip()
+        if clean:
+            self.names[speaker_id] = clean[:80]
+
+    def display_name(self, speaker_id: str) -> str:
+        return self.names.get(speaker_id) or speaker_id
+
+    def pick_opener(self) -> str:
+        if self.opener:
+            return self.opener
+        speakers = list(self.names) or list(self.statements) or ["host"]
+        self.opener = speakers[0]
+        return self.opener
+
+    def advance(self, phase: Phase) -> None:
+        self.phase = phase
+
+    def record_feedback(self, speaker_id: str, text: str) -> None:
+        clean = (text or "").strip()
+        if clean:
+            self.feedback[speaker_id] = clean[:800]
+
+    def greeting(self) -> str:
+        people = [self.display_name(s) for s in (self.names or {"host": "host", "guest": "guest"})]
+        if len(people) < 2:
+            people = ["both of you"]
+        opener = self.display_name(self.pick_opener())
+        other = next((p for p in people if p != opener), people[-1])
+        return (
+            f"Welcome {people[0]} and {people[1] if len(people) > 1 else 'guest'}. "
+            f"{opener}, start with what you want to talk about. "
+            f"Then I'll give {other} the same chance, and we'll confirm the goal."
+        )
 
     def observe(self, speaker_id: str, text: str) -> None:
         clean = (text or "").strip()

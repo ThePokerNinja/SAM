@@ -99,6 +99,8 @@ class RainmakerClient(Protocol):
     async def create_calendar_event(self, **fields: Any) -> dict: ...
     async def update_calendar_event(self, event_id: str, **fields: Any) -> dict: ...
     async def cancel_calendar_event(self, event_id: str) -> dict: ...
+    async def text_me(self, body: str, media_url: str = "") -> dict: ...
+    async def run_tool(self, name: str, args: dict[str, Any] | None = None) -> dict: ...
 
 
 class MockRainmakerClient:
@@ -261,6 +263,12 @@ class MockRainmakerClient:
     async def cancel_calendar_event(self, event_id: str) -> dict:
         return {"ok": True, "event": {"id": event_id, "deleted": True}}
 
+    async def text_me(self, body: str, media_url: str = "") -> dict:
+        return {"ok": True, "sent": True, "reason": None}
+
+    async def run_tool(self, name: str, args: dict[str, Any] | None = None) -> dict:
+        return {"ok": True, "name": name, "text": f"mock {name}"}
+
 
 class HttpRainmakerClient:
     """Read-only rm_api client (SAM-005). httpx + ``X-RM-CRON-TOKEN``.
@@ -286,6 +294,8 @@ class HttpRainmakerClient:
     SAM_ALERT_PATH = "/ops/sam-alert"
     SKILL_APPROVAL_PATH = "/samuel/skill-approval"
     ASK_HERMES_PATH = "/samuel/ask-hermes"
+    DELIVER_PATH = "/notify/deliver"
+    TOOL_PATH = "/samuel/tool"
     STUDIO_RUNS_PATH = "/studio/runs"
     STUDIO_ASSET_PATH = "/studio/asset"
     STUDIO_REPORT_PATH = "/studio/campaign/report"
@@ -745,3 +755,20 @@ class HttpRainmakerClient:
         if not data.get("ok"):
             return {"ok": False, "error": data.get("error") or "calendar_delete_failed"}
         return {"ok": True, "event": data.get("event") or {}}
+
+    async def text_me(self, body: str, media_url: str = "") -> dict:
+        payload: dict[str, Any] = {"body": body}
+        if media_url:
+            payload["mediaUrl"] = media_url
+        res = await self._post(self.DELIVER_PATH, body=payload)
+        if not res["ok"]:
+            return {"ok": False, "sent": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": bool(data.get("ok") or data.get("sent")), **data}
+
+    async def run_tool(self, name: str, args: dict[str, Any] | None = None) -> dict:
+        res = await self._post(self.TOOL_PATH, body={"name": name, "args": args or {}})
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"], "text": ""}
+        data = res.get("data") or {}
+        return {"ok": True, **data}

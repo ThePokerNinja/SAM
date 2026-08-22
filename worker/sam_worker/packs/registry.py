@@ -52,6 +52,34 @@ APPOINTMENT = PackManifest(
     artifacts=("action_item",),
 )
 
+INTAKE = PackManifest(
+    id="intake",
+    persona_overlay=(
+        "You are Samuel on a granted, time-limited demo. Collect the project facts "
+        "the scoping form needs: who they are, what they want built, timeline, and "
+        "budget. Do not offer trading, calendar, or owner tools. One question at a time."
+    ),
+    tools=("capture_note",),
+    workflow=("greet", "scope", "confirm"),
+    memory_schema="guest",
+    safety_rules=("intake_only", "hard_cap"),
+    artifacts=("notes",),
+)
+
+FAITH = PackManifest(
+    id="faith",
+    persona_overlay=(
+        "You are Samuel in faith mode. Speak from scripture, the non-canonical books, "
+        "what Jesus taught, and the owner's own beliefs when they have been spoken. "
+        "Owner-only memory. Never preach at a guest. Never invent a verse."
+    ),
+    tools=("capture_note",),
+    workflow=("listen", "reflect", "pray"),
+    memory_schema="owner",
+    safety_rules=("owner_memory_only", "no_invented_verse"),
+    artifacts=("notes", "summary"),
+)
+
 SKILLBUILDER = PackManifest(
     id="skillbuilder",
     persona_overlay=(
@@ -72,7 +100,7 @@ class PackRegistry:
         self._packs: dict[str, PackManifest] = {}
         self._warm: set[str] = set()
         self._active_id = "trading"
-        for pack in (TRADING, MODERATOR, APPOINTMENT, SKILLBUILDER):
+        for pack in (TRADING, MODERATOR, APPOINTMENT, SKILLBUILDER, INTAKE, FAITH):
             self.register(pack)
 
     def register(self, pack: PackManifest) -> None:

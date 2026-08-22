@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import re
 from typing import Literal
 
-SessionKind = Literal["trading", "moderator", "appointment", "skillbuilder"]
+SessionKind = Literal["trading", "moderator", "appointment", "skillbuilder", "intake"]
 SurfaceName = Literal["portal", "phone", "sms"]
 Role = Literal["host", "party", "observer"]
 
@@ -74,6 +74,7 @@ def pack_for_kind(kind: SessionKind) -> str:
         "moderator": "moderator",
         "appointment": "appointment",
         "skillbuilder": "skillbuilder",
+        "intake": "intake",
     }.get(kind, "trading")
 
 
@@ -85,8 +86,13 @@ def route_session_kind(
     current_kind: SessionKind = "trading",
 ) -> SessionKind:
     blob = f"{keyword} {room_name} {surface}".lower()
-    if room_name.lower().startswith("staging-") or "staging-" in blob:
+    room = (room_name or "").lower()
+    if room.startswith("staging-") or "staging-" in blob:
         return "skillbuilder"
+    if room.startswith("mod-"):
+        return "moderator"
+    if room.startswith("demo-") or room.startswith("intake-"):
+        return "intake"
     if re.search(r"\b(moderat(?:e|or|ion)?|help us disagree|settle a disagreement)\b", blob):
         return "moderator"
     if re.search(r"\b(appointment|book (?:an? )?(?:appointment|meeting)|scheduling mode)\b", blob):

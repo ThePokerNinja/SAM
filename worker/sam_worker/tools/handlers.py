@@ -391,3 +391,20 @@ async def handle_cancel_calendar_event(client: RainmakerClient, event_id: str) -
     if not res.get("ok"):
         return "I couldn't cancel that calendar event."
     return "Canceled the calendar event."
+
+
+async def handle_text_me(client: RainmakerClient, body: str, media_url: str = "") -> str:
+    res = await client.text_me(body, media_url=media_url)
+    if res.get("sent"):
+        return "Texted you."
+    return f"I couldn't text you ({res.get('reason') or res.get('error') or 'send_failed'})."[:_MAX_SPOKEN]
+
+
+async def handle_named_tool(
+    client: RainmakerClient, name: str, args: dict[str, Any] | None = None
+) -> str:
+    res = await client.run_tool(name, args or {})
+    text = str(res.get("text") or "").strip()
+    if not res.get("ok") and not text:
+        return "I couldn't do that right now."
+    return (text or "Done.")[:_MAX_SPOKEN]

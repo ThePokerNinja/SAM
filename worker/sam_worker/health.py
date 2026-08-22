@@ -69,6 +69,34 @@ class _HealthHandler(BaseHTTPRequestHandler):
         self.send_response(404)
         self.end_headers()
 
+    def do_POST(self) -> None:  # noqa: N802
+        route = self.path.split("?", 1)[0]
+        if route != "/dial":
+            self.send_response(404)
+            self.end_headers()
+            return
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            payload = json.loads(raw.decode("utf-8") or "{}")
+        except ValueError:
+            self._write(400, {"ok": False, "error": "invalid_json"})
+            return
+        number = str((payload or {}).get("number") or "").strip()
+        if not number:
+            self._write(400, {"ok": False, "error": "number_required"})
+            return
+        import asyncio
+
+        from .outbound import dial_from_text
+
+        try:
+            result = asyncio.run(dial_from_text(number))
+        except Exception:  # noqa: BLE001
+            self._write(500, {"ok": False, "error": "dial_failed"})
+            return
+        self._write(200 if result.get("ok") else 409, result)
+
 
 def start_health_server(port: int | None = None) -> ThreadingHTTPServer | None:
     """Start a daemon thread. Returns the server, or None if bind fails."""

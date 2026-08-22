@@ -87,3 +87,38 @@ async def create_outbound_participant(
         return {"ok": False, "error": type(exc).__name__, "detail": str(exc)[:200]}
     finally:
         await client.aclose()
+
+
+async def dial_from_text(number: str) -> dict[str, Any]:
+    """Mint a room, auto-dispatch Samuel, and SIP-dial the allow-listed number into it.
+
+    SMS has no live room. This is the text adapter for ``place_call``.
+    """
+    import uuid
+
+    ok, detail = can_dial(number)
+    if not ok:
+        return {"ok": False, "error": detail}
+    room_name = f"samuel-dial-{uuid.uuid4().hex[:10]}"
+    from livekit import api
+
+    client = api.LiveKitAPI(
+        url=os.environ["LIVEKIT_URL"],
+        api_key=os.environ["LIVEKIT_API_KEY"],
+        api_secret=os.environ["LIVEKIT_API_SECRET"],
+    )
+    try:
+        await client.room.create_room(api.CreateRoomRequest(name=room_name))
+        agent_name = (os.environ.get("SAM_AGENT_NAME") or "").strip()
+        if agent_name:
+            await client.agent_dispatch.create_dispatch(
+                api.CreateAgentDispatchRequest(agent_name=agent_name, room=room_name)
+            )
+    except Exception as exc:  # noqa: BLE001
+        await client.aclose()
+        return {"ok": False, "error": type(exc).__name__, "detail": str(exc)[:200]}
+    await client.aclose()
+    placed = await create_outbound_participant(number=detail, room_name=room_name)
+    if not placed.get("ok"):
+        return placed
+    return {"ok": True, "number": detail, "room": room_name, **placed}

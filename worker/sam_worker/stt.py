@@ -30,6 +30,10 @@ def build_stt(s: Settings):
                 eot_timeout_ms=s.stt_eot_timeout_ms,
                 api_key=s.deepgram_api_key,
             )
-        return deepgram.STT(model=model, api_key=s.deepgram_api_key)
+        return deepgram.STT(
+            model=model,
+            api_key=s.deepgram_api_key,
+            enable_diarization=True,
+        )
 
     return inference.STT(model=s.stt_model)

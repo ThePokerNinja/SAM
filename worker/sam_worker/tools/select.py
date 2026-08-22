@@ -32,6 +32,15 @@ VOICE_TOOLS: tuple[str, ...] = (
     "send_email",
     "place_call",
     "ask_hermes",
+    "text_me",
+    "get_health",
+    "read_research",
+    "send_manual",
+    "get_studio_run",
+    "whois_person",
+    "draft_for_person",
+    "get_campaign",
+    "request_doctor",
 )
 
 STUDIO_TOOLS: tuple[str, ...] = (
@@ -190,6 +199,24 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         ),
     ):
         selected.append("ask_hermes")
+    if _has_any(text, ("text me", "text that", "sms me", "send that to my phone")):
+        selected.append("text_me")
+    if _has_any(text, ("health", "status", "are you up")):
+        selected.append("get_health")
+    if _has_any(text, ("read idea", "read research")):
+        selected.append("read_research")
+    if _has_any(text, ("user manual", "samuel manual")):
+        selected.append("send_manual")
+    if "studio run" in text:
+        selected.append("get_studio_run")
+    if _has_any(text, ("whois", "who is")):
+        selected.append("whois_person")
+    if "draft" in text and _has_any(text, ("email", "person")):
+        selected.append("draft_for_person")
+    if "campaign" in text:
+        selected.append("get_campaign")
+    if _has_any(text, ("restart the api", "doctor", "deploy hook")):
+        selected.append("request_doctor")
     calendar_action = calendar_action_for_utterance(utterance)
     if calendar_action:
         selected.append("propose_calendar_change")

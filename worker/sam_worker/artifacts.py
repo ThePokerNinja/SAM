@@ -21,6 +21,7 @@ ArtifactKind = Literal[
     "next_steps",
     "summary",
     "forecast",
+    "feedback",
 ]
 
 
