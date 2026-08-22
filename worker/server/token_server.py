@@ -108,6 +108,12 @@ def _notify_moderate_joined(room_name: str, who: str) -> None:
             headers={"X-RM-Cron-Token": cron, "Accept": "application/json"},
             timeout=4.0,
         )
+        httpx.post(
+            f"{base}/moderate/rooms/{room_name}/tick",
+            json={"minutes": 1, "tokens": 80},
+            headers={"X-RM-Cron-Token": cron, "Accept": "application/json"},
+            timeout=4.0,
+        )
     except (httpx.HTTPError, ValueError, TypeError):
         return
 
