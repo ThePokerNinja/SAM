@@ -111,10 +111,33 @@ class PackRegistry:
     def get(self, pack_id: str) -> PackManifest:
         return self._packs.get(pack_id) or TRADING
 
-    def unload(self, pack_id: str) -> None:
+    def unload(self, pack_id: str, flush: Any | None = None) -> None:
+        if flush is not None:
+            flush(pack_id)
         self._warm.discard(pack_id)
         if self._active_id == pack_id:
             self._active_id = "trading"
+
+    def memory_scope(self, pack_id: str | None = None) -> dict[str, Any]:
+        """Honor PackManifest.memory_schema so guest packs cannot read owner memory."""
+        schema = self.get(pack_id or self._active_id).memory_schema
+        if schema == "guest":
+            return {
+                "schema": "guest",
+                "profile_id": "guest",
+                "include_owner_remote": False,
+            }
+        if schema == "skill_snapshot":
+            return {
+                "schema": "skill_snapshot",
+                "profile_id": "skill_snapshot",
+                "include_owner_remote": False,
+            }
+        return {
+            "schema": "owner",
+            "profile_id": "owner",
+            "include_owner_remote": True,
+        }
 
     def activate(self, pack_id: str) -> PackManifest:
         pack = self.get(pack_id)

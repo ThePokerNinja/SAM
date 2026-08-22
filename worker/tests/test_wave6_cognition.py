@@ -89,9 +89,23 @@ class PackTests(unittest.TestCase):
         reg = PackRegistry()
         reg.activate("moderator")
         self.assertEqual(reg.active_id, "moderator")
-        reg.unload("moderator")
+        flushed: list[str] = []
+        reg.unload("moderator", flush=flushed.append)
+        self.assertEqual(flushed, ["moderator"])
         self.assertEqual(reg.active_id, "trading")
         self.assertFalse(reg.is_warm("moderator"))
+
+    def test_memory_schema_scopes_guest_away_from_owner(self) -> None:
+        reg = PackRegistry()
+        self.assertEqual(reg.memory_scope("trading")["profile_id"], "owner")
+        self.assertTrue(reg.memory_scope("trading")["include_owner_remote"])
+        guest = reg.memory_scope("intake")
+        self.assertEqual(guest["schema"], "guest")
+        self.assertEqual(guest["profile_id"], "guest")
+        self.assertFalse(guest["include_owner_remote"])
+        skill = reg.memory_scope("skillbuilder")
+        self.assertEqual(skill["profile_id"], "skill_snapshot")
+        self.assertFalse(skill["include_owner_remote"])
 
 
 class ModeratorTests(unittest.TestCase):

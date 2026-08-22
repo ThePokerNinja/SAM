@@ -1099,7 +1099,8 @@ async def entrypoint(ctx: JobContext) -> None:
         )
 
     async def _context_provider(text: str):
-        if not _session_is_owner():
+        scope = pack_registry.memory_scope()
+        if not _session_is_owner() or not scope["include_owner_remote"]:
             return await assemble_context(
                 memory=list,
                 profile=dict,
@@ -1111,7 +1112,7 @@ async def entrypoint(ctx: JobContext) -> None:
                 lambda: memory_retriever.retrieve_async(
                     text,
                     session_id=session_id,
-                    profile_id="owner",
+                    profile_id=str(scope["profile_id"]),
                     token_budget=350,
                 )
             )
@@ -1119,7 +1120,7 @@ async def entrypoint(ctx: JobContext) -> None:
             else list
         )
         local_profile = (
-            (lambda: asyncio.to_thread(profile_store.facts, "owner"))
+            (lambda: asyncio.to_thread(profile_store.facts, str(scope["profile_id"])))
             if profile_store is not None
             else dict
         )
@@ -1155,11 +1156,38 @@ async def entrypoint(ctx: JobContext) -> None:
         perf_state["context_ms"] = snapshot.total_ms
         return snapshot
 
+    async def _flush_pack(pack_id: str) -> None:
+        if artifact_store is None:
+            return
+        payload: dict[str, Any] = {
+            "text": f"Unloaded {pack_id}",
+            "pack": pack_id,
+            "reason": "pack_unload",
+        }
+        if pack_id == "moderator" and moderator_runtime.has_content():
+            payload["understanding"] = moderator_runtime.understanding_artifact()
+            payload["next_steps"] = moderator_runtime.next_steps_artifact()
+        artifact_id = await artifact_store.put_async(
+            Artifact(session_id=session_id, kind="summary", payload=payload)
+        )
+        if episode_store is not None:
+            await episode_store.append_async(
+                Episode(
+                    session_id=session_id,
+                    kind="pack_unload",
+                    content=payload["text"],
+                    summary=payload["text"],
+                    artifact_refs=(f"artifact:{artifact_id}",),
+                    provenance=f"pack:{pack_id}",
+                )
+            )
+
     async def _route_session_pack(text: str) -> None:
         previous_pack_id = pack_registry.active_id
         if not sam_session.activate_from_utterance(text):
             return
         if previous_pack_id != sam_session.pack:
+            await _flush_pack(previous_pack_id)
             pack_registry.unload(previous_pack_id)
         active_pack = pack_registry.activate(sam_session.pack)
         active_overlay = (active_pack.persona_overlay or "").strip()

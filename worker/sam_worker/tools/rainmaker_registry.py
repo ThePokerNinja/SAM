@@ -324,6 +324,69 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
         ),
         _build_request_doctor,
     )
+    registry.register(
+        ToolSpec(
+            name="run_command",
+            description="Run any other command by name or spoken phrase. Owner only. Arg: command.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_run_command,
+    )
+    registry.register(
+        ToolSpec(
+            name="build_status",
+            description="What just shipped and what is next.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_build_status,
+    )
+    registry.register(
+        ToolSpec(
+            name="capabilities",
+            description="What Samuel can do. Optional pillar or detail=full.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_capabilities,
+    )
+    registry.register(
+        ToolSpec(
+            name="moderate_room",
+            description="Invite a guest into a moderated room. Owner only. Args: target, topic.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_moderate_room,
+    )
+    registry.register(
+        ToolSpec(
+            name="grant_room",
+            description="Grant a short demo room. Owner only. Args: target, topic.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_grant_room,
+    )
+    registry.register(
+        ToolSpec(
+            name="send_demo",
+            description="Send the start / demo link. Owner only.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_send_demo,
+    )
+    registry.register(
+        ToolSpec(
+            name="set_memory",
+            description="Turn owner memory on or off. Owner only. Arg: state=on|off.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_set_memory,
+    )
 
 
 def _build_get_scans(client: Any, _is_owner: Any, _deps: dict[str, Any]):
@@ -609,3 +672,70 @@ def _build_request_doctor(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_named_tool(client, "request_doctor")
 
     return request_doctor
+
+
+def _build_run_command(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def run_command(context: RunContext, command: str, target: str = "", topic: str = "", state: str = "") -> str:
+        args: dict[str, Any] = {"command": command}
+        if target:
+            args["target"] = target
+        if topic:
+            args["topic"] = topic
+        if state:
+            args["state"] = state
+        return await handle_named_tool(client, "run_command", args)
+
+    return run_command
+
+
+def _build_build_status(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def build_status(context: RunContext) -> str:
+        return await handle_named_tool(client, "build_status")
+
+    return build_status
+
+
+def _build_capabilities(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def capabilities(context: RunContext, pillar: str = "", detail: str = "") -> str:
+        args: dict[str, Any] = {}
+        if pillar:
+            args["pillar"] = pillar
+        if detail:
+            args["detail"] = detail
+        return await handle_named_tool(client, "capabilities", args)
+
+    return capabilities
+
+
+def _build_moderate_room(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def moderate_room(context: RunContext, target: str, topic: str = "") -> str:
+        args: dict[str, Any] = {"target": target}
+        if topic:
+            args["topic"] = topic
+        return await handle_named_tool(client, "moderate_room", args)
+
+    return moderate_room
+
+
+def _build_grant_room(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def grant_room(context: RunContext, target: str, topic: str = "") -> str:
+        args: dict[str, Any] = {"target": target}
+        if topic:
+            args["topic"] = topic
+        return await handle_named_tool(client, "grant_room", args)
+
+    return grant_room
+
+
+def _build_send_demo(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def send_demo(context: RunContext) -> str:
+        return await handle_named_tool(client, "send_demo")
+
+    return send_demo
+
+
+def _build_set_memory(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def set_memory(context: RunContext, state: str) -> str:
+        return await handle_named_tool(client, "set_memory", {"state": state})
+
+    return set_memory

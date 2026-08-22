@@ -41,6 +41,13 @@ VOICE_TOOLS: tuple[str, ...] = (
     "draft_for_person",
     "get_campaign",
     "request_doctor",
+    "run_command",
+    "build_status",
+    "capabilities",
+    "moderate_room",
+    "grant_room",
+    "send_demo",
+    "set_memory",
 )
 
 STUDIO_TOOLS: tuple[str, ...] = (
@@ -149,9 +156,9 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
     if _has_any(text, ("cost", "price", "pricing", "fee", "fees", "how much")):
         return []
     if _has_any(text, ("story", "joke", "trivia", "poem")):
-        return []
+        return ["run_command"]
     if is_calendar_confirm(utterance):
-        return ["commit_calendar_change"]
+        return ["commit_calendar_change", "run_command"]
     selected: list[str] = []
 
     if _has_any(text, ("studio", "campaign", "deliverable", "asset id", "render")):
@@ -217,6 +224,18 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         selected.append("get_campaign")
     if _has_any(text, ("restart the api", "doctor", "deploy hook")):
         selected.append("request_doctor")
+    if _has_any(text, ("what's being built", "whats being built", "build status", "next steps")):
+        selected.append("build_status")
+    if _has_any(text, ("what can you do", "what skills", "capabilities", "full catalog")):
+        selected.append("capabilities")
+    if "moderate" in text:
+        selected.append("moderate_room")
+    if _has_any(text, ("grant them", "grant a demo")):
+        selected.append("grant_room")
+    if _has_any(text, ("demo link", "send the demo")):
+        selected.append("send_demo")
+    if _has_any(text, ("memory on", "memory off", "forget me")):
+        selected.append("set_memory")
     calendar_action = calendar_action_for_utterance(utterance)
     if calendar_action:
         selected.append("propose_calendar_change")
@@ -249,12 +268,14 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
             seen.add(name)
             ordered.append(name)
 
-    if ordered:
-        return ordered
+    if "run_command" not in ordered:
+        ordered.append("run_command")
 
+    if len(ordered) > 1:
+        return ordered
     if _has_any(text, _RAINMAKERISH):
-        return list(_FALLBACK_VOICE)
-    return []
+        return [*_FALLBACK_VOICE, "run_command"]
+    return ["run_command"]
 
 
 def filter_tools(tools: list[object], names: list[str]) -> list[object]:
