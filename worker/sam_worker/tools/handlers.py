@@ -300,7 +300,14 @@ async def handle_ask_hermes(client: RainmakerClient, prompt: str) -> str:
     return text[:_MAX_SPOKEN]
 
 
-async def handle_place_call(number: str, *, room_name: str) -> str:
+async def handle_place_call(
+    number: str,
+    *,
+    room_name: str,
+    spoken: str = "",
+    brief: str = "",
+    guest_name: str = "",
+) -> str:
     from ..outbound import can_dial, create_outbound_participant
 
     ok, detail = can_dial(number)

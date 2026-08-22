@@ -13,7 +13,7 @@ _NON_ALNUM = re.compile(r"[^a-z0-9 ]+")
 
 def _normalize(utterance: str) -> str:
     text = utterance.lower().replace("&", " and ")
-    text = re.sub(r"['’]s\b", "s", text)
+    text = text.replace("'", "").replace("’", "")
     return " ".join(_NON_ALNUM.sub(" ", text).split())
 
 
@@ -31,6 +31,7 @@ VOICE_TOOLS: tuple[str, ...] = (
     "send_hero",
     "send_email",
     "place_call",
+    "reach",
     "ask_hermes",
     "text_me",
     "get_health",
@@ -94,6 +95,40 @@ _RAINMAKERISH = (
 
 def _has_any(text: str, needles: tuple[str, ...]) -> bool:
     return any(needle in text for needle in needles)
+
+
+_PRONOUNS = ("her", "him", "them", "she", "he")
+_TRADE_WORDS = ("scan", "picks", "watchlist", "ticker", "pulse", "regime", "nvda", "board")
+_WHO_AFTER = re.compile(
+    r"\b(?:call|dial|text|sms|message|remind|tell)\s+"
+    r"(her|him|them|she|he|they|[a-z][a-z'`-]{1,30})\b"
+)
+
+
+def _is_outreach_utterance(text: str, raw: str) -> bool:
+    """Person reach, not a trading 'call'. Mirrors rm_api.outreach.is_outreach_utterance."""
+    if not text:
+        return False
+    if _has_any(text, ("don't", "dont", "do not", "cancel")) and _has_any(
+        text, ("call", "text", "sms", "that")
+    ):
+        return True
+    if _has_any(text, ("prayer", "remind ", "remind her", "remind him", "tell her", "tell him")):
+        return True
+    if "can you call" in text or "can you text" in text:
+        return True
+    if re.search(r"\b(call|text|dial|sms)\s+(her|him|them|she|he)\b", text):
+        return True
+    match = _WHO_AFTER.search(text)
+    if not match:
+        return False
+    who = match.group(1)
+    if who in {"me", "that", "the", "a", "an", "my", "this", "it"}:
+        return False
+    if who in _TRADE_WORDS or _has_any(text, _TRADE_WORDS):
+        if who not in _PRONOUNS and len(who) <= 5:
+            return False
+    return True
 
 
 _CONFIRM_FORCE = re.compile(r"\b(book it|do it|go ahead|please book|confirm)\b")
@@ -190,9 +225,9 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         selected.append("send_hero")
     if _has_any(text, ("email", "e mail", "send a note to")):
         selected.append("send_email")
-    if _has_any(text, ("call", "dial", "phone")) and _has_any(
-        text, ("place", "make", "dial", "ring", "outbound")
-    ):
+    if _is_outreach_utterance(text, raw):
+        selected.append("reach")
+    elif _has_any(text, ("place a call", "place the call", "outbound")):
         selected.append("place_call")
     if _has_any(
         text,

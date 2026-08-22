@@ -149,11 +149,23 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     registry.register(
         ToolSpec(
             name="place_call",
-            description="Dial an allow-listed number into this room. Owner only. Arg: number. Confirm the number out loud first.",
+            description="Dial an allow-listed number into this room. Owner only. Arg: number. Optional spoken, brief, guest_name.",
             read_only=False,
             requires_approval=True,
         ),
         _build_place_call,
+    )
+    registry.register(
+        ToolSpec(
+            name="reach",
+            description=(
+                "Call or text an allow-listed person by name now or later. Owner only. "
+                "Args: who, channel=call|text, when, script. Pass utterance when you have the raw ask."
+            ),
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_reach,
     )
     registry.register(
         ToolSpec(
@@ -483,10 +495,40 @@ def _build_send_email(client: Any, _is_owner: Any, _deps: dict[str, Any]):
 def _build_place_call(client: Any, _is_owner: Any, deps: dict[str, Any]):
     room_name = str(deps.get("session_id") or "")
 
-    async def place_call(context: RunContext, number: str) -> str:
-        return await handle_place_call(number, room_name=room_name)
+    async def place_call(
+        context: RunContext,
+        number: str,
+        spoken: str = "",
+        brief: str = "",
+        guest_name: str = "",
+    ) -> str:
+        return await handle_place_call(
+            number, room_name=room_name, spoken=spoken, brief=brief, guest_name=guest_name
+        )
 
     return place_call
+
+
+def _build_reach(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def reach(
+        context: RunContext,
+        who: str,
+        channel: str = "call",
+        when: str = "now",
+        script: str = "",
+        brief: str = "",
+        utterance: str = "",
+    ) -> str:
+        args: dict[str, Any] = {"who": who, "channel": channel, "when": when}
+        if script:
+            args["script"] = script
+        if brief:
+            args["brief"] = brief
+        if utterance:
+            args["utterance"] = utterance
+        return await handle_named_tool(client, "reach", args)
+
+    return reach
 
 
 def _build_ask_hermes(client: Any, _is_owner: Any, _deps: dict[str, Any]):
