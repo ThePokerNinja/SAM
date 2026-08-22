@@ -146,6 +146,16 @@ class SkillBuilderRuntime:
             ).fetchone()
         return str(row["status"]) if row else "missing"
 
+    def approval_count(self, candidate_id: str) -> int:
+        """How many times this candidate has already asked. Callers use it to ask once."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM skill_events "
+                "WHERE candidate_id=? AND event='APPROVAL_NEEDED'",
+                (candidate_id,),
+            ).fetchone()
+        return int(row["n"]) if row else 0
+
     def request_approval(self, candidate_id: str, *, reason: str, trust_tier: str = "T1") -> dict:
         """Emit APPROVAL_NEEDED for Hermes/studios consent (SAM-053 remaining loop)."""
         payload = {

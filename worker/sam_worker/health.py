@@ -35,21 +35,39 @@ def health_payload() -> dict[str, Any]:
     }
 
 
+def hero_snapshot_payload() -> dict[str, Any]:
+    """SAM-058: the live character sheet rm_api fetches for the HERO card."""
+    from .skillbuilder.runtime import SkillBuilderRuntime
+    from .skillbuilder.snapshot import live_snapshot
+
+    return live_snapshot(SkillBuilderRuntime())
+
+
 class _HealthHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
         return
 
-    def do_GET(self) -> None:  # noqa: N802
-        if self.path.split("?", 1)[0] not in ("/health", "/"):
-            self.send_response(404)
-            self.end_headers()
-            return
-        body = json.dumps(health_payload()).encode("utf-8")
-        self.send_response(200)
+    def _write(self, status: int, payload: dict[str, Any]) -> None:
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def do_GET(self) -> None:  # noqa: N802
+        route = self.path.split("?", 1)[0]
+        if route in ("/health", "/"):
+            self._write(200, health_payload())
+            return
+        if route == "/hero":
+            try:
+                self._write(200, hero_snapshot_payload())
+            except Exception:  # noqa: BLE001 - rm_api falls back to its local sheet
+                self._write(503, {"ok": False, "error": "snapshot_unavailable"})
+            return
+        self.send_response(404)
+        self.end_headers()
 
 
 def start_health_server(port: int | None = None) -> ThreadingHTTPServer | None:

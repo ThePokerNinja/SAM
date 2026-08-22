@@ -59,6 +59,7 @@ from .artifacts import Artifact, ArtifactStore
 from .config import Settings, resolve_brain
 from .context import assemble_context
 from .health import start_health_server
+from .nightly import start_nightly_scheduler
 from .intake import brief_from_artifacts
 from .latency import TurnProfile, latency_log_enabled, write_profile
 from .memory import (
@@ -916,11 +917,25 @@ async def entrypoint(ctx: JobContext) -> None:
                             sample_count=int(raw["sample_count"]),
                             brier=float(raw["brier"]),
                         )
+                        # SAM-053: ask the owner once per candidate. Calibration
+                        # candidates are advisory, so the ledger's sample floor and
+                        # Brier threshold are the filter, not the adoption gates.
+                        first_ask = (
+                            skillbuilder_runtime.approval_count(
+                                pythia_candidate.candidate_id
+                            )
+                            == 0
+                        )
                         run_advisory(
                             skillbuilder_runtime,
                             pythia_candidate,
                             reason=pythia_candidate.problem_detected,
                         )
+                        if first_ask:
+                            await rm_client.request_skill_approval(
+                                pythia_candidate.candidate_id,
+                                pythia_candidate.problem_detected,
+                            )
             close_persistence_state["done"] = True
 
     @session.on("close")
@@ -1299,4 +1314,5 @@ async def entrypoint(ctx: JobContext) -> None:
 
 if __name__ == "__main__":
     start_health_server()
+    start_nightly_scheduler()
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
