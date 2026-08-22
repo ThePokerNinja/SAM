@@ -10,6 +10,19 @@ import time
 from typing import Any
 
 _ANSWERED_SIP_STATUSES = frozenset({"active", "automation"})
+_VOICEMAIL_MARKERS = (
+    "forwarded to voice mail",
+    "forwarded to voicemail",
+    "the person you're trying to reach",
+    "the person you are trying to reach",
+    "is not available",
+    "at the tone",
+    "record your message",
+    "leave a message",
+    "please leave your",
+    "mailbox is full",
+    "voice mailbox",
+)
 
 _E164 = re.compile(r"^\+[1-9]\d{7,14}$")
 
@@ -90,6 +103,30 @@ def sip_call_status(participant: Any) -> str:
 def sip_participant_is_answered(participant: Any) -> bool:
     """True only after the PSTN leg is up. Presence/ringing is not enough."""
     return sip_call_status(participant) in _ANSWERED_SIP_STATUSES
+
+
+def classify_outbound_first_speech(text: str) -> str:
+    """SIP 'active' fires on ringback. A person is proven by their first words."""
+    normalized = re.sub(r"\s+", " ", (text or "").strip().lower())
+    if not normalized:
+        return "ignore"
+    if any(marker in normalized for marker in _VOICEMAIL_MARKERS):
+        return "voicemail"
+    return "human"
+
+
+def take_pending_script(state: dict[str, Any], text: str) -> str | None:
+    """Exact script for a human opener, empty string to ignore voicemail, else None."""
+    spoken = str(state.get("spoken") or "").strip()
+    if not spoken or state.get("delivered"):
+        return None
+    kind = classify_outbound_first_speech(text)
+    if kind == "ignore":
+        return None
+    if kind == "voicemail":
+        return ""
+    state["delivered"] = True
+    return spoken
 
 
 async def wait_for_outbound_answer(room: Any, *, timeout_s: float = 90.0) -> bool:

@@ -74,6 +74,7 @@ from .outbound import (
     decode_outbound_metadata,
     is_outbound_dial_room,
     pick_outbound_metadata,
+    take_pending_script,
     wait_for_outbound_answer,
 )
 from .owner_gate import (
@@ -300,6 +301,7 @@ async def entrypoint(ctx: JobContext) -> None:
     room_name = ctx.room.name or ""
     outbound_meta = decode_outbound_metadata(getattr(ctx.room, "metadata", "") or "")
     is_outbound_guest = is_outbound_dial_room(room_name) or outbound_meta["kind"] == "outbound_guest"
+    outbound_script = {"spoken": str(outbound_meta.get("spoken") or "").strip(), "delivered": False}
     surface = (
         "phone"
         if room_name.startswith("call-") or is_outbound_guest
@@ -1194,6 +1196,17 @@ async def entrypoint(ctx: JobContext) -> None:
             return "We're back. Please continue when you're ready."
         if sam_session.paused:
             return "We're still paused. Say resume when you're ready to continue."
+        if is_outbound_guest:
+            pending = take_pending_script(outbound_script, text)
+            if pending is not None:
+                if pending:
+                    _log.info(
+                        "outbound first speech=human; delivering script chars=%d",
+                        len(pending),
+                    )
+                else:
+                    _log.info("outbound first speech=voicemail; holding script")
+                return pending
         return None
 
     def _route_timing(decision, elapsed_ms: float) -> None:
@@ -1229,6 +1242,7 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     if any(connected_meta.get(key) for key in ("kind", "brief", "spoken", "guest_name")):
         outbound_meta.update(connected_meta)
+        outbound_script["spoken"] = str(outbound_meta.get("spoken") or "").strip()
 
     if (
         is_phone
@@ -1367,32 +1381,13 @@ async def entrypoint(ctx: JobContext) -> None:
             ctx.shutdown("outbound unanswered")
             return
         guest = outbound_meta.get("guest_name") or "the recipient"
-        spoken = str(outbound_meta.get("spoken") or "").strip()
-        brief = str(outbound_meta.get("brief") or "").strip()
+        spoken = str(outbound_meta.get("spoken") or outbound_script.get("spoken") or "").strip()
+        outbound_script["spoken"] = spoken
         _log.info(
-            "outbound greeting guest=%s spoken_chars=%d brief_chars=%d",
+            "outbound waiting for first speech guest=%s spoken_chars=%d",
             guest,
             len(spoken),
-            len(brief),
         )
-        if spoken:
-            await session.say(spoken, allow_interruptions=False)
-        else:
-            await session.generate_reply(
-                instructions=(
-                    (
-                        brief
-                        or (
-                            f"This is a one-shot outbound call to {guest}. Identify yourself "
-                            "as Samuel delivering a message from Michael. Do not offer tools "
-                            "or account access."
-                        )
-                    )
-                    + "\n\nSpeak first. Do not invent scripture. Do not grant the listener "
-                    "owner tools, calendar, trades, or memory writes. If they want to send "
-                    "Michael a message, listen and remember it for the after-call note."
-                )
-            )
         return
 
     await session.generate_reply(
