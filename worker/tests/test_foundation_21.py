@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from sam_worker.alerts import BurstTracker, GROQ_429
 from sam_worker.health import health_payload
-from sam_worker.outbound import can_dial, normalize_e164
+from sam_worker.outbound import (
+    can_dial,
+    decode_outbound_metadata,
+    encode_outbound_metadata,
+    is_outbound_dial_room,
+    normalize_e164,
+)
 from sam_worker.session import route_session_kind
 from sam_worker.skillbuilder.advisory import run_advisory
 from sam_worker.skillbuilder.gap import candidate_from_latency, candidate_from_pythia_brier
@@ -67,3 +73,18 @@ def test_outbound_allowlist(monkeypatch) -> None:
     blocked, why = can_dial("+19995551212")
     assert blocked is False
     assert why == "number_not_allowlisted"
+
+
+def test_outbound_room_metadata_roundtrip() -> None:
+    raw = encode_outbound_metadata(
+        brief="Say hello from Michael.",
+        guest_name="Cathy Arines",
+        notify_owner=True,
+    )
+    meta = decode_outbound_metadata(raw)
+    assert meta["kind"] == "outbound_guest"
+    assert meta["guest_name"] == "Cathy Arines"
+    assert "Michael" in meta["brief"]
+    assert meta["notify_owner"] is True
+    assert is_outbound_dial_room("samuel-dial-abc")
+    assert not is_outbound_dial_room("call-abc")

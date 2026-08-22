@@ -86,12 +86,22 @@ class _HealthHandler(BaseHTTPRequestHandler):
         if not number:
             self._write(400, {"ok": False, "error": "number_required"})
             return
+        brief = str((payload or {}).get("brief") or "").strip()
+        guest_name = str((payload or {}).get("guest_name") or "").strip()
+        notify_owner = bool((payload or {}).get("notify_owner", True))
         import asyncio
 
         from .outbound import dial_from_text
 
         try:
-            result = asyncio.run(dial_from_text(number))
+            result = asyncio.run(
+                dial_from_text(
+                    number,
+                    brief=brief,
+                    guest_name=guest_name,
+                    notify_owner=notify_owner,
+                )
+            )
         except Exception:  # noqa: BLE001
             self._write(500, {"ok": False, "error": "dial_failed"})
             return

@@ -1,7 +1,8 @@
-"""Owner-only outbound SIP dial via LiveKit CreateSIPParticipant."""
+"""Owner-triggered outbound SIP dial via LiveKit CreateSIPParticipant."""
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from typing import Any
@@ -28,6 +29,41 @@ def allowed_outbound_numbers() -> set[str]:
         "SAM_SIP_OWNER_NUMBERS", ""
     )
     return {normalize_e164(item) for item in raw.split(",") if item.strip()}
+
+
+def is_outbound_dial_room(name: str) -> bool:
+    return (name or "").startswith("samuel-dial-")
+
+
+def encode_outbound_metadata(
+    *,
+    brief: str = "",
+    guest_name: str = "",
+    notify_owner: bool = True,
+) -> str:
+    return json.dumps(
+        {
+            "kind": "outbound_guest",
+            "brief": (brief or "").strip(),
+            "guest_name": (guest_name or "").strip(),
+            "notify_owner": bool(notify_owner),
+        }
+    )
+
+
+def decode_outbound_metadata(raw: str) -> dict[str, Any]:
+    try:
+        data = json.loads(raw or "")
+    except json.JSONDecodeError:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    return {
+        "kind": str(data.get("kind") or ""),
+        "brief": str(data.get("brief") or "").strip(),
+        "guest_name": str(data.get("guest_name") or "").strip(),
+        "notify_owner": bool(data.get("notify_owner", True)),
+    }
 
 
 def outbound_configured() -> bool:
@@ -75,7 +111,7 @@ async def create_outbound_participant(
                 sip_call_to=detail,
                 room_name=room_name,
                 participant_identity=identity,
-                wait_until_answered=False,
+                wait_until_answered=True,
             )
         )
         return {
@@ -89,7 +125,13 @@ async def create_outbound_participant(
         await client.aclose()
 
 
-async def dial_from_text(number: str) -> dict[str, Any]:
+async def dial_from_text(
+    number: str,
+    *,
+    brief: str = "",
+    guest_name: str = "",
+    notify_owner: bool = True,
+) -> dict[str, Any]:
     """Mint a room, auto-dispatch Samuel, and SIP-dial the allow-listed number into it.
 
     SMS has no live room. This is the text adapter for ``place_call``.
@@ -108,7 +150,16 @@ async def dial_from_text(number: str) -> dict[str, Any]:
         api_secret=os.environ["LIVEKIT_API_SECRET"],
     )
     try:
-        await client.room.create_room(api.CreateRoomRequest(name=room_name))
+        await client.room.create_room(
+            api.CreateRoomRequest(
+                name=room_name,
+                metadata=encode_outbound_metadata(
+                    brief=brief,
+                    guest_name=guest_name,
+                    notify_owner=notify_owner,
+                ),
+            )
+        )
         agent_name = (os.environ.get("SAM_AGENT_NAME") or "").strip()
         if agent_name:
             await client.agent_dispatch.create_dispatch(

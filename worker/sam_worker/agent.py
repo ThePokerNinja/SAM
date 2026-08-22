@@ -70,6 +70,7 @@ from .memory import (
     ProfileStore,
     extract_explicit_profile_update,
 )
+from .outbound import decode_outbound_metadata, is_outbound_dial_room
 from .owner_gate import (
     build_owner_gate,
     sip_caller_is_authorized,
@@ -292,7 +293,13 @@ async def entrypoint(ctx: JobContext) -> None:
         _log.info("Skipping embedded benchmark room dispatch")
         return
     room_name = ctx.room.name or ""
-    surface = "phone" if room_name.startswith("call-") else "portal"
+    outbound_meta = decode_outbound_metadata(getattr(ctx.room, "metadata", "") or "")
+    is_outbound_guest = is_outbound_dial_room(room_name) or outbound_meta["kind"] == "outbound_guest"
+    surface = (
+        "phone"
+        if room_name.startswith("call-") or is_outbound_guest
+        else "portal"
+    )
     surface_profile = surface_for(surface)
     is_phone = surface_profile.name == "phone"
     s = Settings.from_env()
@@ -726,10 +733,10 @@ async def entrypoint(ctx: JobContext) -> None:
                 str(getattr(ev, "speaker_id", "") or ("host" if owner else "guest")),
                 text,
             )
-        if not owner:
+        if not owner and not is_outbound_guest:
             return
-        session_turns.append(("user", text))
-        if episode_store is not None:
+        session_turns.append(("user" if owner else "guest", text))
+        if episode_store is not None and owner:
             asyncio.ensure_future(
                 episode_store.append_async(
                     Episode(
@@ -741,6 +748,8 @@ async def entrypoint(ctx: JobContext) -> None:
                     )
                 )
             )
+        if not owner:
+            return
         profile_update = extract_explicit_profile_update(text)
         if profile_store is not None and profile_update is not None:
             asyncio.ensure_future(
@@ -801,7 +810,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     @session.on("conversation_item_added")
     def _remember_assistant_turn(ev) -> None:
-        if not _session_is_owner():
+        if not _session_is_owner() and not is_outbound_guest:
             return
         item = getattr(ev, "item", None)
         if getattr(item, "role", None) != "assistant":
@@ -833,10 +842,29 @@ async def entrypoint(ctx: JobContext) -> None:
     close_persistence_lock = asyncio.Lock()
     close_persistence_state = {"done": False}
 
-    async def _persist_session_close(reason: str) -> None:
-        if episode_store is None or artifact_store is None or not session_turns:
+    async def _notify_owner_call_record() -> None:
+        if not is_outbound_guest or not outbound_meta.get("notify_owner", True):
             return
+        guest = outbound_meta.get("guest_name") or "guest"
+        summary = _session_close_summary(session_turns) if session_turns else "(no speech captured)"
+        line = f"Call with {guest}: {summary}"
+        try:
+            await rm_client.text_me(line[:600])
+        except Exception:  # noqa: BLE001
+            _log.exception("outbound call record text failed")
+
+    async def _persist_session_close(reason: str) -> None:
         async with close_persistence_lock:
+            if close_persistence_state["done"]:
+                return
+            if is_outbound_guest:
+                await _notify_owner_call_record()
+            if episode_store is None or artifact_store is None or not session_turns:
+                if is_outbound_guest:
+                    close_persistence_state["done"] = True
+                return
+            if not _session_is_owner() and not is_outbound_guest:
+                return
             if close_persistence_state["done"]:
                 return
             summary = _session_close_summary(session_turns)
@@ -954,7 +982,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     @session.on("close")
     def _remember_session_close(ev) -> None:
-        if not _session_is_owner():
+        if not _session_is_owner() and not is_outbound_guest:
             return
         reason = str(getattr(ev, "reason", "") or "close")
         asyncio.ensure_future(_persist_session_close(reason))
@@ -1191,6 +1219,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     if (
         is_phone
+        and not is_outbound_guest
         and (
             not s.sip_owner_numbers
             or not sip_caller_is_authorized(
@@ -1317,6 +1346,27 @@ async def entrypoint(ctx: JobContext) -> None:
         request_id = str(payload.get("request_id") or "")
         _log.info("chat panel text input: %r", text[:80])
         asyncio.ensure_future(_generate_text_reply(text, request_id))
+
+    if is_outbound_guest:
+        answered = await _wait_for_sip_participants(ctx.room, timeout_s=90.0)
+        if not answered:
+            _log.info("outbound guest never joined; skipping greeting")
+            ctx.shutdown("outbound unanswered")
+            return
+        guest = outbound_meta.get("guest_name") or "the recipient"
+        brief = outbound_meta.get("brief") or (
+            f"This is a one-shot outbound call to {guest}. Identify yourself as Samuel "
+            "delivering a message from Michael. Do not offer tools or account access."
+        )
+        await session.generate_reply(
+            instructions=(
+                f"{brief}\n\n"
+                "Speak first. Do not invent scripture. Do not grant the listener owner tools, "
+                "calendar, trades, or memory writes. If they want to send Michael a message, "
+                "listen and remember it for the after-call note."
+            )
+        )
+        return
 
     await session.generate_reply(
         instructions=(
