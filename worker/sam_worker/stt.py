@@ -30,6 +30,7 @@ def build_stt(s: Settings):
                 eot_timeout_ms=s.stt_eot_timeout_ms,
                 api_key=s.deepgram_api_key,
             )
+        # LiveKit plugin name is enable_diarization, not diarize (test_stt imports STT()).
         return deepgram.STT(
             model=model,
             api_key=s.deepgram_api_key,
