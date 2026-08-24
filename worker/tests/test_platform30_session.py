@@ -8,12 +8,15 @@ def test_room_prefix_routes_moderator_and_intake() -> None:
     assert route_session_kind(surface="portal", room_name="mod-abc") == "moderator"
     assert route_session_kind(surface="portal", room_name="demo-xyz") == "intake"
     assert route_session_kind(surface="portal", room_name="intake-1") == "intake"
+    assert route_session_kind(surface="portal", room_name="builder-abc") == "intake"
     assert route_session_kind(surface="phone", room_name="samuel-dial-abc") == "intake"
 
 
 def test_demo_cap_hangup_rules() -> None:
     assert is_capped_room("demo-abc")
     assert is_capped_room("mod-xyz")
+    assert is_capped_room("intake-1")
+    assert not is_capped_room("builder-abc")
     assert not is_capped_room("call-owner")
     assert should_hangup({"ok": False, "error": "http_409"})
     assert should_hangup({"ok": False, "error": "minutes_cap"})

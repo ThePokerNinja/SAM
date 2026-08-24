@@ -109,7 +109,7 @@ def route_session_kind(
         return "intake"
     if room.startswith("mod-"):
         return "moderator"
-    if room.startswith("demo-") or room.startswith("intake-"):
+    if room.startswith("demo-") or room.startswith("intake-") or room.startswith("builder-"):
         return "intake"
     if re.search(r"\b(moderat(?:e|or|ion)?|help us disagree|settle a disagreement)\b", blob):
         return "moderator"
