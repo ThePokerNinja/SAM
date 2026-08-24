@@ -53,6 +53,7 @@ VOICE_TOOLS: tuple[str, ...] = (
     "proposal_set_field",
     "proposal_focus",
     "proposal_ask_gap",
+    "proposal_answer_question",
     "proposal_revise",
     "proposal_send",
 )
@@ -301,6 +302,7 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
                 "proposal_set_field",
                 "proposal_focus",
                 "proposal_ask_gap",
+                "proposal_answer_question",
                 "proposal_revise",
                 "proposal_send",
             ]

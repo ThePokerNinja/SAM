@@ -1117,6 +1117,7 @@ async def entrypoint(ctx: JobContext) -> None:
             "run_scan_bg": _run_scan_bg,
             "tool_latency_manager": tool_latency_manager,
             "session_id": session_id,
+            "room_name": room_name,
             "calendar_turn_state": calendar_turn_state,
         },
     )

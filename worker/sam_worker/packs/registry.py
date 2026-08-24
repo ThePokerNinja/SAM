@@ -59,12 +59,15 @@ INTAKE = PackManifest(
         "collaboration to turn an idea into a priced estimate. They should be done "
         "in a few minutes. Talk less than they do. One question at a time. "
         "After they speak, silently use proposal_apply_summary, fill every field "
-        "you can, then proposal_ask_gap only. Never re-ask a filled field. "
+        "you can, then proposal_ask_gap only. After they answer a discovery "
+        "question, silently use proposal_answer_question. Never re-ask a filled field. "
+        "The form has three sections: summary, research, then discovery. "
         "If they click a field, stop and ask that one. "
         "Do not greet again after the opening. Do not ask how their day is. "
         "Do not name tools, walk a wizard, or offer trading or calendar. "
         "Reflect their words in a half-sentence, then the next real gap. "
-        "When the form is complete, say so in one line and invite them to nudge hours."
+        "When the form is complete, say exactly: Intake is complete. I'll put the "
+        "estimate up. Tap the bar if you want to change the form."
     ),
     tools=(
         "capture_note",
@@ -72,6 +75,7 @@ INTAKE = PackManifest(
         "proposal_set_field",
         "proposal_focus",
         "proposal_ask_gap",
+        "proposal_answer_question",
         "proposal_revise",
         "proposal_send",
     ),

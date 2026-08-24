@@ -6,6 +6,7 @@ from sam_worker.session import (
     route_session_kind,
     should_speak_builder_opening,
 )
+from sam_worker.tools.rainmaker_registry import engagement_id_from_room
 from sam_worker.tools.select import select_tools_for_utterance
 
 
@@ -52,12 +53,25 @@ def test_intake_overlay_stays_collaborative() -> None:
     assert "how their day" in overlay
 
 
+def test_builder_room_injects_engagement_id() -> None:
+    assert engagement_id_from_room("builder-eng-abc") == "eng-abc"
+    assert engagement_id_from_room("demo-builder-eng-xyz") == "eng-xyz"
+    assert engagement_id_from_room("sam-owner") == ""
+
+
 def test_intake_pack_is_proposal_tools() -> None:
     names = PackRegistry().tools_for(
         "intake",
         ["capture_note", "grant_room", "place_call", "run_scan", "proposal_apply_summary"],
     )
     assert names == ["capture_note", "proposal_apply_summary"]
+
+
+def test_intake_overlay_names_three_sections() -> None:
+    overlay = PackRegistry().get("intake").persona_overlay.lower()
+    assert "research" in overlay
+    assert "discovery" in overlay
+    assert "tap the bar" in overlay
 
 
 def test_centaur_idea_utterance_selects_tool() -> None:

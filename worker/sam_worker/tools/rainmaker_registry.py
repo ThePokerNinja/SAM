@@ -35,6 +35,23 @@ from .handlers import (
 from .registry import ToolRegistry, ToolSpec
 
 
+def engagement_id_from_room(room_name: str) -> str:
+    """Pull the engagement id from builder-{id} or demo-builder-{id}."""
+    name = (room_name or "").strip()
+    lowered = name.lower()
+    if lowered.startswith("demo-builder-"):
+        return name[13:].strip()
+    if lowered.startswith("builder-"):
+        return name[8:].strip()
+    return ""
+
+
+def _room_engagement_id(deps: dict[str, Any], explicit: str = "") -> str:
+    if explicit.strip():
+        return explicit.strip()
+    return engagement_id_from_room(str(deps.get("session_id") or deps.get("room_name") or ""))
+
+
 def register_rainmaker_tools(registry: ToolRegistry) -> None:
     """Add all Rainmaker command-surface tools. Call once when building the worker session."""
 
@@ -434,6 +451,15 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
             requires_approval=False,
         ),
         _build_proposal_ask_gap,
+    )
+    registry.register(
+        ToolSpec(
+            name="proposal_answer_question",
+            description="Write the answer to one discovery question on the live form.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_proposal_answer_question,
     )
     registry.register(
         ToolSpec(
@@ -856,7 +882,7 @@ def _build_centaur_idea(client: Any, _is_owner: Any, _deps: dict[str, Any]):
     return centaur_idea
 
 
-def _build_proposal_apply_summary(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+def _build_proposal_apply_summary(client: Any, _is_owner: Any, deps: dict[str, Any]):
     async def proposal_apply_summary(
         context: RunContext,
         summary: str,
@@ -868,8 +894,9 @@ def _build_proposal_apply_summary(client: Any, _is_owner: Any, _deps: dict[str, 
         projectSummary: str = "",
     ) -> str:
         args: dict[str, Any] = {"summary": summary}
-        if engagement_id:
-            args["engagement_id"] = engagement_id
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
         if jobTitle:
             args["jobTitle"] = jobTitle
         if projectCategory:
@@ -885,19 +912,20 @@ def _build_proposal_apply_summary(client: Any, _is_owner: Any, _deps: dict[str, 
     return proposal_apply_summary
 
 
-def _build_proposal_set_field(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+def _build_proposal_set_field(client: Any, _is_owner: Any, deps: dict[str, Any]):
     async def proposal_set_field(
         context: RunContext, field: str, value: str, engagement_id: str = ""
     ) -> str:
         args: dict[str, Any] = {"field": field, "value": value}
-        if engagement_id:
-            args["engagement_id"] = engagement_id
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
         return await handle_named_tool(client, "proposal_set_field", args)
 
     return proposal_set_field
 
 
-def _build_proposal_focus(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+def _build_proposal_focus(client: Any, _is_owner: Any, deps: dict[str, Any]):
     async def proposal_focus(
         context: RunContext,
         field: str = "",
@@ -909,24 +937,42 @@ def _build_proposal_focus(client: Any, _is_owner: Any, _deps: dict[str, Any]):
             args["field"] = field
         if question_id:
             args["question_id"] = question_id
-        if engagement_id:
-            args["engagement_id"] = engagement_id
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
         return await handle_named_tool(client, "proposal_focus", args)
 
     return proposal_focus
 
 
-def _build_proposal_ask_gap(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+def _build_proposal_ask_gap(client: Any, _is_owner: Any, deps: dict[str, Any]):
     async def proposal_ask_gap(context: RunContext, engagement_id: str = "") -> str:
         args: dict[str, Any] = {}
-        if engagement_id:
-            args["engagement_id"] = engagement_id
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
         return await handle_named_tool(client, "proposal_ask_gap", args)
 
     return proposal_ask_gap
 
 
-def _build_proposal_revise(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+def _build_proposal_answer_question(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    async def proposal_answer_question(
+        context: RunContext,
+        question_id: str,
+        value: str,
+        engagement_id: str = "",
+    ) -> str:
+        args: dict[str, Any] = {"question_id": question_id, "value": value}
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
+        return await handle_named_tool(client, "proposal_answer_question", args)
+
+    return proposal_answer_question
+
+
+def _build_proposal_revise(client: Any, _is_owner: Any, deps: dict[str, Any]):
     async def proposal_revise(
         context: RunContext, note: str = "", hours: float = 0, engagement_id: str = ""
     ) -> str:
@@ -935,14 +981,15 @@ def _build_proposal_revise(client: Any, _is_owner: Any, _deps: dict[str, Any]):
             args["note"] = note
         if hours:
             args["hours"] = hours
-        if engagement_id:
-            args["engagement_id"] = engagement_id
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
         return await handle_named_tool(client, "proposal_revise", args)
 
     return proposal_revise
 
 
-def _build_proposal_send(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+def _build_proposal_send(client: Any, _is_owner: Any, deps: dict[str, Any]):
     async def proposal_send(
         context: RunContext,
         to: str,
@@ -955,8 +1002,9 @@ def _build_proposal_send(client: Any, _is_owner: Any, _deps: dict[str, Any]):
             args["subject"] = subject
         if body:
             args["body"] = body
-        if engagement_id:
-            args["engagement_id"] = engagement_id
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
         return await handle_named_tool(client, "proposal_send", args)
 
     return proposal_send
