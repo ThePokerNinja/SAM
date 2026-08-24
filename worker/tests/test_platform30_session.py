@@ -1,7 +1,9 @@
+from sam_worker.agent import first_builder_dump_id
 from sam_worker.demo_cap import is_capped_room, should_hangup
 from sam_worker.packs.registry import PackRegistry
 from sam_worker.session import (
     BUILDER_OPENING,
+    BUILDER_REASK,
     greeting_instructions,
     route_session_kind,
     should_speak_builder_opening,
@@ -36,6 +38,7 @@ def test_builder_room_uses_spoken_opening() -> None:
     assert not should_speak_builder_opening("sam-owner")
     assert "Samuel" in BUILDER_OPENING
     assert "make real" in BUILDER_OPENING
+    assert "what's the job" in BUILDER_REASK.lower()
 
 
 def test_builder_greeting_is_not_the_portal_greeting() -> None:
@@ -51,6 +54,14 @@ def test_intake_overlay_stays_collaborative() -> None:
     overlay = PackRegistry().get("intake").persona_overlay.lower()
     assert "few minutes" in overlay
     assert "how their day" in overlay
+
+
+def test_first_builder_dump_skips_sync_and_portal() -> None:
+    dump = "I need business cards."
+    assert first_builder_dump_id("builder-eng-1", dump, already=False) == "eng-1"
+    assert first_builder_dump_id("builder-eng-1", "[SYNC] wait", already=False) == ""
+    assert first_builder_dump_id("builder-eng-1", dump, already=True) == ""
+    assert first_builder_dump_id("sam-owner", dump, already=False) == ""
 
 
 def test_builder_room_injects_engagement_id() -> None:
@@ -72,6 +83,7 @@ def test_intake_overlay_names_three_sections() -> None:
     assert "research" in overlay
     assert "discovery" in overlay
     assert "tap the bar" in overlay
+    assert "proposal_apply_summary" in overlay
 
 
 def test_centaur_idea_utterance_selects_tool() -> None:

@@ -69,6 +69,7 @@ class Session:
 
 
 BUILDER_OPENING = "I'm Samuel. What's the thing you want to make real?"
+BUILDER_REASK = "Whenever you're ready — what's the job?"
 
 
 def should_speak_builder_opening(room_name: str) -> bool:

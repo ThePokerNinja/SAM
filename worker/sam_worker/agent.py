@@ -89,6 +89,7 @@ from .router import FastIntentRouter, RoutedSamuelAgent
 from .demo_cap import GOODBYE, TURN_MINUTES, TURN_TOKENS, is_capped_room, should_hangup
 from .session import (
     BUILDER_OPENING,
+    BUILDER_REASK,
     build_session,
     greeting_instructions,
     should_speak_builder_opening,
@@ -106,8 +107,8 @@ from .packs import PackRegistry
 from .tier import TierState
 from .tier_session import apply_tier_to_session, parse_tier_payload
 from .tool_latency import ToolLatencyManager
-from .tools.handlers import build_rainmaker_client, handle_commit_calendar_change
-from .tools.rainmaker_registry import register_rainmaker_tools
+from .tools.handlers import build_rainmaker_client, handle_commit_calendar_change, handle_named_tool
+from .tools.rainmaker_registry import engagement_id_from_room, register_rainmaker_tools
 from .tools.registry import ToolRegistry
 from .turns import build_turn_handling
 from .voice_verify import VoiceVerifier
@@ -120,6 +121,16 @@ _OWNER_ONLY = (
 
 TIER_TOPIC = "sam-tier"
 CHAT_TOPIC = "sam-chat"
+
+
+def first_builder_dump_id(room_name: str, text: str, *, already: bool) -> str:
+    """First non-SYNC user turn in a builder- room is the job dump."""
+    if already or not should_speak_builder_opening(room_name):
+        return ""
+    cleaned = (text or "").strip()
+    if not cleaned or cleaned.startswith("[SYNC]"):
+        return ""
+    return engagement_id_from_room(room_name)
 
 
 async def _run_scan_bg(client) -> None:
@@ -1382,8 +1393,29 @@ async def entrypoint(ctx: JobContext) -> None:
     wire_owner_gate_listeners(ctx.room, owner_gate)
     text_reply_lock = asyncio.Lock()
 
+    builder_dump_applied = {"done": False}
+
+    async def _apply_first_builder_dump(text: str) -> None:
+        eid = first_builder_dump_id(room_name, text, already=builder_dump_applied["done"])
+        if not eid:
+            return
+        builder_dump_applied["done"] = True
+        try:
+            spoken = await handle_named_tool(
+                rm_client,
+                "proposal_apply_summary",
+                {"engagement_id": eid, "summary": cleaned},
+            )
+            _log.info("builder first dump applied engagement=%s chars=%d", eid, len(cleaned))
+            if spoken:
+                _log.debug("builder first dump result: %s", spoken[:160])
+        except Exception:  # noqa: BLE001
+            builder_dump_applied["done"] = False
+            _log.exception("builder first dump apply failed")
+
     async def _generate_text_reply(text: str, request_id: str) -> None:
         """Run the normal Samuel agent/tool path while suppressing TTS entirely."""
+        await _apply_first_builder_dump(text)
         async with text_reply_lock:
             audio_was_enabled = session.output.audio_enabled
             session.output.set_audio_enabled(False)
@@ -1481,7 +1513,34 @@ async def entrypoint(ctx: JobContext) -> None:
     await asyncio.sleep(1.0)
     if should_speak_builder_opening(room_name):
         # Mic is often already live; an interruptible say gets cancelled by VAD.
+        builder_heard = {"user": False}
+
+        @session.on("user_input_transcribed")
+        def _builder_heard_speech(ev) -> None:
+            transcript = str(getattr(ev, "transcript", "") or "").strip()
+            if getattr(ev, "is_final", False) and transcript:
+                builder_heard["user"] = True
+                asyncio.ensure_future(_apply_first_builder_dump(transcript))
+
+        @session.on("conversation_item_added")
+        def _builder_heard_item(ev) -> None:
+            item = getattr(ev, "item", None)
+            role = str(getattr(item, "role", "") or "")
+            if role in {"user", "human"}:
+                builder_heard["user"] = True
+
         await session.say(BUILDER_OPENING, allow_interruptions=False)
+
+        async def _builder_silence_reask() -> None:
+            await asyncio.sleep(8.0)
+            if builder_heard["user"]:
+                return
+            try:
+                await session.say(BUILDER_REASK, allow_interruptions=False)
+            except Exception:  # noqa: BLE001
+                _log.debug("builder silence reask failed", exc_info=True)
+
+        asyncio.ensure_future(_builder_silence_reask())
     else:
         await session.generate_reply(instructions=greeting_instructions(sam_session.kind))
 
