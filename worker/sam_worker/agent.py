@@ -87,7 +87,12 @@ from .prompt_budget import samuel_instructions
 from .pythia import BaselineStore, ForecastLedger, predict_threshold_event
 from .router import FastIntentRouter, RoutedSamuelAgent
 from .demo_cap import GOODBYE, TURN_MINUTES, TURN_TOKENS, is_capped_room, should_hangup
-from .session import build_session, greeting_instructions
+from .session import (
+    BUILDER_OPENING,
+    build_session,
+    greeting_instructions,
+    should_speak_builder_opening,
+)
 from .session_log import SessionLogger
 from .safety import SafetyState
 from .skillbuilder.advisory import run_advisory
@@ -1470,7 +1475,13 @@ async def entrypoint(ctx: JobContext) -> None:
         )
         return
 
-    await session.generate_reply(instructions=greeting_instructions(sam_session.kind))
+    # Client must be in the room and subscribed, or the opening plays into silence.
+    await _wait_for_sip_participants(ctx.room, timeout_s=8.0)
+    await asyncio.sleep(0.4)
+    if should_speak_builder_opening(room_name):
+        await session.say(BUILDER_OPENING, allow_interruptions=True)
+    else:
+        await session.generate_reply(instructions=greeting_instructions(sam_session.kind))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,11 @@
 from sam_worker.demo_cap import is_capped_room, should_hangup
 from sam_worker.packs.registry import PackRegistry
-from sam_worker.session import greeting_instructions, route_session_kind
+from sam_worker.session import (
+    BUILDER_OPENING,
+    greeting_instructions,
+    route_session_kind,
+    should_speak_builder_opening,
+)
 from sam_worker.tools.select import select_tools_for_utterance
 
 
@@ -22,6 +27,14 @@ def test_demo_cap_hangup_rules() -> None:
     assert should_hangup({"ok": False, "error": "minutes_cap"})
     assert not should_hangup({"ok": True})
     assert not should_hangup({"ok": False, "error": "timeout"})
+
+
+def test_builder_room_uses_spoken_opening() -> None:
+    assert should_speak_builder_opening("builder-abc")
+    assert not should_speak_builder_opening("demo-abc")
+    assert not should_speak_builder_opening("sam-owner")
+    assert "Samuel" in BUILDER_OPENING
+    assert "make real" in BUILDER_OPENING
 
 
 def test_builder_greeting_is_not_the_portal_greeting() -> None:

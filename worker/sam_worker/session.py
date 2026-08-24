@@ -68,6 +68,13 @@ class Session:
         return True
 
 
+BUILDER_OPENING = "I'm Samuel. What's the thing you want to make real?"
+
+
+def should_speak_builder_opening(room_name: str) -> bool:
+    return (room_name or "").lower().startswith("builder-")
+
+
 def greeting_instructions(kind: SessionKind) -> str:
     """Spoken open. Intake is the builder; the voice portal stays the general greet."""
     if kind == "intake":
