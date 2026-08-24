@@ -87,7 +87,7 @@ from .prompt_budget import samuel_instructions
 from .pythia import BaselineStore, ForecastLedger, predict_threshold_event
 from .router import FastIntentRouter, RoutedSamuelAgent
 from .demo_cap import GOODBYE, TURN_MINUTES, TURN_TOKENS, is_capped_room, should_hangup
-from .session import build_session
+from .session import build_session, greeting_instructions
 from .session_log import SessionLogger
 from .safety import SafetyState
 from .skillbuilder.advisory import run_advisory
@@ -1470,12 +1470,7 @@ async def entrypoint(ctx: JobContext) -> None:
         )
         return
 
-    await session.generate_reply(
-        instructions=(
-            "Greet the user warmly as Samuel in one short spoken sentence, then ask how "
-            "you can help. Do not promise any capabilities, pricing, or actions in the greeting."
-        )
-    )
+    await session.generate_reply(instructions=greeting_instructions(sam_session.kind))
 
 
 if __name__ == "__main__":

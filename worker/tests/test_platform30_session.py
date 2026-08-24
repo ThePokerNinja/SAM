@@ -1,6 +1,6 @@
 from sam_worker.demo_cap import is_capped_room, should_hangup
 from sam_worker.packs.registry import PackRegistry
-from sam_worker.session import route_session_kind
+from sam_worker.session import greeting_instructions, route_session_kind
 from sam_worker.tools.select import select_tools_for_utterance
 
 
@@ -19,6 +19,21 @@ def test_demo_cap_hangup_rules() -> None:
     assert should_hangup({"ok": False, "error": "minutes_cap"})
     assert not should_hangup({"ok": True})
     assert not should_hangup({"ok": False, "error": "timeout"})
+
+
+def test_builder_greeting_is_not_the_portal_greeting() -> None:
+    builder = greeting_instructions("intake")
+    portal = greeting_instructions("trading")
+    assert "proposal builder" in builder.lower()
+    assert "how you can help" not in builder.lower()
+    assert "how you can help" in portal.lower()
+    assert "proposal builder" not in portal.lower()
+
+
+def test_intake_overlay_stays_collaborative() -> None:
+    overlay = PackRegistry().get("intake").persona_overlay.lower()
+    assert "few minutes" in overlay
+    assert "how their day" in overlay
 
 
 def test_intake_pack_is_proposal_tools() -> None:

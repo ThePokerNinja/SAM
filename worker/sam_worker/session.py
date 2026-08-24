@@ -68,6 +68,22 @@ class Session:
         return True
 
 
+def greeting_instructions(kind: SessionKind) -> str:
+    """Spoken open. Intake is the builder; the voice portal stays the general greet."""
+    if kind == "intake":
+        return (
+            "This is the proposal builder — a short, collaborative scoping call, "
+            "not a general chat. In one spoken breath: you are Samuel, then ask "
+            "what they want to make real. Invite a messy sketch — a concept, a "
+            "business need, an idea they have not named yet. Then stop and listen. "
+            "Do not ask how their day is. Do not list skills, tools, or pricing."
+        )
+    return (
+        "Greet the user warmly as Samuel in one short spoken sentence, then ask how "
+        "you can help. Do not promise any capabilities, pricing, or actions in the greeting."
+    )
+
+
 def pack_for_kind(kind: SessionKind) -> str:
     return {
         "trading": "trading",
