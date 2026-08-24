@@ -93,6 +93,8 @@ def test_intake_pack_is_proposal_tools() -> None:
     assert allows_pack_switch("trading")
     assert not allows_skill_approval_sms("intake")
     assert allows_skill_approval_sms("trading")
+    assert not allows_skill_approval_sms("trading", "builder-eng-1")
+    assert not allows_skill_approval_sms("trading", "demo-abc")
 
 
 def test_builder_room_stays_intake_when_utterance_says_moderate() -> None:

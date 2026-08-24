@@ -95,14 +95,24 @@ def greeting_instructions(kind: SessionKind) -> str:
     )
 
 
+def is_builder_room(room_name: str) -> bool:
+    """True for proposal-builder LiveKit rooms, including granted demo walks."""
+    room = (room_name or "").lower()
+    return room.startswith(
+        ("builder-", "demo-builder-", "demo-", "intake-", "samuel-dial-")
+    )
+
+
 def allows_pack_switch(kind: SessionKind) -> bool:
     """Builder / intake rooms stay on the proposal pack. They are not moderator rooms."""
     return kind != "intake"
 
 
-def allows_skill_approval_sms(kind: SessionKind) -> bool:
+def allows_skill_approval_sms(kind: SessionKind, room_name: str = "") -> bool:
     """YES/NO skill-approval texts are an owner consent rail, not part of scoping a job."""
-    return kind != "intake"
+    if kind == "intake" or is_builder_room(room_name):
+        return False
+    return True
 
 
 def pack_for_kind(kind: SessionKind) -> str:

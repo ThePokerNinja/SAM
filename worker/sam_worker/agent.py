@@ -334,7 +334,8 @@ async def entrypoint(ctx: JobContext) -> None:
     if (ctx.room.name or "").startswith("sam-wave8-embedded-"):
         _log.info("Skipping embedded benchmark room dispatch")
         return
-    room_name = ctx.room.name or ""
+    job_room = str(getattr(getattr(getattr(ctx, "job", None), "room", None), "name", "") or "")
+    room_name = (ctx.room.name or job_room or "").strip()
     outbound_meta = decode_outbound_metadata(getattr(ctx.room, "metadata", "") or "")
     is_outbound_guest = is_outbound_dial_room(room_name) or outbound_meta["kind"] == "outbound_guest"
     outbound_script = {"spoken": str(outbound_meta.get("spoken") or "").strip(), "delivered": False}
@@ -1023,7 +1024,9 @@ async def entrypoint(ctx: JobContext) -> None:
                     snapshot_path = episode_store.path.parent / "sam-hero-snapshot.json"
                     snapshot = await asyncio.to_thread(live_snapshot, skillbuilder_runtime)
                     await asyncio.to_thread(write_snapshot, snapshot_path, snapshot)
-                    if allows_skill_approval_sms(sam_session.kind):
+                    if allows_skill_approval_sms(
+                        sam_session.kind, room_name or session_id
+                    ):
                         v2v_values = skillbuilder_runtime.metric_values(
                             "samuel_live_session", "v2v_ms", limit=40
                         )
