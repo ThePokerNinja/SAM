@@ -49,6 +49,12 @@ VOICE_TOOLS: tuple[str, ...] = (
     "grant_room",
     "send_demo",
     "set_memory",
+    "proposal_apply_summary",
+    "proposal_set_field",
+    "proposal_focus",
+    "proposal_ask_gap",
+    "proposal_revise",
+    "proposal_send",
 )
 
 STUDIO_TOOLS: tuple[str, ...] = (
@@ -273,6 +279,32 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         selected.append("set_memory")
     if _has_any(text, ("centaur idea", "queue this idea", "write a prd")):
         selected.append("centaur_idea")
+    if _has_any(
+        text,
+        (
+            "proposal",
+            "sow",
+            "estimate",
+            "scope",
+            "job title",
+            "project name",
+            "opening summary",
+            "email this",
+            "send this",
+            "website",
+            "branding",
+        ),
+    ) or len(text) >= 80:
+        selected.extend(
+            [
+                "proposal_apply_summary",
+                "proposal_set_field",
+                "proposal_focus",
+                "proposal_ask_gap",
+                "proposal_revise",
+                "proposal_send",
+            ]
+        )
     calendar_action = calendar_action_for_utterance(utterance)
     if calendar_action:
         selected.append("propose_calendar_change")

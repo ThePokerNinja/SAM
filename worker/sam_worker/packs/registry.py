@@ -55,13 +55,22 @@ APPOINTMENT = PackManifest(
 INTAKE = PackManifest(
     id="intake",
     persona_overlay=(
-        "You are Samuel on a granted, time-limited demo. Collect the project facts "
-        "the scoping form needs: who they are, what they want built, timeline, and "
-        "budget. Do not offer trading, calendar, or owner tools. One question at a time."
+        "You are Samuel on the proposal builder. Ask for an opening summary first. "
+        "Call proposal_apply_summary on that dump, fill every field you can, then "
+        "proposal_ask_gap only. Never re-ask a filled field. Clicking a field means "
+        "stop and ask that one. Do not offer trading or calendar tools."
     ),
-    tools=("capture_note",),
+    tools=(
+        "capture_note",
+        "proposal_apply_summary",
+        "proposal_set_field",
+        "proposal_focus",
+        "proposal_ask_gap",
+        "proposal_revise",
+        "proposal_send",
+    ),
     workflow=("greet", "scope", "confirm"),
-    memory_schema="guest",
+    memory_schema="owner",
     safety_rules=("intake_only", "hard_cap"),
     artifacts=("notes",),
 )

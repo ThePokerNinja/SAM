@@ -123,7 +123,10 @@ def _allowed_origins() -> list[str]:
     if not raw:
         # Sensible defaults: local dev (Vite picks 5173, then 5174/5175 if busy)
         # + the prod portal domain.
-        origins = ["https://voice.michaelstewman.com"]
+        origins = [
+            "https://voice.michaelstewman.com",
+            "https://start.michaelstewman.com",
+        ]
         for port in (5173, 5174, 5175):
             origins.append(f"http://localhost:{port}")
             origins.append(f"http://127.0.0.1:{port}")

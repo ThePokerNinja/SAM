@@ -21,9 +21,12 @@ def test_demo_cap_hangup_rules() -> None:
     assert not should_hangup({"ok": False, "error": "timeout"})
 
 
-def test_intake_pack_is_capture_note_only() -> None:
-    names = PackRegistry().tools_for("intake", ["capture_note", "grant_room", "place_call", "run_scan"])
-    assert names == ["capture_note"]
+def test_intake_pack_is_proposal_tools() -> None:
+    names = PackRegistry().tools_for(
+        "intake",
+        ["capture_note", "grant_room", "place_call", "run_scan", "proposal_apply_summary"],
+    )
+    assert names == ["capture_note", "proposal_apply_summary"]
 
 
 def test_centaur_idea_utterance_selects_tool() -> None:

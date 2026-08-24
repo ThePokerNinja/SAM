@@ -401,6 +401,60 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     )
     registry.register(
         ToolSpec(
+            name="proposal_apply_summary",
+            description="Parse an opening job dump and fill every proposal field it already answered.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_proposal_apply_summary,
+    )
+    registry.register(
+        ToolSpec(
+            name="proposal_set_field",
+            description="Write one proposal form field.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_proposal_set_field,
+    )
+    registry.register(
+        ToolSpec(
+            name="proposal_focus",
+            description="Jump the live form to one field or question.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_proposal_focus,
+    )
+    registry.register(
+        ToolSpec(
+            name="proposal_ask_gap",
+            description="Ask only the next unfilled cost driver.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_proposal_ask_gap,
+    )
+    registry.register(
+        ToolSpec(
+            name="proposal_revise",
+            description="Snapshot the current estimate or SOW as a revision.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_proposal_revise,
+    )
+    registry.register(
+        ToolSpec(
+            name="proposal_send",
+            description="Email or share the current proposal.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_proposal_send,
+    )
+    registry.register(
+        ToolSpec(
             name="centaur_idea",
             description="Turn a spoken idea into a Centaur PRD and queue it. Owner only. Args: title, idea.",
             read_only=False,
@@ -800,3 +854,109 @@ def _build_centaur_idea(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_named_tool(client, "centaur_idea", args)
 
     return centaur_idea
+
+
+def _build_proposal_apply_summary(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def proposal_apply_summary(
+        context: RunContext,
+        summary: str,
+        engagement_id: str = "",
+        jobTitle: str = "",
+        projectCategory: str = "",
+        projectPriority: str = "",
+        projectName: str = "",
+        projectSummary: str = "",
+    ) -> str:
+        args: dict[str, Any] = {"summary": summary}
+        if engagement_id:
+            args["engagement_id"] = engagement_id
+        if jobTitle:
+            args["jobTitle"] = jobTitle
+        if projectCategory:
+            args["projectCategory"] = projectCategory
+        if projectPriority:
+            args["projectPriority"] = projectPriority
+        if projectName:
+            args["projectName"] = projectName
+        if projectSummary:
+            args["projectSummary"] = projectSummary
+        return await handle_named_tool(client, "proposal_apply_summary", args)
+
+    return proposal_apply_summary
+
+
+def _build_proposal_set_field(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def proposal_set_field(
+        context: RunContext, field: str, value: str, engagement_id: str = ""
+    ) -> str:
+        args: dict[str, Any] = {"field": field, "value": value}
+        if engagement_id:
+            args["engagement_id"] = engagement_id
+        return await handle_named_tool(client, "proposal_set_field", args)
+
+    return proposal_set_field
+
+
+def _build_proposal_focus(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def proposal_focus(
+        context: RunContext,
+        field: str = "",
+        question_id: str = "",
+        engagement_id: str = "",
+    ) -> str:
+        args: dict[str, Any] = {}
+        if field:
+            args["field"] = field
+        if question_id:
+            args["question_id"] = question_id
+        if engagement_id:
+            args["engagement_id"] = engagement_id
+        return await handle_named_tool(client, "proposal_focus", args)
+
+    return proposal_focus
+
+
+def _build_proposal_ask_gap(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def proposal_ask_gap(context: RunContext, engagement_id: str = "") -> str:
+        args: dict[str, Any] = {}
+        if engagement_id:
+            args["engagement_id"] = engagement_id
+        return await handle_named_tool(client, "proposal_ask_gap", args)
+
+    return proposal_ask_gap
+
+
+def _build_proposal_revise(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def proposal_revise(
+        context: RunContext, note: str = "", hours: float = 0, engagement_id: str = ""
+    ) -> str:
+        args: dict[str, Any] = {}
+        if note:
+            args["note"] = note
+        if hours:
+            args["hours"] = hours
+        if engagement_id:
+            args["engagement_id"] = engagement_id
+        return await handle_named_tool(client, "proposal_revise", args)
+
+    return proposal_revise
+
+
+def _build_proposal_send(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def proposal_send(
+        context: RunContext,
+        to: str,
+        subject: str = "",
+        body: str = "",
+        engagement_id: str = "",
+    ) -> str:
+        args: dict[str, Any] = {"to": to}
+        if subject:
+            args["subject"] = subject
+        if body:
+            args["body"] = body
+        if engagement_id:
+            args["engagement_id"] = engagement_id
+        return await handle_named_tool(client, "proposal_send", args)
+
+    return proposal_send
