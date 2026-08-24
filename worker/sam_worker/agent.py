@@ -1477,9 +1477,10 @@ async def entrypoint(ctx: JobContext) -> None:
 
     # Client must be in the room and subscribed, or the opening plays into silence.
     await _wait_for_sip_participants(ctx.room, timeout_s=8.0)
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(1.0)
     if should_speak_builder_opening(room_name):
-        await session.say(BUILDER_OPENING, allow_interruptions=True)
+        # Mic is often already live; an interruptible say gets cancelled by VAD.
+        await session.say(BUILDER_OPENING, allow_interruptions=False)
     else:
         await session.generate_reply(instructions=greeting_instructions(sam_session.kind))
 
