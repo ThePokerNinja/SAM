@@ -1395,10 +1395,11 @@ async def entrypoint(ctx: JobContext) -> None:
 
     builder_dump_applied = {"done": False}
 
-    async def _apply_first_builder_dump(text: str) -> None:
+    async def _apply_first_builder_dump(text: str) -> str:
         eid = first_builder_dump_id(room_name, text, already=builder_dump_applied["done"])
         if not eid:
-            return
+            return ""
+        cleaned = (text or "").strip()
         builder_dump_applied["done"] = True
         try:
             spoken = await handle_named_tool(
@@ -1417,17 +1418,42 @@ async def entrypoint(ctx: JobContext) -> None:
             _log.info("builder first dump applied engagement=%s chars=%d", eid, len(cleaned))
             if spoken:
                 _log.debug("builder first dump result: %s", spoken[:160])
+            return eid
         except Exception:  # noqa: BLE001
             builder_dump_applied["done"] = False
             _log.exception("builder first dump apply failed")
+            return ""
 
     async def _generate_text_reply(text: str, request_id: str) -> None:
         """Run the normal Samuel agent/tool path while suppressing TTS entirely."""
-        await _apply_first_builder_dump(text)
+        dumped = await _apply_first_builder_dump(text)
         async with text_reply_lock:
             audio_was_enabled = session.output.audio_enabled
             session.output.set_audio_enabled(False)
             try:
+                if dumped:
+                    reply = await handle_named_tool(
+                        rm_client,
+                        "proposal_ask_gap",
+                        {"engagement_id": dumped},
+                    )
+                    if reply:
+                        try:
+                            await session.say(reply, allow_interruptions=True, add_to_chat_ctx=False)
+                        except Exception:  # noqa: BLE001
+                            _log.debug("builder complete/gap say failed", exc_info=True)
+                    await ctx.room.local_participant.publish_data(
+                        json.dumps(
+                            {
+                                "type": "assistant_text",
+                                "request_id": request_id,
+                                "text": reply or "Got it.",
+                            }
+                        ),
+                        reliable=True,
+                        topic=CHAT_TOPIC,
+                    )
+                    return
                 handle = session.generate_reply(user_input=text, input_modality="text")
                 await handle
                 reply = ""
