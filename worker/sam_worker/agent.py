@@ -1406,6 +1406,14 @@ async def entrypoint(ctx: JobContext) -> None:
                 "proposal_apply_summary",
                 {"engagement_id": eid, "summary": cleaned},
             )
+            await handle_named_tool(
+                rm_client,
+                "proposal_save_research",
+                {
+                    "engagement_id": eid,
+                    "marketSummary": cleaned[:400],
+                },
+            )
             _log.info("builder first dump applied engagement=%s chars=%d", eid, len(cleaned))
             if spoken:
                 _log.debug("builder first dump result: %s", spoken[:160])

@@ -64,6 +64,9 @@ INTAKE = PackManifest(
         "before you speak again. After they answer a discovery "
         "question, silently use proposal_answer_question. Never re-ask a filled field. "
         "The form has three sections: summary, research, then discovery. "
+        "When research is the next gap, silently use proposal_save_research "
+        "with a short snapshot, then proposal_ask_gap. Tiny jobs should not "
+        "walk a long discovery list. "
         "If they click a field, stop and ask that one. "
         "Do not greet again after the opening. Do not ask how their day is. "
         "Do not name tools, walk a wizard, or offer trading or calendar. "
@@ -77,6 +80,8 @@ INTAKE = PackManifest(
         "proposal_set_field",
         "proposal_focus",
         "proposal_ask_gap",
+        "proposal_save_research",
+        "proposal_save_questions",
         "proposal_answer_question",
         "proposal_revise",
         "proposal_send",

@@ -84,6 +84,7 @@ def test_intake_overlay_names_three_sections() -> None:
     assert "discovery" in overlay
     assert "tap the bar" in overlay
     assert "proposal_apply_summary" in overlay
+    assert "proposal_save_research" in overlay
 
 
 def test_centaur_idea_utterance_selects_tool() -> None:

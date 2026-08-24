@@ -454,6 +454,24 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     )
     registry.register(
         ToolSpec(
+            name="proposal_save_research",
+            description="Persist the research snapshot so the form can leave the research step.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_proposal_save_research,
+    )
+    registry.register(
+        ToolSpec(
+            name="proposal_save_questions",
+            description="Persist the discovery question list on the live form.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_proposal_save_questions,
+    )
+    registry.register(
+        ToolSpec(
             name="proposal_answer_question",
             description="Write the answer to one discovery question on the live form.",
             read_only=False,
@@ -954,6 +972,45 @@ def _build_proposal_ask_gap(client: Any, _is_owner: Any, deps: dict[str, Any]):
         return await handle_named_tool(client, "proposal_ask_gap", args)
 
     return proposal_ask_gap
+
+
+def _build_proposal_save_research(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    async def proposal_save_research(
+        context: RunContext,
+        marketSummary: str,
+        engagement_id: str = "",
+        competitiveLandscape: str = "",
+        bestPractices: str = "",
+        strategicRecommendations: str = "",
+    ) -> str:
+        args: dict[str, Any] = {"marketSummary": marketSummary}
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
+        if competitiveLandscape:
+            args["competitiveLandscape"] = competitiveLandscape
+        if bestPractices:
+            args["bestPractices"] = bestPractices
+        if strategicRecommendations:
+            args["strategicRecommendations"] = strategicRecommendations
+        return await handle_named_tool(client, "proposal_save_research", args)
+
+    return proposal_save_research
+
+
+def _build_proposal_save_questions(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    async def proposal_save_questions(
+        context: RunContext,
+        questions: list[dict[str, Any]],
+        engagement_id: str = "",
+    ) -> str:
+        args: dict[str, Any] = {"questions": questions}
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
+        return await handle_named_tool(client, "proposal_save_questions", args)
+
+    return proposal_save_questions
 
 
 def _build_proposal_answer_question(client: Any, _is_owner: Any, deps: dict[str, Any]):
