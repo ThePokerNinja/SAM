@@ -123,6 +123,24 @@ TIER_TOPIC = "sam-tier"
 CHAT_TOPIC = "sam-chat"
 
 
+def _conversation_item_text(item: object) -> str:
+    text = getattr(item, "text_content", None)
+    if text:
+        return str(text).strip()
+    content = getattr(item, "content", None)
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            if isinstance(part, str):
+                parts.append(part)
+            else:
+                parts.append(str(getattr(part, "text", "") or getattr(part, "content", "") or ""))
+        return " ".join(part for part in parts if part).strip()
+    return ""
+
+
 def first_builder_dump_id(room_name: str, text: str, *, already: bool) -> str:
     """First non-SYNC user turn in a builder- room is the job dump."""
     if already or not should_speak_builder_opening(room_name):
@@ -1562,6 +1580,9 @@ async def entrypoint(ctx: JobContext) -> None:
             role = str(getattr(item, "role", "") or "")
             if role in {"user", "human"}:
                 builder_heard["user"] = True
+                spoken = _conversation_item_text(item)
+                if spoken:
+                    asyncio.ensure_future(_apply_first_builder_dump(spoken))
 
         await session.say(BUILDER_OPENING, allow_interruptions=False)
 
