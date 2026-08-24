@@ -90,6 +90,7 @@ from .demo_cap import GOODBYE, TURN_MINUTES, TURN_TOKENS, is_capped_room, should
 from .session import (
     BUILDER_OPENING,
     BUILDER_REASK,
+    allows_skill_approval_sms,
     build_session,
     greeting_instructions,
     should_speak_builder_opening,
@@ -1018,59 +1019,63 @@ async def entrypoint(ctx: JobContext) -> None:
                 )
             )
             if skillbuilder_runtime is not None:
-                snapshot_path = episode_store.path.parent / "sam-hero-snapshot.json"
-                snapshot = await asyncio.to_thread(live_snapshot, skillbuilder_runtime)
-                await asyncio.to_thread(write_snapshot, snapshot_path, snapshot)
-                v2v_values = skillbuilder_runtime.metric_values(
-                    "samuel_live_session", "v2v_ms", limit=40
-                )
-                if v2v_values:
-                    import statistics
+                try:
+                    snapshot_path = episode_store.path.parent / "sam-hero-snapshot.json"
+                    snapshot = await asyncio.to_thread(live_snapshot, skillbuilder_runtime)
+                    await asyncio.to_thread(write_snapshot, snapshot_path, snapshot)
+                    if allows_skill_approval_sms(sam_session.kind):
+                        v2v_values = skillbuilder_runtime.metric_values(
+                            "samuel_live_session", "v2v_ms", limit=40
+                        )
+                        if v2v_values:
+                            import statistics
 
-                    candidate = candidate_from_latency(
-                        session_id,
-                        v2v_p50_ms=float(statistics.median(v2v_values)),
-                    )
-                    if candidate is not None:
-                        run_advisory(
-                            skillbuilder_runtime,
-                            candidate,
-                            reason=candidate.problem_detected,
-                        )
-                        if candidate.gates.approved_for_adoption:
-                            await rm_client.request_skill_approval(
-                                candidate.candidate_id,
-                                candidate.problem_detected,
+                            candidate = candidate_from_latency(
+                                session_id,
+                                v2v_p50_ms=float(statistics.median(v2v_values)),
                             )
-                if pythia_ledger is not None:
-                    raw = pythia_ledger.calibration_candidate(
-                        subject="next_turn_latency_over_800"
-                    )
-                    if raw is not None:
-                        pythia_candidate = candidate_from_pythia_brier(
-                            "next_turn_latency_over_800",
-                            sample_count=int(raw["sample_count"]),
-                            brier=float(raw["brier"]),
-                        )
-                        # SAM-053: ask the owner once per candidate. Calibration
-                        # candidates are advisory, so the ledger's sample floor and
-                        # Brier threshold are the filter, not the adoption gates.
-                        first_ask = (
-                            skillbuilder_runtime.approval_count(
-                                pythia_candidate.candidate_id
+                            if candidate is not None:
+                                run_advisory(
+                                    skillbuilder_runtime,
+                                    candidate,
+                                    reason=candidate.problem_detected,
+                                )
+                                if candidate.gates.approved_for_adoption:
+                                    await rm_client.request_skill_approval(
+                                        candidate.candidate_id,
+                                        candidate.problem_detected,
+                                    )
+                        if pythia_ledger is not None:
+                            raw = pythia_ledger.calibration_candidate(
+                                subject="next_turn_latency_over_800"
                             )
-                            == 0
-                        )
-                        run_advisory(
-                            skillbuilder_runtime,
-                            pythia_candidate,
-                            reason=pythia_candidate.problem_detected,
-                        )
-                        if first_ask:
-                            await rm_client.request_skill_approval(
-                                pythia_candidate.candidate_id,
-                                pythia_candidate.problem_detected,
-                            )
+                            if raw is not None:
+                                pythia_candidate = candidate_from_pythia_brier(
+                                    "next_turn_latency_over_800",
+                                    sample_count=int(raw["sample_count"]),
+                                    brier=float(raw["brier"]),
+                                )
+                                # SAM-053: ask the owner once per candidate. Calibration
+                                # candidates are advisory, so the ledger's sample floor and
+                                # Brier threshold are the filter, not the adoption gates.
+                                first_ask = (
+                                    skillbuilder_runtime.approval_count(
+                                        pythia_candidate.candidate_id
+                                    )
+                                    == 0
+                                )
+                                run_advisory(
+                                    skillbuilder_runtime,
+                                    pythia_candidate,
+                                    reason=pythia_candidate.problem_detected,
+                                )
+                                if first_ask:
+                                    await rm_client.request_skill_approval(
+                                        pythia_candidate.candidate_id,
+                                        pythia_candidate.problem_detected,
+                                    )
+                except Exception:  # noqa: BLE001
+                    _log.exception("skillbuilder close path failed")
             close_persistence_state["done"] = True
 
     @session.on("close")
@@ -1273,30 +1278,33 @@ async def entrypoint(ctx: JobContext) -> None:
         previous_pack_id = pack_registry.active_id
         if not sam_session.activate_from_utterance(text):
             return
-        if previous_pack_id != sam_session.pack:
-            await _flush_pack(previous_pack_id)
-            pack_registry.unload(previous_pack_id)
-        active_pack = pack_registry.activate(sam_session.pack)
-        active_overlay = (active_pack.persona_overlay or "").strip()
-        active_instructions = (
-            f"{base_instructions}\n\n{active_overlay}" if active_overlay else base_instructions
-        )
-        await routed_agent.update_instructions(active_instructions)
-        await routed_agent.update_tools(_tools_for_pack(active_pack.id))
-        _log.info(
-            "SESSION_PACK_ACTIVATED kind=%s pack=%s surface=%s",
-            sam_session.kind,
-            active_pack.id,
-            sam_session.surface,
-        )
-        await _publish_bench_event(
-            {
-                "type": "session_pack_activated",
-                "kind": sam_session.kind,
-                "pack": active_pack.id,
-                "surface": sam_session.surface,
-            }
-        )
+        try:
+            if previous_pack_id != sam_session.pack:
+                await _flush_pack(previous_pack_id)
+                pack_registry.unload(previous_pack_id)
+            active_pack = pack_registry.activate(sam_session.pack)
+            active_overlay = (active_pack.persona_overlay or "").strip()
+            active_instructions = (
+                f"{base_instructions}\n\n{active_overlay}" if active_overlay else base_instructions
+            )
+            await routed_agent.update_instructions(active_instructions)
+            await routed_agent.update_tools(_tools_for_pack(active_pack.id))
+            _log.info(
+                "SESSION_PACK_ACTIVATED kind=%s pack=%s surface=%s",
+                sam_session.kind,
+                active_pack.id,
+                sam_session.surface,
+            )
+            await _publish_bench_event(
+                {
+                    "type": "session_pack_activated",
+                    "kind": sam_session.kind,
+                    "pack": active_pack.id,
+                    "surface": sam_session.surface,
+                }
+            )
+        except Exception:  # noqa: BLE001
+            _log.exception("session pack switch failed; keeping prior tools")
 
     async def _session_turn_override(text: str) -> str | None:
         normalized = re.sub(r"\s+", " ", (text or "").strip().lower())

@@ -4,6 +4,9 @@ from sam_worker.packs.registry import PackRegistry
 from sam_worker.session import (
     BUILDER_OPENING,
     BUILDER_REASK,
+    allows_pack_switch,
+    allows_skill_approval_sms,
+    build_session,
     greeting_instructions,
     route_session_kind,
     should_speak_builder_opening,
@@ -73,9 +76,38 @@ def test_builder_room_injects_engagement_id() -> None:
 def test_intake_pack_is_proposal_tools() -> None:
     names = PackRegistry().tools_for(
         "intake",
-        ["capture_note", "grant_room", "place_call", "run_scan", "proposal_apply_summary"],
+        [
+            "capture_note",
+            "grant_room",
+            "moderate_room",
+            "place_call",
+            "run_scan",
+            "request_doctor",
+            "text_me",
+            "send_email",
+            "proposal_apply_summary",
+        ],
     )
     assert names == ["capture_note", "proposal_apply_summary"]
+    assert not allows_pack_switch("intake")
+    assert allows_pack_switch("trading")
+    assert not allows_skill_approval_sms("intake")
+    assert allows_skill_approval_sms("trading")
+
+
+def test_builder_room_stays_intake_when_utterance_says_moderate() -> None:
+    session = build_session(
+        session_id="builder-eng-1",
+        surface="portal",
+        room_name="builder-eng-1",
+    )
+    assert session.kind == "intake"
+    assert session.pack == "intake"
+    assert not session.activate_from_utterance("Samuel, moderate this disagreement")
+    assert session.kind == "intake"
+    assert session.pack == "intake"
+    assert not session.activate_from_utterance("go back to trading mode")
+    assert session.kind == "intake"
 
 
 def test_intake_overlay_names_three_sections() -> None:

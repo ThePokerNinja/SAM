@@ -32,6 +32,7 @@ class Session:
     memory_scope: str = "owner"
     recording: bool = False
     paused: bool = False
+    room_name: str = ""
 
     def pause(self) -> None:
         self.paused = True
@@ -55,10 +56,12 @@ class Session:
 
     def activate_from_utterance(self, utterance: str) -> bool:
         """Activate an explicitly requested pack before the current reply."""
+        if not allows_pack_switch(self.kind):
+            return False
         kind = route_session_kind(
             surface=self.surface,
             keyword=utterance,
-            room_name="",
+            room_name=self.room_name,
             current_kind=self.kind,
         )
         if kind == self.kind:
@@ -90,6 +93,16 @@ def greeting_instructions(kind: SessionKind) -> str:
         "Greet the user warmly as Samuel in one short spoken sentence, then ask how "
         "you can help. Do not promise any capabilities, pricing, or actions in the greeting."
     )
+
+
+def allows_pack_switch(kind: SessionKind) -> bool:
+    """Builder / intake rooms stay on the proposal pack. They are not moderator rooms."""
+    return kind != "intake"
+
+
+def allows_skill_approval_sms(kind: SessionKind) -> bool:
+    """YES/NO skill-approval texts are an owner consent rail, not part of scoping a job."""
+    return kind != "intake"
 
 
 def pack_for_kind(kind: SessionKind) -> str:
@@ -148,4 +161,5 @@ def build_session(
         surface=surf,
         pack=pack,
         participants=(host,),
+        room_name=room_name or "",
     )
