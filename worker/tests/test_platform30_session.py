@@ -114,13 +114,23 @@ def test_builder_room_stays_intake_when_utterance_says_moderate() -> None:
     assert session.kind == "intake"
 
 
+def test_intake_overlay_walks_gaps_and_confirms_filled_rows() -> None:
+    overlay = PackRegistry().get("intake").persona_overlay.lower()
+    assert "proposal_ask_gap" in overlay
+    assert "want to change this, or leave it" in overlay
+    assert "tiny jobs" not in overlay
+    assert "proposal_save_research" not in overlay
+    assert "do not discuss hours-trim" in overlay
+    assert "email" in overlay and "sow" in overlay
+    assert "tap the bar" in overlay
+
+
 def test_intake_overlay_names_three_sections() -> None:
     overlay = PackRegistry().get("intake").persona_overlay.lower()
     assert "research" in overlay
     assert "discovery" in overlay
     assert "tap the bar" in overlay
     assert "proposal_apply_summary" in overlay
-    assert "proposal_save_research" in overlay
 
 
 def test_centaur_idea_utterance_selects_tool() -> None:

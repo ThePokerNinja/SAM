@@ -1436,14 +1436,6 @@ async def entrypoint(ctx: JobContext) -> None:
                 "proposal_apply_summary",
                 {"engagement_id": eid, "summary": cleaned},
             )
-            await handle_named_tool(
-                rm_client,
-                "proposal_save_research",
-                {
-                    "engagement_id": eid,
-                    "marketSummary": cleaned[:400],
-                },
-            )
             _log.info("builder first dump applied engagement=%s chars=%d", eid, len(cleaned))
             if spoken:
                 _log.debug("builder first dump result: %s", spoken[:160])
@@ -1453,6 +1445,31 @@ async def entrypoint(ctx: JobContext) -> None:
             _log.exception("builder first dump apply failed")
             return ""
 
+    async def _ask_builder_gap_after_dump(eid: str, *, add_to_chat: bool = True) -> str:
+        reply = await handle_named_tool(
+            rm_client,
+            "proposal_ask_gap",
+            {"engagement_id": eid},
+        )
+        if reply:
+            try:
+                await session.say(
+                    reply,
+                    allow_interruptions=True,
+                    add_to_chat_ctx=add_to_chat,
+                )
+            except Exception:  # noqa: BLE001
+                _log.debug("builder gap say failed", exc_info=True)
+        return reply or ""
+
+    async def _finish_builder_dump(text: str, *, speak: bool = False) -> str:
+        eid = await _apply_first_builder_dump(text)
+        if not eid:
+            return ""
+        if speak:
+            return await _ask_builder_gap_after_dump(eid)
+        return eid
+
     async def _generate_text_reply(text: str, request_id: str) -> None:
         """Run the normal Samuel agent/tool path while suppressing TTS entirely."""
         dumped = await _apply_first_builder_dump(text)
@@ -1461,16 +1478,7 @@ async def entrypoint(ctx: JobContext) -> None:
             session.output.set_audio_enabled(False)
             try:
                 if dumped:
-                    reply = await handle_named_tool(
-                        rm_client,
-                        "proposal_ask_gap",
-                        {"engagement_id": dumped},
-                    )
-                    if reply:
-                        try:
-                            await session.say(reply, allow_interruptions=True, add_to_chat_ctx=False)
-                        except Exception:  # noqa: BLE001
-                            _log.debug("builder complete/gap say failed", exc_info=True)
+                    reply = await _ask_builder_gap_after_dump(dumped, add_to_chat=False)
                     await ctx.room.local_participant.publish_data(
                         json.dumps(
                             {
@@ -1583,7 +1591,7 @@ async def entrypoint(ctx: JobContext) -> None:
             transcript = str(getattr(ev, "transcript", "") or "").strip()
             if getattr(ev, "is_final", False) and transcript:
                 builder_heard["user"] = True
-                asyncio.ensure_future(_apply_first_builder_dump(transcript))
+                asyncio.ensure_future(_finish_builder_dump(transcript, speak=True))
 
         @session.on("conversation_item_added")
         def _builder_heard_item(ev) -> None:
@@ -1593,7 +1601,7 @@ async def entrypoint(ctx: JobContext) -> None:
                 builder_heard["user"] = True
                 spoken = _conversation_item_text(item)
                 if spoken:
-                    asyncio.ensure_future(_apply_first_builder_dump(spoken))
+                    asyncio.ensure_future(_finish_builder_dump(spoken, speak=True))
 
         await session.say(BUILDER_OPENING, allow_interruptions=False)
 
