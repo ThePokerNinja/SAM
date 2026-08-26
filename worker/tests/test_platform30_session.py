@@ -91,10 +91,12 @@ def test_intake_pack_is_proposal_tools() -> None:
     assert names == ["capture_note", "proposal_apply_summary"]
     assert not allows_pack_switch("intake")
     assert allows_pack_switch("trading")
-    assert not allows_skill_approval_sms("intake")
-    assert allows_skill_approval_sms("trading")
     assert not allows_skill_approval_sms("trading", "builder-eng-1")
-    assert not allows_skill_approval_sms("trading", "demo-abc")
+    assert not allows_skill_approval_sms("intake", "demo-builder-eng-1")
+    assert allows_skill_approval_sms("intake", "demo-abc")
+    assert allows_skill_approval_sms("intake", "samuel-dial-abc")
+    assert allows_skill_approval_sms("trading")
+    assert allows_skill_approval_sms("moderator", "mod-abc")
 
 
 def test_builder_room_stays_intake_when_utterance_says_moderate() -> None:

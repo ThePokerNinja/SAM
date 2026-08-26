@@ -95,12 +95,10 @@ def greeting_instructions(kind: SessionKind) -> str:
     )
 
 
-def is_builder_room(room_name: str) -> bool:
-    """True for proposal-builder LiveKit rooms, including granted demo walks."""
+def is_builder_test_room(room_name: str) -> bool:
+    """Owner start. rooms only. Granted demos and the voice portal keep their own rails."""
     room = (room_name or "").lower()
-    return room.startswith(
-        ("builder-", "demo-builder-", "demo-", "intake-", "samuel-dial-")
-    )
+    return room.startswith("builder-") or room.startswith("demo-builder-")
 
 
 def allows_pack_switch(kind: SessionKind) -> bool:
@@ -109,8 +107,8 @@ def allows_pack_switch(kind: SessionKind) -> bool:
 
 
 def allows_skill_approval_sms(kind: SessionKind, room_name: str = "") -> bool:
-    """YES/NO skill-approval texts are an owner consent rail, not part of scoping a job."""
-    if kind == "intake" or is_builder_room(room_name):
+    """Skip YES/NO skill-approval texts while testing start. Keep them everywhere else."""
+    if is_builder_test_room(room_name):
         return False
     return True
 
