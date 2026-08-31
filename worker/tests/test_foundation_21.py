@@ -35,6 +35,24 @@ def test_health_payload_ok(monkeypatch) -> None:
     assert payload["brain"] == "groq"
 
 
+def test_resolve_brain_openai_canonical_when_both_keys() -> None:
+    from sam_worker.config import Settings, resolve_brain
+
+    s = Settings(
+        sam_brain="",
+        openai_api_key="sk-openai",
+        groq_api_key="gsk_groq",
+    )
+    assert resolve_brain(s) == "openai"
+
+    s_explicit = Settings(
+        sam_brain="groq",
+        openai_api_key="sk-openai",
+        groq_api_key="gsk_groq",
+    )
+    assert resolve_brain(s_explicit) == "groq"
+
+
 def test_burst_tracker_fires_once() -> None:
     tracker = BurstTracker(window_s=60, threshold=3)
     assert tracker.observe(1.0, is_match=True) is False

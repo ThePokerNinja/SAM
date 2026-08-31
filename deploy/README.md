@@ -118,8 +118,10 @@ After changing a non-secret in `render.yaml`:
 2. If it is missing or stale, PUT the dashboard value or sync the Blueprint, then redeploy.
 3. Do not treat “hook returned 200” as “new env is live.”
 
-Wave 8.2: dashboard ``SAM_BRAIN=openai`` is treated as a stale 8.1 pin. The worker
-uses Groq 8b whenever ``GROQ_API_KEY`` is set. Roll back with ``SAM_BRAIN=openai-legacy``.
+Wave 8.2+ (Phase 5.0): voice canonical brain is **OpenAI** (`SAM_BRAIN=openai`).
+Auto-detect prefers OpenAI when both `OPENAI_API_KEY` and `GROQ_API_KEY` are set.
+Pin `SAM_BRAIN=groq` only for lab/bench arms — not production while Groq Developer
+is unavailable.
 
 Wave 8.3: use ``.\scripts\verify-sam-agent.ps1 -Wait`` (needs ``RENDER_API_KEY`` +
 ``SAM_AGENT_SERVICE_ID``). Hook 200 is not proof the build is live or that env changed.

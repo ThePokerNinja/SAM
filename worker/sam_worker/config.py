@@ -47,10 +47,11 @@ def resolve_brain(settings: Settings) -> str:
         if settings.groq_api_key:
             return "groq"
         return "openai"
-    if settings.groq_api_key:
-        return "groq"
+    # Canonical default: OpenAI when both keys exist (Groq only if OpenAI is missing).
     if settings.openai_api_key:
         return "openai"
+    if settings.groq_api_key:
+        return "groq"
     return "openai"
 
 
@@ -127,7 +128,7 @@ class Settings:
     # Tool calls on gpt-oss include hidden reasoning in this budget. Calendar
     # proposals can exhaust 256 tokens before the JSON call is emitted.
     llm_max_completion_tokens: int = 512
-    # SAM_BRAIN: "openai" | "groq" | "hybrid" | "hermes" — explicit override (else auto-detect).
+    # SAM_BRAIN: "openai" | "groq" | "hybrid" | "hermes" — explicit override (default openai).
     # hybrid uses Groq for the session LLM; the fast router covers tool turns.
     sam_brain: str = ""
     hermes_base_url: str = ""
@@ -210,7 +211,7 @@ class Settings:
                     1024,
                 ),
             ),
-            sam_brain=os.getenv("SAM_BRAIN", "").strip().lower(),
+            sam_brain=os.getenv("SAM_BRAIN", "openai").strip().lower(),
             hermes_base_url=os.getenv("HERMES_BASE_URL", ""),
             hermes_api_key=os.getenv("HERMES_API_KEY", ""),
             rm_api_base_url=rainmaker_api_base_url(),
