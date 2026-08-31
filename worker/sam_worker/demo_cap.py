@@ -23,6 +23,9 @@ _HANGUP_ERRORS = frozenset(
 
 def is_capped_room(room_name: str) -> bool:
     name = (room_name or "").lower()
+    # Owner proposal-builder rooms are not granted-demo caps.
+    if name.startswith("demo-builder-") or name.startswith("builder-"):
+        return False
     return name.startswith(CAPPED_PREFIXES)
 
 

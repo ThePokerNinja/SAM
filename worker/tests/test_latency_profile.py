@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from sam_worker.latency import TurnProfile, read_profiles, write_profile
 from sam_worker.bench.latency_profile import (
     DEFAULT_TIERED_TARGETS,
     analyze,
@@ -13,7 +14,6 @@ from sam_worker.bench.latency_profile import (
     classify_tier,
     stage_percentiles,
 )
-from sam_worker.latency import TurnProfile, read_profiles, write_profile
 
 
 def _profile(sid: str, eou: float, ttft: float, ttfb: float, **extra) -> TurnProfile:

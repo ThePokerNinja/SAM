@@ -264,6 +264,15 @@ class RoutedSamuelAgent(Agent):
                         f"their provenance:\n{rendered_brief}"
                     ),
                 )
+        session_summary = str(getattr(snapshot, "session_summary", "") or "").strip()
+        if session_summary:
+            turn_ctx.add_message(
+                role="developer",
+                content=(
+                    "Rolling session summary for this call. Keep continuity with this thread "
+                    f"even if earlier turns were trimmed:\n{session_summary}"
+                ),
+            )
 
     async def llm_node(self, chat_ctx, tools, model_settings):
         user_messages = [message for message in chat_ctx.messages() if message.role == "user"]

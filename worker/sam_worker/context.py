@@ -5,9 +5,8 @@ from __future__ import annotations
 import asyncio
 import inspect
 import time
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 Provider = Callable[[], Any | Awaitable[Any]]
 
@@ -19,6 +18,7 @@ class ContextSnapshot:
     tools: Any = field(default_factory=list)
     permissions: Any = field(default_factory=dict)
     external: Any = field(default_factory=dict)
+    session_summary: str = ""
     timings_ms: dict[str, float] = field(default_factory=dict)
     errors: dict[str, str] = field(default_factory=dict)
 

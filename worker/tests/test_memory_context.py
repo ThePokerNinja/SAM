@@ -94,6 +94,38 @@ def test_retrieval_prefers_relevance_and_respects_budget(tmp_path) -> None:
     assert "semiconductor" in result[0].text.lower()
 
 
+def test_retrieval_includes_cross_session_profile_episodes(tmp_path) -> None:
+    path = tmp_path / "memory.db"
+    episodes = EpisodicMemoryStore(path)
+    profiles = ProfileStore(path)
+    episodes.append(
+        Episode(
+            "room-yesterday",
+            "summary",
+            "We scoped a dental clinic website.",
+            summary="We scoped a dental clinic website.",
+            profile_id="owner",
+            created_at=time.time() - 86400,
+        )
+    )
+    episodes.append(
+        Episode(
+            "room-today",
+            "message",
+            "Let's continue the estimate.",
+            profile_id="owner",
+        )
+    )
+    result = MemoryRetriever(episodes, profiles).retrieve(
+        "dental clinic website",
+        session_id="room-today",
+        profile_id="owner",
+        token_budget=80,
+    )
+    sources = {row.source for row in result}
+    assert "episode_cross_session" in sources
+
+
 def test_context_providers_run_concurrently_and_degrade() -> None:
     async def slow(value):
         await asyncio.sleep(0.04)

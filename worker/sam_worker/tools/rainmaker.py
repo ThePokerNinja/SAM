@@ -82,6 +82,16 @@ class RainmakerClient(Protocol):
     async def make_studio_deliverable(self, type: str, run_id: str = "") -> dict: ...
     async def record_studio_publish(self, asset_id: str, url: str) -> dict: ...
     async def get_memory_context(self, query: str, token_cap: int = 256) -> dict: ...
+    async def get_thread_summary(self) -> dict: ...
+    async def write_thread_summary(
+        self,
+        *,
+        summary: str,
+        session_id: str = "",
+        engagement_id: str = "",
+        open_loops: list[str] | None = None,
+    ) -> dict: ...
+    async def get_engagement(self, engagement_id: str) -> dict: ...
     async def write_memory_turn(
         self,
         *,
@@ -200,6 +210,46 @@ class MockRainmakerClient:
                 }
             ],
             "tokenCap": token_cap,
+        }
+
+    async def get_thread_summary(self) -> dict:
+        return {
+            "ok": True,
+            "thread": {
+                "summary": "Mock prior thread about the proposal builder.",
+                "openLoops": ["Finish SOW"],
+                "updatedAt": 1.0,
+            },
+        }
+
+    async def write_thread_summary(
+        self,
+        *,
+        summary: str,
+        session_id: str = "",
+        engagement_id: str = "",
+        open_loops: list[str] | None = None,
+    ) -> dict:
+        return {
+            "ok": True,
+            "thread": {
+                "summary": summary,
+                "sessionId": session_id,
+                "engagementId": engagement_id,
+                "openLoops": open_loops or [],
+            },
+        }
+
+    async def get_engagement(self, engagement_id: str) -> dict:
+        return {
+            "ok": True,
+            "engagement": {
+                "id": engagement_id,
+                "client_name": "Mock Client",
+                "project_name": "Mock Project",
+                "stage": "proposal",
+                "answers": {"summary": "Mock builder dump"},
+            },
         }
 
     async def write_memory_turn(
@@ -335,6 +385,7 @@ class HttpRainmakerClient:
     STUDIO_PUBLISH_PATH = "/studio/publish"
     MEMORY_CONTEXT_PATH = "/samuel/memory/context"
     MEMORY_TURNS_PATH = "/samuel/memory/turns"
+    MEMORY_THREAD_PATH = "/samuel/memory/thread"
     CALENDAR_EVENTS_PATH = "/calendar/events"
     CALENDAR_PROPOSALS_PATH = "/calendar/proposals"
     INTAKE_PATH = "/intake"
@@ -706,6 +757,52 @@ class HttpRainmakerClient:
             "personId": data.get("personId"),
             "tokenCap": data.get("tokenCap"),
         }
+
+    async def get_thread_summary(self) -> dict:
+        res = await self._get(
+            self.MEMORY_THREAD_PATH,
+            timeout=min(self.timeout, 0.6),
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        return {"ok": True, **(res.get("data") or {})}
+
+    async def write_thread_summary(
+        self,
+        *,
+        summary: str,
+        session_id: str = "",
+        engagement_id: str = "",
+        open_loops: list[str] | None = None,
+    ) -> dict:
+        body: dict[str, Any] = {
+            "summary": (summary or "")[:4000],
+            "sessionId": (session_id or "")[:256],
+            "engagementId": (engagement_id or "")[:128],
+        }
+        if open_loops:
+            body["openLoops"] = [str(item)[:320] for item in open_loops[:12]]
+        res = await self._post(
+            self.MEMORY_THREAD_PATH,
+            body=body,
+            timeout=min(self.timeout, 0.8),
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": True, "thread": data.get("thread") or {}}
+
+    async def get_engagement(self, engagement_id: str) -> dict:
+        engagement_id = (engagement_id or "").strip()
+        if not engagement_id:
+            return {"ok": False, "error": "missing_engagement_id"}
+        res = await self._get(
+            f"{self.INTAKE_PATH}/{engagement_id}",
+            timeout=min(self.timeout, 0.8),
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        return {"ok": True, **(res.get("data") or {})}
 
     async def write_memory_turn(
         self,

@@ -85,8 +85,8 @@ def test_groq_fallback_chain_builds_configured_rungs(monkeypatch) -> None:
     )
     assert agent._build_llm(settings) == "fallback"
     assert [row[0] for row in built] == ["primary", "secondary"]
-    assert captured["attempt_timeout"] == 1.5
-    assert captured["max_retry_per_llm"] == 0
+    assert captured["attempt_timeout"] == 2.5
+    assert captured["max_retry_per_llm"] == 2
 
 
 def test_default_groq_fallback_adds_openai_as_independent_rung(monkeypatch) -> None:

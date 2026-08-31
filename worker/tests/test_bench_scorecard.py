@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from sam_worker.bench.fixtures import GROUNDED_TASKS, fixture_manifest
 from sam_worker.bench.scorecard import (
     GeneralArena,
     GroundedArena,
@@ -12,6 +11,7 @@ from sam_worker.bench.scorecard import (
     grounded_arena_score,
     percentile,
 )
+from sam_worker.bench.fixtures import GROUNDED_TASKS, fixture_manifest
 
 
 def test_percentile_nearest_rank() -> None:

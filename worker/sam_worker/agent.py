@@ -86,6 +86,15 @@ from .packs.moderator import ModeratorRuntime
 from .prompt_budget import samuel_instructions
 from .pythia import BaselineStore, ForecastLedger, predict_threshold_event
 from .router import FastIntentRouter, RoutedSamuelAgent
+from .continuity import (
+    ContinuityState,
+    brief_from_thread_summary,
+    build_thread_summary_text,
+    effective_history_token_cap,
+    engagement_fields_for_context,
+    extract_open_loops,
+    owner_memory_token_cap,
+)
 from .demo_cap import GOODBYE, TURN_MINUTES, TURN_TOKENS, is_capped_room, should_hangup
 from .session import (
     BUILDER_OPENING,
@@ -226,8 +235,8 @@ def _build_llm(s: Settings):
         return rungs[0]
     return llm.FallbackAdapter(
         llm=rungs,
-        attempt_timeout=1.5,
-        max_retry_per_llm=0,
+        attempt_timeout=2.5,
+        max_retry_per_llm=2,
     )
 
 
@@ -638,13 +647,21 @@ async def entrypoint(ctx: JobContext) -> None:
     episode_store = EpisodicMemoryStore() if s.memory_enabled else None
     profile_store = ProfileStore() if s.memory_enabled else None
     artifact_store = ArtifactStore() if s.memory_enabled else None
-    prior_brief = (
+    artifact_brief = (
         brief_from_artifacts(
             artifact_store.recent(limit=8, exclude_session_id=session_id)
         )
         if artifact_store is not None
         else None
     )
+    builder_engagement_id = engagement_id_from_room(room_name)
+    continuity_state_ref = [
+        ContinuityState(
+            engagement_id=builder_engagement_id,
+            room_name=room_name,
+        )
+    ]
+    startup_brief = artifact_brief
     pythia_baselines = BaselineStore(episode_store.path) if episode_store is not None else None
     pythia_ledger = ForecastLedger(episode_store.path) if episode_store is not None else None
     skillbuilder_runtime = (
@@ -784,6 +801,7 @@ async def entrypoint(ctx: JobContext) -> None:
                 session_turns.append(("guest", text))
             return
         session_turns.append(("user" if owner else "guest", text))
+        continuity_state_ref[0] = continuity_state_ref[0].update_turns(session_turns)
         if episode_store is not None and owner:
             asyncio.ensure_future(
                 episode_store.append_async(
@@ -793,6 +811,7 @@ async def entrypoint(ctx: JobContext) -> None:
                         content=text,
                         speaker_id=getattr(ev, "speaker_id", None),
                         provenance=f"livekit:{session_id}",
+                        profile_id="owner",
                     )
                 )
             )
@@ -866,6 +885,7 @@ async def entrypoint(ctx: JobContext) -> None:
         text = str(getattr(item, "text_content", "") or "").strip()
         if text:
             session_turns.append(("assistant", text))
+            continuity_state_ref[0] = continuity_state_ref[0].update_turns(session_turns)
             if episode_store is not None:
                 asyncio.ensure_future(
                     episode_store.append_async(
@@ -875,6 +895,7 @@ async def entrypoint(ctx: JobContext) -> None:
                             content=text,
                             speaker_id="samuel",
                             provenance=f"livekit:{session_id}",
+                            profile_id="owner" if _session_is_owner() else None,
                         )
                     )
                 )
@@ -1017,8 +1038,22 @@ async def entrypoint(ctx: JobContext) -> None:
                     decisions=decisions,
                     artifact_refs=tuple(artifact_refs),
                     provenance=f"sam_worker:session_close:{reason}",
+                    profile_id="owner",
                 )
             )
+            if _session_is_owner():
+                thread_text = build_thread_summary_text(
+                    session_turns,
+                    engagement_id=builder_engagement_id,
+                    room_name=room_name,
+                )
+                if thread_text.strip():
+                    await rm_client.write_thread_summary(
+                        summary=thread_text,
+                        session_id=session_id,
+                        engagement_id=builder_engagement_id,
+                        open_loops=list(extract_open_loops(session_turns)),
+                    )
             if skillbuilder_runtime is not None:
                 try:
                     snapshot_path = episode_store.path.parent / "sam-hero-snapshot.json"
@@ -1219,27 +1254,29 @@ async def entrypoint(ctx: JobContext) -> None:
             if profile_store is not None
             else dict
         )
+        memory_cap = owner_memory_token_cap(s)
         snapshot = await assemble_context(
             memory=local_memory,
             profile=local_profile,
             tools=tool_registry.names,
             permissions=lambda: {"owner": True},
-            external=lambda: rm_client.get_memory_context(text, token_cap=250),
+            external=lambda: rm_client.get_memory_context(text, token_cap=memory_cap),
             timeout_s=0.75,
         )
         remote = snapshot.external if isinstance(snapshot.external, dict) else {}
         if remote.get("ok") and isinstance(remote.get("items"), list):
             snapshot.memory = [*(snapshot.memory or []), *remote["items"]]
-        if prior_brief is not None:
-            snapshot.external = prior_brief
+        snapshot.session_summary = continuity_state_ref[0].rolling_summary
+        if startup_brief is not None:
+            snapshot.external = startup_brief
             await _publish_bench_event(
                 {
                     "type": (
                         "prior_artifact_brief"
-                        if prior_brief.items
+                        if startup_brief.items
                         else "prior_artifact_brief_empty"
                     ),
-                    "count": len(prior_brief.items),
+                    "count": len(startup_brief.items),
                 }
             )
         _log.info(
@@ -1250,6 +1287,31 @@ async def entrypoint(ctx: JobContext) -> None:
         )
         perf_state["context_ms"] = snapshot.total_ms
         return snapshot
+
+    async def _load_startup_brief() -> None:
+        nonlocal startup_brief
+        if not _session_is_owner():
+            return
+        thread_payload = await rm_client.get_thread_summary()
+        thread = thread_payload.get("thread") if thread_payload.get("ok") else None
+        builder_context = ""
+        if builder_engagement_id:
+            engagement_payload = await rm_client.get_engagement(builder_engagement_id)
+            if engagement_payload.get("ok"):
+                builder_context = engagement_fields_for_context(
+                    engagement_payload.get("engagement")
+                )
+        startup_brief = brief_from_thread_summary(
+            thread if isinstance(thread, dict) else None,
+            artifact_brief=artifact_brief,
+            builder_context=builder_context,
+        )
+        if startup_brief.items:
+            _log.info(
+                "STARTUP_BRIEF items=%d engagement=%s",
+                len(startup_brief.items),
+                builder_engagement_id or "-",
+            )
 
     async def _flush_pack(pack_id: str) -> None:
         if artifact_store is None:
@@ -1342,6 +1404,12 @@ async def entrypoint(ctx: JobContext) -> None:
     async def _commit_calendar() -> str:
         return await handle_commit_calendar_change(rm_client, session_id=session_id)
 
+    history_cap = effective_history_token_cap(
+        s,
+        is_owner=not is_capped_room(room_name),
+        room_name=room_name,
+    )
+
     routed_agent = RoutedSamuelAgent(
         router=fast_router,
         direct_execute=_direct_execute,
@@ -1353,13 +1421,14 @@ async def entrypoint(ctx: JobContext) -> None:
         turn_override=_session_turn_override,
         calendar_turn_state=calendar_turn_state,
         calendar_commit=_commit_calendar,
-        history_token_cap=s.history_token_cap,
+        history_token_cap=history_cap,
         use_full_tool_set=s.prompt_tool_mode == "stable_full",
         instructions=instructions,
         tools=rm_tools,
     )
     await session.start(agent=routed_agent, room=ctx.room)
     await ctx.connect()
+    await _load_startup_brief()
     connected_meta = decode_outbound_metadata(
         pick_outbound_metadata(
             getattr(ctx.room, "metadata", "") or "",
@@ -1398,7 +1467,8 @@ async def entrypoint(ctx: JobContext) -> None:
             "surface": surface,
             "endpoint_min": s.endpoint_min,
             "endpoint_max": s.endpoint_max,
-            "history_token_cap": s.history_token_cap,
+            "history_token_cap": history_cap,
+            "owner_history_token_cap": s.owner_history_token_cap,
             "llm_max_completion_tokens": s.llm_max_completion_tokens,
             "git": (os.getenv("RENDER_GIT_COMMIT") or "")[:12],
         }

@@ -37,6 +37,7 @@ class Episode:
     decisions: tuple[str, ...] = ()
     artifact_refs: tuple[str, ...] = ()
     provenance: str = "live_session"
+    profile_id: str | None = None
     created_at: float = field(default_factory=time.time)
     id: int | None = None
 
@@ -76,6 +77,17 @@ class EpisodicMemoryStore:
                 "CREATE INDEX IF NOT EXISTS idx_episodes_session_created "
                 "ON episodes(session_id, created_at DESC)"
             )
+            self._ensure_column(conn, "profile_id", "profile_id TEXT")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_episodes_profile_created "
+                "ON episodes(profile_id, created_at DESC)"
+            )
+
+    @staticmethod
+    def _ensure_column(conn: sqlite3.Connection, column: str, ddl: str) -> None:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(episodes)")}
+        if column not in cols:
+            conn.execute(f"ALTER TABLE episodes ADD COLUMN {ddl}")
 
     def append(self, episode: Episode) -> int:
         with self._connect() as conn:
@@ -83,8 +95,8 @@ class EpisodicMemoryStore:
                 """
                 INSERT INTO episodes(
                     session_id, kind, content, speaker_id, summary,
-                    decisions_json, artifact_refs_json, provenance, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    decisions_json, artifact_refs_json, provenance, profile_id, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     episode.session_id,
@@ -95,6 +107,7 @@ class EpisodicMemoryStore:
                     json.dumps(list(episode.decisions)),
                     json.dumps(list(episode.artifact_refs)),
                     episode.provenance,
+                    episode.profile_id,
                     episode.created_at,
                 ),
             )
@@ -110,6 +123,50 @@ class EpisodicMemoryStore:
                 (session_id, max(1, limit)),
             ).fetchall()
         return [self._from_row(row) for row in rows]
+
+    def recent_for_profile(
+        self,
+        profile_id: str,
+        *,
+        exclude_session_id: str = "",
+        limit: int = 20,
+    ) -> list[Episode]:
+        with self._connect() as conn:
+            if exclude_session_id:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM episodes
+                    WHERE profile_id=? AND session_id<>?
+                    ORDER BY created_at DESC LIMIT ?
+                    """,
+                    (profile_id, exclude_session_id, max(1, limit)),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM episodes
+                    WHERE profile_id=?
+                    ORDER BY created_at DESC LIMIT ?
+                    """,
+                    (profile_id, max(1, limit)),
+                ).fetchall()
+        return [self._from_row(row) for row in rows]
+
+    def latest_summary_for_profile(
+        self,
+        profile_id: str,
+        *,
+        exclude_session_id: str = "",
+    ) -> Episode | None:
+        episodes = self.recent_for_profile(
+            profile_id,
+            exclude_session_id=exclude_session_id,
+            limit=12,
+        )
+        for episode in episodes:
+            if episode.kind == "summary" and (episode.summary or episode.content):
+                return episode
+        return episodes[0] if episodes else None
 
     def all_recent(self, *, limit: int = 100) -> list[Episode]:
         with self._connect() as conn:
@@ -138,5 +195,6 @@ class EpisodicMemoryStore:
             decisions=_tuple(row["decisions_json"]),
             artifact_refs=_tuple(row["artifact_refs_json"]),
             provenance=str(row["provenance"]),
+            profile_id=row["profile_id"] if "profile_id" in row.keys() else None,
             created_at=float(row["created_at"]),
         )

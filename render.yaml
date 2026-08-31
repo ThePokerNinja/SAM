@@ -128,6 +128,10 @@ services:
         value: "0.6"
       - key: SAM_HISTORY_TOKEN_CAP
         value: "250"
+      - key: SAM_OWNER_HISTORY_TOKEN_CAP
+        value: "6000"
+      - key: SAM_OWNER_MEMORY_TOKEN_CAP
+        value: "1200"
       - key: SAM_PROMPT_TOOL_MODE
         value: dynamic
       # SAM-075: the Pythia calibration job runs in this process because the
@@ -152,7 +156,7 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: SAM_BRAIN
-        value: groq
+        value: openai
       # Owner voice verification (Tier-T gate). Both must be set to arm the voice gate;
       # otherwise Tier-T falls back to the portal access-key owner attribute.
       - key: PICOVOICE_ACCESS_KEY

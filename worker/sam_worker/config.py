@@ -146,6 +146,8 @@ class Settings:
     voice_ids: dict[str, str] = field(default_factory=dict)
     # Hard cap on user/assistant history tokens sent to the LLM (Wave 8.2).
     history_token_cap: int = 250
+    owner_history_token_cap: int = 6000
+    owner_memory_token_cap: int = 1200
     # Keep dynamic routing as the production-compatible default. stable_full is an
     # explicit measurement arm for Groq's exact-prefix prompt cache.
     prompt_tool_mode: PromptToolMode = "dynamic"
@@ -226,6 +228,12 @@ class Settings:
                 "sales": os.getenv("SALES_VOICE_ID", ""),
             },
             history_token_cap=int(os.getenv("SAM_HISTORY_TOKEN_CAP", "250") or 250),
+            owner_history_token_cap=int(
+                os.getenv("SAM_OWNER_HISTORY_TOKEN_CAP", "6000") or 6000
+            ),
+            owner_memory_token_cap=int(
+                os.getenv("SAM_OWNER_MEMORY_TOKEN_CAP", "1200") or 1200
+            ),
             prompt_tool_mode=(
                 "stable_full"
                 if os.getenv("SAM_PROMPT_TOOL_MODE", "dynamic").strip().lower()

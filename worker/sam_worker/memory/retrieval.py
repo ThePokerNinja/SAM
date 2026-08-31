@@ -7,8 +7,8 @@ import math
 import time
 from dataclasses import dataclass
 
-from .episodic import EpisodicMemoryStore
-from .profile import ProfileStore, embed_text
+from .episodic import Episode, EpisodicMemoryStore
+from .profile import ProfileFact, ProfileStore, embed_text
 
 
 def _cosine(left: tuple[float, ...], right: tuple[float, ...]) -> float:
@@ -66,6 +66,27 @@ class MemoryRetriever:
             candidates.append(
                 RetrievedMemory("episode", text, episode.provenance, score, _tokens(text))
             )
+
+        if profile_id:
+            for episode in self.episodes.recent_for_profile(
+                profile_id,
+                exclude_session_id=session_id,
+                limit=24,
+            ):
+                text = episode.summary or episode.content
+                semantic = max(0.0, _cosine(query_vec, embed_text(text)))
+                score = 0.68 * semantic + 0.32 * _recency(
+                    episode.created_at, half_life_days=14.0
+                )
+                candidates.append(
+                    RetrievedMemory(
+                        "episode_cross_session",
+                        text,
+                        f"{episode.provenance}:session:{episode.session_id}",
+                        score,
+                        _tokens(text),
+                    )
+                )
 
         chosen: list[RetrievedMemory] = []
         used = 0

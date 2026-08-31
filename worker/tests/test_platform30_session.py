@@ -28,6 +28,7 @@ def test_demo_cap_hangup_rules() -> None:
     assert is_capped_room("mod-xyz")
     assert is_capped_room("intake-1")
     assert not is_capped_room("builder-abc")
+    assert not is_capped_room("demo-builder-eng-1")
     assert not is_capped_room("call-owner")
     assert should_hangup({"ok": False, "error": "http_409"})
     assert should_hangup({"ok": False, "error": "minutes_cap"})
