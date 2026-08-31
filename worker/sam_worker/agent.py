@@ -117,6 +117,7 @@ from .packs import PackRegistry
 from .tier import TierState
 from .tier_session import apply_tier_to_session, parse_tier_payload
 from .tool_latency import ToolLatencyManager
+from .builder_intake import run_builder_intake_turn
 from .tools.handlers import build_rainmaker_client, handle_commit_calendar_change, handle_named_tool
 from .tools.rainmaker_registry import engagement_id_from_room, register_rainmaker_tools
 from .tools.registry import ToolRegistry
@@ -1532,9 +1533,34 @@ async def entrypoint(ctx: JobContext) -> None:
                 _log.debug("builder gap say failed", exc_info=True)
         return reply or ""
 
+    async def _handle_builder_intake_turn(
+        text: str,
+        *,
+        speak: bool = True,
+        add_to_chat: bool = True,
+    ) -> str:
+        eid = engagement_id_from_room(room_name)
+        if not eid:
+            return ""
+        reply, tools = await run_builder_intake_turn(
+            rm_client,
+            engagement_id=eid,
+            text=text,
+        )
+        if tools:
+            _log.info("builder intake turn engagement=%s tools=%s", eid, ",".join(tools))
+        if reply and speak:
+            try:
+                await session.say(reply, allow_interruptions=True, add_to_chat_ctx=add_to_chat)
+            except Exception:  # noqa: BLE001
+                _log.debug("builder intake say failed", exc_info=True)
+        return reply or ""
+
     async def _finish_builder_dump(text: str, *, speak: bool = False) -> str:
         eid = await _apply_first_builder_dump(text)
         if not eid:
+            if builder_dump_applied["done"] and should_speak_builder_opening(room_name):
+                return await _handle_builder_intake_turn(text, speak=speak)
             return ""
         if speak:
             return await _ask_builder_gap_after_dump(eid)
@@ -1549,6 +1575,20 @@ async def entrypoint(ctx: JobContext) -> None:
             try:
                 if dumped:
                     reply = await _ask_builder_gap_after_dump(dumped, add_to_chat=False)
+                    await ctx.room.local_participant.publish_data(
+                        json.dumps(
+                            {
+                                "type": "assistant_text",
+                                "request_id": request_id,
+                                "text": reply or "Got it.",
+                            }
+                        ),
+                        reliable=True,
+                        topic=CHAT_TOPIC,
+                    )
+                    return
+                if builder_dump_applied["done"] and should_speak_builder_opening(room_name):
+                    reply = await _handle_builder_intake_turn(text, speak=False, add_to_chat=False)
                     await ctx.room.local_participant.publish_data(
                         json.dumps(
                             {

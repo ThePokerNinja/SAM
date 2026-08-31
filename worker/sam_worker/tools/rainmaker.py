@@ -111,6 +111,7 @@ class RainmakerClient(Protocol):
     async def cancel_calendar_event(self, event_id: str) -> dict: ...
     async def text_me(self, body: str, media_url: str = "") -> dict: ...
     async def run_tool(self, name: str, args: dict[str, Any] | None = None) -> dict: ...
+    async def get_intake_sync(self, engagement_id: str) -> dict: ...
     async def tick_room(
         self, room_id: str, *, minutes: float = 1.0, tokens: int = 80
     ) -> dict: ...
@@ -329,6 +330,17 @@ class MockRainmakerClient:
 
     async def run_tool(self, name: str, args: dict[str, Any] | None = None) -> dict:
         return {"ok": True, "name": name, "text": f"mock {name}"}
+
+    async def get_intake_sync(self, engagement_id: str) -> dict:
+        return {
+            "ok": True,
+            "engagementId": engagement_id,
+            "complete": False,
+            "gaps": [{"field": "discovery", "questionId": "pages", "question": "How many pages?"}],
+            "focus": {"field": None, "questionId": "pages"},
+            "answers": [],
+            "form_data": {"projectSummary": "Mock job"},
+        }
 
     async def tick_room(
         self, room_id: str, *, minutes: float = 1.0, tokens: int = 80
@@ -900,6 +912,13 @@ class HttpRainmakerClient:
         res = await self._post(self.TOOL_PATH, body={"name": name, "args": args or {}})
         if not res["ok"]:
             return {"ok": False, "error": res["error"], "text": ""}
+        data = res.get("data") or {}
+        return {"ok": True, **data}
+
+    async def get_intake_sync(self, engagement_id: str) -> dict:
+        res = await self._get(f"{self.INTAKE_PATH}/{engagement_id}/sync")
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
         data = res.get("data") or {}
         return {"ok": True, **data}
 
