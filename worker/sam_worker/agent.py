@@ -1372,6 +1372,62 @@ async def entrypoint(ctx: JobContext) -> None:
         except Exception:  # noqa: BLE001
             _log.exception("session pack switch failed; keeping prior tools")
 
+    builder_dump_applied = {"done": False}
+    builder_last_turn = {"text": "", "at": 0.0}
+
+    async def _apply_first_builder_dump(text: str) -> str:
+        eid = first_builder_dump_id(room_name, text, already=builder_dump_applied["done"])
+        if not eid:
+            return ""
+        cleaned = (text or "").strip()
+        builder_dump_applied["done"] = True
+        try:
+            spoken = await handle_named_tool(
+                rm_client,
+                "proposal_apply_summary",
+                {"engagement_id": eid, "summary": cleaned},
+            )
+            _log.info("builder first dump applied engagement=%s chars=%d", eid, len(cleaned))
+            if spoken:
+                _log.debug("builder first dump result: %s", spoken[:160])
+            return eid
+        except Exception:  # noqa: BLE001
+            builder_dump_applied["done"] = False
+            _log.exception("builder first dump apply failed")
+            return ""
+
+    async def _builder_turn_reply(text: str) -> str:
+        cleaned = (text or "").strip()
+        if cleaned.startswith("[SYNC]"):
+            return ""
+        norm = re.sub(r"\s+", " ", cleaned.lower())
+        now = time.monotonic()
+        if norm and norm == builder_last_turn["text"] and now - builder_last_turn["at"] < 1.5:
+            return ""
+        if norm:
+            builder_last_turn["text"] = norm
+            builder_last_turn["at"] = now
+
+        eid = engagement_id_from_room(room_name)
+        if not eid:
+            return ""
+
+        if not builder_dump_applied["done"]:
+            dumped = await _apply_first_builder_dump(cleaned)
+            if not dumped:
+                return ""
+            gap_res = await rm_client.run_tool("proposal_ask_gap", {"engagement_id": dumped})
+            return str(gap_res.get("text") or "").strip()
+
+        reply, tools = await run_builder_intake_turn(
+            rm_client,
+            engagement_id=eid,
+            text=cleaned,
+        )
+        if tools:
+            _log.info("builder intake turn engagement=%s tools=%s", eid, ",".join(tools))
+        return reply or ""
+
     async def _session_turn_override(text: str) -> str | None:
         normalized = re.sub(r"\s+", " ", (text or "").strip().lower())
         if re.search(r"\b(pause|hold) (?:this|the) (?:conversation|session)\b", normalized):
@@ -1396,6 +1452,8 @@ async def entrypoint(ctx: JobContext) -> None:
                 else:
                     _log.info("outbound first speech=voicemail; holding script")
                 return pending
+        if should_speak_builder_opening(room_name):
+            return await _builder_turn_reply(text)
         return None
 
     def _route_timing(decision, elapsed_ms: float) -> None:
@@ -1493,62 +1551,13 @@ async def entrypoint(ctx: JobContext) -> None:
     wire_owner_gate_listeners(ctx.room, owner_gate)
     text_reply_lock = asyncio.Lock()
 
-    builder_dump_applied = {"done": False}
-
-    async def _apply_first_builder_dump(text: str) -> str:
-        eid = first_builder_dump_id(room_name, text, already=builder_dump_applied["done"])
-        if not eid:
-            return ""
-        cleaned = (text or "").strip()
-        builder_dump_applied["done"] = True
-        try:
-            spoken = await handle_named_tool(
-                rm_client,
-                "proposal_apply_summary",
-                {"engagement_id": eid, "summary": cleaned},
-            )
-            _log.info("builder first dump applied engagement=%s chars=%d", eid, len(cleaned))
-            if spoken:
-                _log.debug("builder first dump result: %s", spoken[:160])
-            return eid
-        except Exception:  # noqa: BLE001
-            builder_dump_applied["done"] = False
-            _log.exception("builder first dump apply failed")
-            return ""
-
-    async def _ask_builder_gap_after_dump(eid: str, *, add_to_chat: bool = True) -> str:
-        reply = await handle_named_tool(
-            rm_client,
-            "proposal_ask_gap",
-            {"engagement_id": eid},
-        )
-        if reply:
-            try:
-                await session.say(
-                    reply,
-                    allow_interruptions=True,
-                    add_to_chat_ctx=add_to_chat,
-                )
-            except Exception:  # noqa: BLE001
-                _log.debug("builder gap say failed", exc_info=True)
-        return reply or ""
-
     async def _handle_builder_intake_turn(
         text: str,
         *,
         speak: bool = True,
         add_to_chat: bool = True,
     ) -> str:
-        eid = engagement_id_from_room(room_name)
-        if not eid:
-            return ""
-        reply, tools = await run_builder_intake_turn(
-            rm_client,
-            engagement_id=eid,
-            text=text,
-        )
-        if tools:
-            _log.info("builder intake turn engagement=%s tools=%s", eid, ",".join(tools))
+        reply = await _builder_turn_reply(text)
         if reply and speak:
             try:
                 await session.say(reply, allow_interruptions=True, add_to_chat_ctx=add_to_chat)
@@ -1556,39 +1565,14 @@ async def entrypoint(ctx: JobContext) -> None:
                 _log.debug("builder intake say failed", exc_info=True)
         return reply or ""
 
-    async def _finish_builder_dump(text: str, *, speak: bool = False) -> str:
-        eid = await _apply_first_builder_dump(text)
-        if not eid:
-            if builder_dump_applied["done"] and should_speak_builder_opening(room_name):
-                return await _handle_builder_intake_turn(text, speak=speak)
-            return ""
-        if speak:
-            return await _ask_builder_gap_after_dump(eid)
-        return eid
-
     async def _generate_text_reply(text: str, request_id: str) -> None:
-        """Run the normal Samuel agent/tool path while suppressing TTS entirely."""
-        dumped = await _apply_first_builder_dump(text)
+        """Run the builder tool path or normal Samuel agent while suppressing duplicate TTS."""
         async with text_reply_lock:
             audio_was_enabled = session.output.audio_enabled
             session.output.set_audio_enabled(False)
             try:
-                if dumped:
-                    reply = await _ask_builder_gap_after_dump(dumped, add_to_chat=False)
-                    await ctx.room.local_participant.publish_data(
-                        json.dumps(
-                            {
-                                "type": "assistant_text",
-                                "request_id": request_id,
-                                "text": reply or "Got it.",
-                            }
-                        ),
-                        reliable=True,
-                        topic=CHAT_TOPIC,
-                    )
-                    return
-                if builder_dump_applied["done"] and should_speak_builder_opening(room_name):
-                    reply = await _handle_builder_intake_turn(text, speak=False, add_to_chat=False)
+                if should_speak_builder_opening(room_name):
+                    reply = await _builder_turn_reply(text)
                     await ctx.room.local_participant.publish_data(
                         json.dumps(
                             {
@@ -1701,7 +1685,6 @@ async def entrypoint(ctx: JobContext) -> None:
             transcript = str(getattr(ev, "transcript", "") or "").strip()
             if getattr(ev, "is_final", False) and transcript:
                 builder_heard["user"] = True
-                asyncio.ensure_future(_finish_builder_dump(transcript, speak=True))
 
         @session.on("conversation_item_added")
         def _builder_heard_item(ev) -> None:
@@ -1709,9 +1692,6 @@ async def entrypoint(ctx: JobContext) -> None:
             role = str(getattr(item, "role", "") or "")
             if role in {"user", "human"}:
                 builder_heard["user"] = True
-                spoken = _conversation_item_text(item)
-                if spoken:
-                    asyncio.ensure_future(_finish_builder_dump(spoken, speak=True))
 
         await session.say(BUILDER_OPENING, allow_interruptions=False)
 
