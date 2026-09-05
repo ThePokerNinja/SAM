@@ -103,6 +103,7 @@ from .session import (
     build_session,
     greeting_instructions,
     should_speak_builder_opening,
+    should_use_builder_intake_path,
 )
 from .session_log import SessionLogger
 from .safety import SafetyState
@@ -946,6 +947,9 @@ async def entrypoint(ctx: JobContext) -> None:
     async def _write_voice_engagement() -> None:
         if close_persistence_state["engagement"]:
             return
+        if proposal_engagement_id["value"]:
+            close_persistence_state["engagement"] = True
+            return
         if sam_session.kind != "intake" or not session_turns:
             return
         guest = next(
@@ -1462,6 +1466,33 @@ async def entrypoint(ctx: JobContext) -> None:
             _log.exception("builder first dump apply failed")
             return ""
 
+    async def _create_phone_engagement(text: str) -> str:
+        """First owner phone scoping turn creates the shared builder notebook."""
+        cleaned = (text or "").strip()
+        if not cleaned or cleaned.startswith("[SYNC]"):
+            return ""
+        if len(cleaned) < 24 and not re.search(
+            r"\b(website|reservation|menu|app|logo|izakaya|project|build)\b",
+            cleaned,
+            re.I,
+        ):
+            return ""
+        try:
+            result = await rm_client.run_tool(
+                "proposal_apply_summary",
+                {"summary": cleaned, "channel": "phone"},
+            )
+            eid = str(result.get("engagementId") or result.get("engagement_id") or "").strip()
+            if not eid and isinstance(result.get("engagement"), dict):
+                eid = str(result["engagement"].get("id") or "").strip()
+            if eid:
+                proposal_engagement_id["value"] = eid
+                _log.info("phone intake engagement created=%s chars=%d", eid, len(cleaned))
+            return eid
+        except Exception:  # noqa: BLE001
+            _log.exception("phone intake engagement create failed")
+            return ""
+
     async def _builder_turn_reply(text: str) -> str:
         cleaned = (text or "").strip()
         if cleaned.startswith("[SYNC]"):
@@ -1474,7 +1505,21 @@ async def entrypoint(ctx: JobContext) -> None:
             builder_last_turn["text"] = norm
             builder_last_turn["at"] = now
 
-        eid = engagement_id_from_room(room_name)
+        eid = (
+            engagement_id_from_room(room_name)
+            or proposal_engagement_id["value"]
+            or builder_engagement_id
+        )
+        if not eid and should_use_builder_intake_path(
+            room_name, sam_session.kind, is_phone=is_phone
+        ):
+            eid = await _create_phone_engagement(cleaned)
+            if not eid:
+                return ""
+            builder_dump_applied["done"] = True
+            gap_res = await rm_client.run_tool("proposal_ask_gap", {"engagement_id": eid})
+            return str(gap_res.get("text") or "").strip()
+
         if not eid:
             return ""
 
@@ -1528,8 +1573,9 @@ async def entrypoint(ctx: JobContext) -> None:
                 else:
                     _log.info("outbound first speech=voicemail; holding script")
                 return pending
-        if should_speak_builder_opening(room_name):
-            return await _builder_turn_reply(text)
+        if should_use_builder_intake_path(room_name, sam_session.kind, is_phone=is_phone):
+            reply = await _builder_turn_reply(text)
+            return reply if reply else None
         return None
 
     def _route_timing(decision, elapsed_ms: float) -> None:

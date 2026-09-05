@@ -79,6 +79,18 @@ def should_speak_builder_opening(room_name: str) -> bool:
     return (room_name or "").lower().startswith("builder-")
 
 
+def should_use_builder_intake_path(
+    room_name: str,
+    kind: SessionKind,
+    *,
+    is_phone: bool = False,
+) -> bool:
+    """Deterministic proposal-tool turns for builder rooms and owner phone scoping."""
+    if should_speak_builder_opening(room_name):
+        return True
+    return bool(is_phone and kind == "intake" and (room_name or "").lower().startswith("call-"))
+
+
 def greeting_instructions(kind: SessionKind) -> str:
     """Spoken open. Intake is the builder; the voice portal stays the general greet."""
     if kind == "intake":

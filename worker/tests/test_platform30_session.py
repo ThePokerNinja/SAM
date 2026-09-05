@@ -10,9 +10,10 @@ from sam_worker.session import (
     greeting_instructions,
     route_session_kind,
     should_speak_builder_opening,
+    should_use_builder_intake_path,
 )
 from sam_worker.tools.rainmaker_registry import engagement_id_from_room
-from sam_worker.tools.select import select_tools_for_utterance
+from sam_worker.tools.select import INTAKE_PACK_TOOLS, select_tools_for_utterance
 
 
 def test_room_prefix_routes_moderator_and_intake() -> None:
@@ -45,9 +46,28 @@ def test_builder_room_uses_spoken_opening() -> None:
     assert should_speak_builder_opening("builder-abc")
     assert not should_speak_builder_opening("demo-abc")
     assert not should_speak_builder_opening("sam-owner")
+    assert should_use_builder_intake_path("builder-abc", "intake")
+    assert should_use_builder_intake_path("call-_+15551212_abc", "intake", is_phone=True)
+    assert not should_use_builder_intake_path("call-_+15551212_abc", "trading", is_phone=True)
+    assert not should_use_builder_intake_path("sam-owner", "intake", is_phone=False)
     assert "Samuel" in BUILDER_OPENING
     assert "make real" in BUILDER_OPENING
     assert "what's the job" in BUILDER_REASK.lower()
+
+
+def test_intake_pack_tool_set_is_closed() -> None:
+    names = set(
+        PackRegistry().tools_for(
+            "intake",
+            list(INTAKE_PACK_TOOLS) + ["run_command", "get_pulse"],
+        )
+    )
+    assert names <= INTAKE_PACK_TOOLS
+
+
+def test_short_intake_confirmations_do_not_drop_proposal_tools() -> None:
+    assert "proposal_apply_summary" in INTAKE_PACK_TOOLS
+    assert select_tools_for_utterance("that's good") == ["run_command"]
 
 
 def test_builder_greeting_is_not_the_portal_greeting() -> None:
