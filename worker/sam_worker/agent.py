@@ -911,7 +911,7 @@ async def entrypoint(ctx: JobContext) -> None:
             asyncio.ensure_future(_checkpoint_summary_artifact())
 
     close_persistence_lock = asyncio.Lock()
-    close_persistence_state = {"done": False, "engagement": False}
+    close_persistence_state = {"done": False, "engagement": False, "post_call_sms": False}
 
     async def _notify_owner_call_record() -> None:
         if not is_outbound_guest or not outbound_meta.get("notify_owner", True):
@@ -970,11 +970,33 @@ async def entrypoint(ctx: JobContext) -> None:
         except Exception:  # noqa: BLE001
             _log.exception("voice engagement write failed")
 
+    async def _send_post_call_resume_sms() -> None:
+        if close_persistence_state["post_call_sms"]:
+            return
+        if not _session_is_owner() or is_outbound_guest or not is_phone:
+            return
+        if not session_turns:
+            return
+        eid = proposal_engagement_id["value"] or builder_engagement_id
+        if not eid:
+            return
+        try:
+            result = await rm_client.post_call_resume_sms(eid, channel="phone")
+            if result.get("ok"):
+                close_persistence_state["post_call_sms"] = True
+                if result.get("sent") and not result.get("skipped"):
+                    _log.info("post-call resume sms sent engagement=%s", eid)
+                elif result.get("skipped"):
+                    _log.info("post-call resume sms skipped engagement=%s", eid)
+        except Exception:  # noqa: BLE001
+            _log.exception("post-call resume sms failed engagement=%s", eid)
+
     async def _persist_session_close(reason: str) -> None:
         async with close_persistence_lock:
             if close_persistence_state["done"]:
                 return
             await _write_voice_engagement()
+            await _send_post_call_resume_sms()
             if is_outbound_guest:
                 await _notify_owner_call_record()
             if episode_store is None or artifact_store is None or not session_turns:

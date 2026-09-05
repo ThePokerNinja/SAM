@@ -110,6 +110,9 @@ class RainmakerClient(Protocol):
     async def update_calendar_event(self, event_id: str, **fields: Any) -> dict: ...
     async def cancel_calendar_event(self, event_id: str) -> dict: ...
     async def text_me(self, body: str, media_url: str = "") -> dict: ...
+    async def post_call_resume_sms(
+        self, engagement_id: str, *, channel: str = "phone"
+    ) -> dict: ...
     async def run_tool(self, name: str, args: dict[str, Any] | None = None) -> dict: ...
     async def get_intake_sync(self, engagement_id: str) -> dict: ...
     async def tick_room(
@@ -328,6 +331,11 @@ class MockRainmakerClient:
     async def text_me(self, body: str, media_url: str = "") -> dict:
         return {"ok": True, "sent": True, "reason": None}
 
+    async def post_call_resume_sms(
+        self, engagement_id: str, *, channel: str = "phone"
+    ) -> dict:
+        return {"ok": True, "sent": True, "skipped": False, "engagementId": engagement_id}
+
     async def run_tool(self, name: str, args: dict[str, Any] | None = None) -> dict:
         return {"ok": True, "name": name, "text": f"mock {name}"}
 
@@ -386,6 +394,7 @@ class HttpRainmakerClient:
     HERO_SEND_PATH = "/notify/test-hero"
     OWNER_EMAIL_PATH = "/notify/owner-email"
     SAM_ALERT_PATH = "/ops/sam-alert"
+    POST_CALL_RESUME_PATH = "/ops/post-call-resume-sms"
     SKILL_APPROVAL_PATH = "/samuel/skill-approval"
     ASK_HERMES_PATH = "/samuel/ask-hermes"
     DELIVER_PATH = "/notify/deliver"
@@ -921,6 +930,18 @@ class HttpRainmakerClient:
         if media_url:
             payload["mediaUrl"] = media_url
         res = await self._post(self.DELIVER_PATH, body=payload)
+        if not res["ok"]:
+            return {"ok": False, "sent": False, "error": res["error"]}
+        data = res.get("data") or {}
+        return {"ok": bool(data.get("ok") or data.get("sent")), **data}
+
+    async def post_call_resume_sms(
+        self, engagement_id: str, *, channel: str = "phone"
+    ) -> dict:
+        res = await self._post(
+            self.POST_CALL_RESUME_PATH,
+            body={"engagement_id": engagement_id, "channel": channel},
+        )
         if not res["ok"]:
             return {"ok": False, "sent": False, "error": res["error"]}
         data = res.get("data") or {}
