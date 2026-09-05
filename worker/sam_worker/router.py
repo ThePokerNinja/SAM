@@ -205,6 +205,7 @@ class RoutedSamuelAgent(Agent):
         turn_override: Callable[[str], Awaitable[str | None]] | None = None,
         calendar_turn_state: dict[str, Any] | None = None,
         calendar_commit: Callable[[], Awaitable[str]] | None = None,
+        calendar_confirm_allowed: Callable[[str], bool] | None = None,
         history_token_cap: int = DEFAULT_HISTORY_TOKEN_CAP,
         use_full_tool_set: bool = False,
         **kwargs: Any,
@@ -221,6 +222,7 @@ class RoutedSamuelAgent(Agent):
         self._pending_override: str | None = None
         self._calendar_turn_state = calendar_turn_state
         self._calendar_commit = calendar_commit
+        self._calendar_confirm_allowed = calendar_confirm_allowed
         self._history_token_cap = history_token_cap
         self._use_full_tool_set = use_full_tool_set
 
@@ -341,6 +343,10 @@ class RoutedSamuelAgent(Agent):
             and self._calendar_commit is not None
             and is_calendar_confirm(text)
             and "commit_calendar_change" in available_names
+            and (
+                self._calendar_confirm_allowed is None
+                or self._calendar_confirm_allowed(text)
+            )
         ):
             _log.info(
                 "CALENDAR_CONFIRM_DIRECT utterance=%r",

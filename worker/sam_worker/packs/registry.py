@@ -85,11 +85,35 @@ INTAKE = PackManifest(
         "proposal_save_questions",
         "proposal_answer_question",
         "proposal_revise",
+        "proposal_resume",
+        "proposal_research",
+        "correct_craft",
         "proposal_send",
     ),
     workflow=("greet", "scope", "confirm"),
     memory_schema="owner",
     safety_rules=("intake_only", "hard_cap"),
+    artifacts=("notes",),
+)
+
+GUEST_INTAKE = PackManifest(
+    id="guest_intake",
+    persona_overlay=(
+        "You are Samuel on a granted proposal intake. Intake-only — no send, no owner tools. "
+        "One question at a time. Never re-ask a filled field. Use proposal_apply_summary on the dump."
+    ),
+    tools=(
+        "proposal_apply_summary",
+        "proposal_set_field",
+        "proposal_focus",
+        "proposal_ask_gap",
+        "proposal_answer_question",
+        "proposal_resume",
+        "proposal_research",
+    ),
+    workflow=("greet", "scope"),
+    memory_schema="guest",
+    safety_rules=("intake_only", "hard_cap", "no_send"),
     artifacts=("notes",),
 )
 
@@ -127,7 +151,7 @@ class PackRegistry:
         self._packs: dict[str, PackManifest] = {}
         self._warm: set[str] = set()
         self._active_id = "trading"
-        for pack in (TRADING, MODERATOR, APPOINTMENT, SKILLBUILDER, INTAKE, FAITH):
+        for pack in (TRADING, MODERATOR, APPOINTMENT, SKILLBUILDER, INTAKE, GUEST_INTAKE, FAITH):
             self.register(pack)
 
     def register(self, pack: PackManifest) -> None:

@@ -27,6 +27,11 @@ _DUMP_HINTS = (
     "app",
     "brand",
 )
+_FINALIZE_RE = re.compile(
+    r"\b(yes|yep|yeah|send|finalize|looks good|go ahead|email it|confirm)\b",
+    re.I,
+)
+_CONTINUE_RE = re.compile(r"\b(continue|resume|pick up|where were we)\b", re.I)
 
 
 def _answered_ids(sync: dict[str, Any]) -> set[str]:
@@ -141,9 +146,24 @@ async def run_builder_intake_turn(
     if not sync.get("ok"):
         return "I lost the form session.", tools
     if sync.get("complete"):
-        return _spoken_only(str(sync.get("text") or "Intake is complete — tap the bar to edit.")) or (
+        if _CONTINUE_RE.search(cleaned):
+            resume = await client.run_tool(
+                "proposal_resume",
+                {"engagement_id": engagement_id, "channel": "voice"},
+            )
+            tools.append("proposal_resume")
+            return _spoken_only(str(resume.get("text") or "")) or "Picking up where we left off.", tools
+        if _FINALIZE_RE.search(cleaned) and not _LEAVE_RE.match(cleaned):
+            send = await client.run_tool("proposal_send", {"engagement_id": engagement_id})
+            tools.append("proposal_send")
+            spoken = _spoken_only(str(send.get("text") or "")) or "Sent."
+            return spoken, tools
+        base = _spoken_only(str(sync.get("text") or "")) or (
             "Intake is complete — tap the bar to edit."
-        ), tools
+        )
+        if engagement_id and "Job id" not in base:
+            base = f"{base} Job id {engagement_id}."
+        return base, tools
 
     gaps = sync.get("gaps") or []
     if not gaps:

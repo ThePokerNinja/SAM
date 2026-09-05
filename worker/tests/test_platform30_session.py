@@ -23,6 +23,11 @@ def test_room_prefix_routes_moderator_and_intake() -> None:
     assert route_session_kind(surface="phone", room_name="samuel-dial-abc") == "intake"
 
 
+def test_phone_proposal_dump_routes_intake() -> None:
+    dump = "Website for Harbor Izakaya with reservations and menu, this month."
+    assert route_session_kind(surface="phone", keyword=dump, room_name="call-owner") == "intake"
+
+
 def test_demo_cap_hangup_rules() -> None:
     assert is_capped_room("demo-abc")
     assert is_capped_room("mod-xyz")

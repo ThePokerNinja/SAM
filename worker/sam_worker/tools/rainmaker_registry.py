@@ -499,6 +499,42 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     )
     registry.register(
         ToolSpec(
+            name="proposal_resume",
+            description="Resume the same engagement on a new channel.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_proposal_resume,
+    )
+    registry.register(
+        ToolSpec(
+            name="proposal_research",
+            description="Attach research to the current engagement.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_proposal_research,
+    )
+    registry.register(
+        ToolSpec(
+            name="correct_craft",
+            description="Write a durable craft rule from an operator correction.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_correct_craft,
+    )
+    registry.register(
+        ToolSpec(
+            name="get_sales_pulse",
+            description="Read the sales desk pulse line.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_get_sales_pulse,
+    )
+    registry.register(
+        ToolSpec(
             name="centaur_idea",
             description="Turn a spoken idea into a Centaur PRD and queue it. Owner only. Args: title, idea.",
             read_only=False,
@@ -1065,3 +1101,49 @@ def _build_proposal_send(client: Any, _is_owner: Any, deps: dict[str, Any]):
         return await handle_named_tool(client, "proposal_send", args)
 
     return proposal_send
+
+
+def _build_proposal_resume(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    async def proposal_resume(context: RunContext, engagement_id: str = "", resume_token: str = "", channel: str = "voice") -> str:
+        args: dict[str, Any] = {"resume": True, "channel": channel}
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
+        if resume_token:
+            args["resume_token"] = resume_token
+        return await handle_named_tool(client, "proposal_resume", args)
+
+    return proposal_resume
+
+
+def _build_proposal_research(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    async def proposal_research(context: RunContext, engagement_id: str = "", topic: str = "") -> str:
+        args: dict[str, Any] = {}
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
+        if topic:
+            args["topic"] = topic
+        return await handle_named_tool(client, "proposal_research", args)
+
+    return proposal_research
+
+
+def _build_correct_craft(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    async def correct_craft(context: RunContext, new: str, old: str = "", engagement_id: str = "") -> str:
+        args: dict[str, Any] = {"new": new}
+        if old:
+            args["old"] = old
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
+        return await handle_named_tool(client, "correct_craft", args)
+
+    return correct_craft
+
+
+def _build_get_sales_pulse(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def get_sales_pulse(context: RunContext) -> str:
+        return await handle_named_tool(client, "get_sales_pulse", {})
+
+    return get_sales_pulse

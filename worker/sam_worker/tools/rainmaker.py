@@ -398,6 +398,7 @@ class HttpRainmakerClient:
     MEMORY_CONTEXT_PATH = "/samuel/memory/context"
     MEMORY_TURNS_PATH = "/samuel/memory/turns"
     MEMORY_THREAD_PATH = "/samuel/memory/thread"
+    SESSION_BRIEF_PATH = "/ops/session-brief"
     CALENDAR_EVENTS_PATH = "/calendar/events"
     CALENDAR_PROPOSALS_PATH = "/calendar/proposals"
     INTAKE_PATH = "/intake"
@@ -812,6 +813,23 @@ class HttpRainmakerClient:
             f"{self.INTAKE_PATH}/{engagement_id}",
             timeout=min(self.timeout, 0.8),
         )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        return {"ok": True, **(res.get("data") or {})}
+
+    async def get_session_brief(
+        self,
+        *,
+        engagement_id: str = "",
+        room: str = "",
+        channel: str = "voice",
+    ) -> dict:
+        params: dict[str, Any] = {"channel": channel}
+        if engagement_id:
+            params["engagement_id"] = engagement_id
+        if room:
+            params["room"] = room
+        res = await self._get(self.SESSION_BRIEF_PATH, params=params, timeout=min(self.timeout, 1.2))
         if not res["ok"]:
             return {"ok": False, "error": res["error"]}
         return {"ok": True, **(res.get("data") or {})}

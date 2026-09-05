@@ -60,7 +60,7 @@ from .config import Settings, resolve_brain
 from .context import assemble_context
 from .health import start_health_server
 from .nightly import start_nightly_scheduler
-from .intake import brief_from_artifacts
+from .intake import BriefItem, assemble_brief, brief_from_artifacts
 from .latency import TurnProfile, latency_log_enabled, write_profile
 from .memory import (
     Episode,
@@ -656,6 +656,7 @@ async def entrypoint(ctx: JobContext) -> None:
         else None
     )
     builder_engagement_id = engagement_id_from_room(room_name)
+    proposal_engagement_id: dict[str, str] = {"value": builder_engagement_id or ""}
     continuity_state_ref = [
         ContinuityState(
             engagement_id=builder_engagement_id,
@@ -1296,17 +1297,40 @@ async def entrypoint(ctx: JobContext) -> None:
         thread_payload = await rm_client.get_thread_summary()
         thread = thread_payload.get("thread") if thread_payload.get("ok") else None
         builder_context = ""
+        craft_items: list[BriefItem] = []
         if builder_engagement_id:
             engagement_payload = await rm_client.get_engagement(builder_engagement_id)
             if engagement_payload.get("ok"):
                 builder_context = engagement_fields_for_context(
                     engagement_payload.get("engagement")
                 )
+            brief_payload = await rm_client.get_session_brief(
+                engagement_id=builder_engagement_id,
+                room=room_name,
+                channel="voice",
+            )
+            if brief_payload.get("ok"):
+                for item in brief_payload.get("items") or []:
+                    if not isinstance(item, dict):
+                        continue
+                    text = str(item.get("text") or "").strip()
+                    if not text:
+                        continue
+                    craft_items.append(
+                        BriefItem(
+                            text=text[:1200],
+                            provenance=str(item.get("provenance") or "craft")[:80],
+                            confidence=float(item.get("confidence") or 0.9),
+                            consent=True,
+                        )
+                    )
         startup_brief = brief_from_thread_summary(
             thread if isinstance(thread, dict) else None,
             artifact_brief=artifact_brief,
             builder_context=builder_context,
         )
+        if craft_items:
+            startup_brief = assemble_brief(startup_brief.items, tuple(craft_items))
         if startup_brief.items:
             _log.info(
                 "STARTUP_BRIEF items=%d engagement=%s",
@@ -1375,6 +1399,26 @@ async def entrypoint(ctx: JobContext) -> None:
     builder_dump_applied = {"done": False}
     builder_last_turn = {"text": "", "at": 0.0}
 
+    @session.on("function_tools_executed")
+    def _track_proposal_engagement(ev) -> None:
+        for call in getattr(ev, "function_calls", None) or []:
+            name = str(getattr(call, "name", "") or "")
+            if not name.startswith("proposal_"):
+                continue
+            raw_args = getattr(call, "arguments", "") or "{}"
+            try:
+                args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args or {})
+            except json.JSONDecodeError:
+                args = {}
+            eid = str(args.get("engagement_id") or args.get("engagementId") or "").strip()
+            if eid:
+                proposal_engagement_id["value"] = eid
+                continuity_state_ref[0] = ContinuityState(
+                    rolling_summary=continuity_state_ref[0].rolling_summary,
+                    engagement_id=eid,
+                    room_name=room_name,
+                )
+
     async def _apply_first_builder_dump(text: str) -> str:
         eid = first_builder_dump_id(room_name, text, already=builder_dump_applied["done"])
         if not eid:
@@ -1441,6 +1485,16 @@ async def entrypoint(ctx: JobContext) -> None:
             return "We're back. Please continue when you're ready."
         if sam_session.paused:
             return "We're still paused. Say resume when you're ready to continue."
+        if re.search(
+            r"\b(continue|resume|pick (?:this|it) back up|where were we)\b", normalized
+        ):
+            eid = proposal_engagement_id["value"] or builder_engagement_id
+            if eid and sam_session.kind == "intake":
+                resume = await rm_client.run_tool(
+                    "proposal_resume",
+                    {"engagement_id": eid, "channel": "voice"},
+                )
+                return str(resume.get("text") or "Picking up where we left off.")
         if is_outbound_guest:
             pending = take_pending_script(outbound_script, text)
             if pending is not None:
@@ -1463,6 +1517,15 @@ async def entrypoint(ctx: JobContext) -> None:
     async def _commit_calendar() -> str:
         return await handle_commit_calendar_change(rm_client, session_id=session_id)
 
+    def _calendar_confirm_allowed(_text: str) -> bool:
+        if should_speak_builder_opening(room_name):
+            return False
+        if sam_session.kind == "intake" or sam_session.pack in {"intake", "guest_intake"}:
+            return False
+        if proposal_engagement_id["value"]:
+            return False
+        return True
+
     history_cap = effective_history_token_cap(
         s,
         is_owner=not is_capped_room(room_name),
@@ -1480,6 +1543,7 @@ async def entrypoint(ctx: JobContext) -> None:
         turn_override=_session_turn_override,
         calendar_turn_state=calendar_turn_state,
         calendar_commit=_commit_calendar,
+        calendar_confirm_allowed=_calendar_confirm_allowed,
         history_token_cap=history_cap,
         use_full_tool_set=s.prompt_tool_mode == "stable_full",
         instructions=instructions,

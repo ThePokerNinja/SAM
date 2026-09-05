@@ -148,6 +148,13 @@ def route_session_kind(
         return "skillbuilder"
     if re.search(r"\b(trading mode|rainmaker mode|back to trading)\b", blob):
         return "trading"
+    if re.search(
+        r"\b(website|reservation|menu|branding|pitch deck|proposal|estimate|scope|"
+        r"instagram|campaign|app|logo|animation|deck|izakaya|cafe|founder)\b",
+        blob,
+    ):
+        if surface == "phone" or room.startswith("call-"):
+            return "intake"
     return current_kind
 
 
