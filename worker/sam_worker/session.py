@@ -162,8 +162,14 @@ def route_session_kind(
         return "trading"
     if re.search(
         r"\b(website|reservation|menu|branding|pitch deck|proposal|estimate|scope|"
-        r"instagram|campaign|app|logo|animation|deck|izakaya|cafe|founder)\b",
+        r"instagram|campaign|app|logo|animation|deck|izakaya|cafe|founder|project|"
+        r"talk about|make real|working on|business need)\b",
         blob,
+    ):
+        if surface == "phone" or room.startswith("call-"):
+            return "intake"
+    if re.search(r"\b(want to|wanna)\b", blob) and re.search(
+        r"\b(talk|build|make|create|scope|discuss)\b", blob
     ):
         if surface == "phone" or room.startswith("call-"):
             return "intake"

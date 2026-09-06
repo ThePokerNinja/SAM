@@ -176,6 +176,28 @@ def _is_outreach_utterance(text: str, raw: str) -> bool:
 _CONFIRM_FORCE = re.compile(r"\b(book it|do it|go ahead|please book|confirm)\b")
 _CONFIRM_YES = re.compile(r"\b(yes|yep|yeah|yup)\b")
 _YES_OR_NO = re.compile(r"\byes or no\b")
+_INTAKE_SCOPE = (
+    "talk about",
+    "make real",
+    "project",
+    "website",
+    "build",
+    "estimate",
+    "scope",
+    "proposal",
+    "intake",
+    "business need",
+    "working on",
+    "want to",
+    "app",
+    "logo",
+    "menu",
+    "branding",
+    "campaign",
+    "izakaya",
+    "cafe",
+    "founder",
+)
 
 
 def is_calendar_confirm(utterance: str) -> bool:
@@ -183,10 +205,18 @@ def is_calendar_confirm(utterance: str) -> bool:
     text = _normalize(utterance)
     if not text or _YES_OR_NO.search(text):
         return False
+    if _has_any(text, _INTAKE_SCOPE):
+        return False
     if _CONFIRM_FORCE.search(text):
         return True
     if calendar_action_for_utterance(utterance):
         return False
+    if _CONFIRM_YES.search(text) and len(text.split()) > 3:
+        if not _has_any(
+            text,
+            ("book", "schedule", "appointment", "calendar", "meeting", "confirm"),
+        ):
+            return False
     return bool(_CONFIRM_YES.search(text))
 
 

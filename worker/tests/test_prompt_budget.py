@@ -124,6 +124,10 @@ def test_select_calendar_proposal_then_confirmation() -> None:
     assert not is_calendar_confirm(
         "Yeah. I wanna book a fifteen minute appointment tomorrow"
     )
+    assert not is_calendar_confirm("Yeah. I wanna talk about")
+    assert not is_calendar_confirm(
+        "Yeah I want to talk about my website project"
+    )
 
 
 def test_add_another_appointment_selects_calendar_proposal() -> None:

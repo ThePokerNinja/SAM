@@ -1427,6 +1427,8 @@ async def entrypoint(ctx: JobContext) -> None:
 
     builder_dump_applied = {"done": False}
     builder_last_turn = {"text": "", "at": 0.0}
+    phone_dump_buffer = {"text": ""}
+    phone_intake_reask = {"done": False}
 
     @session.on("function_tools_executed")
     def _track_proposal_engagement(ev) -> None:
@@ -1472,25 +1474,33 @@ async def entrypoint(ctx: JobContext) -> None:
     async def _create_phone_engagement(text: str) -> str:
         """First owner phone scoping turn creates the shared builder notebook."""
         cleaned = (text or "").strip()
-        if not cleaned or cleaned.startswith("[SYNC]"):
+        if cleaned and not cleaned.startswith("[SYNC]"):
+            phone_dump_buffer["text"] = (phone_dump_buffer["text"] + " " + cleaned).strip()
+        blob = phone_dump_buffer["text"]
+        if not blob:
             return ""
-        if len(cleaned) < 12 and not re.search(
+        if len(blob) < 12 and not re.search(
             r"\b(website|reservation|menu|app|logo|izakaya|project|build|estimate|scope)\b",
-            cleaned,
+            blob,
             re.I,
         ):
             return ""
         try:
             result = await rm_client.run_tool(
                 "proposal_apply_summary",
-                {"summary": cleaned, "channel": "phone"},
+                {"summary": blob, "channel": "phone"},
             )
             eid = str(result.get("engagementId") or result.get("engagement_id") or "").strip()
             if not eid and isinstance(result.get("engagement"), dict):
                 eid = str(result["engagement"].get("id") or "").strip()
+            if not eid:
+                spoken = str(result.get("text") or "")
+                match = re.search(r"\b(eng-[a-f0-9]{8,})\b", spoken, re.I)
+                if match:
+                    eid = match.group(1)
             if eid:
                 proposal_engagement_id["value"] = eid
-                _log.info("phone intake engagement created=%s chars=%d", eid, len(cleaned))
+                _log.info("phone intake engagement created=%s chars=%d", eid, len(blob))
             else:
                 _log.warning(
                     "phone intake engagement create returned no id ok=%s reason=%s",
@@ -1587,7 +1597,10 @@ async def entrypoint(ctx: JobContext) -> None:
             if reply:
                 return reply
             if is_phone and sam_session.kind == "intake":
-                return "What's the job you want to make real?"
+                if not phone_intake_reask["done"]:
+                    phone_intake_reask["done"] = True
+                    return BUILDER_REASK
+                return None
             return None
         return None
 
