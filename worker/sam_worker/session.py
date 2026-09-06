@@ -81,10 +81,9 @@ def is_owner_inbound_phone_call(room_name: str) -> bool:
 
 
 def should_speak_builder_opening(room_name: str, *, is_phone: bool = False) -> bool:
-    room = (room_name or "").lower()
-    if room.startswith("builder-"):
-        return True
-    return bool(is_phone and is_owner_inbound_phone_call(room_name))
+    """Builder rooms only. Owner 855 greets as Samuel; sales is a later pack."""
+    del is_phone
+    return (room_name or "").lower().startswith("builder-")
 
 
 def should_use_builder_intake_path(
@@ -103,11 +102,10 @@ def greeting_instructions(kind: SessionKind) -> str:
     """Spoken open. Intake is the builder; the voice portal stays the general greet."""
     if kind == "intake":
         return (
-            "This is the proposal builder — a short, collaborative scoping call, "
-            "not a general chat. In one spoken breath: you are Samuel, then ask "
-            "what they want to make real. Invite a messy sketch — a concept, a "
-            "business need, an idea they have not named yet. Then stop and listen. "
-            "Do not ask how their day is. Do not list skills, tools, or pricing."
+            "You are Samuel helping scope a job they already asked to talk about. "
+            "In one spoken breath: stay Samuel, then ask what they want to make "
+            "real. Invite a messy sketch. Then stop and listen. Do not introduce "
+            "yourself as a proposal builder. Do not ask how their day is."
         )
     return (
         "Greet the user warmly as Samuel in one short spoken sentence, then ask how "
@@ -155,8 +153,6 @@ def route_session_kind(
     if room.startswith("staging-") or "staging-" in blob:
         return "skillbuilder"
     if room.startswith("samuel-dial-"):
-        return "intake"
-    if surface == "phone" and is_owner_inbound_phone_call(room_name):
         return "intake"
     if room.startswith("mod-"):
         return "moderator"

@@ -28,7 +28,9 @@ class _SeqClient:
             return {"ok": True, "text": "Saved.", **row}
         if name == "proposal_set_field":
             return {"ok": True, "text": "Set field."}
-        return {"ok": True, "text": self.tool_text, "gap": {"questionId": "cms"}}
+        if name == "proposal_research":
+            return {"ok": True, "text": "Research attached."}
+        return {"ok": True, "text": self.tool_text, "gap": {"questionId": "cms", "field": "discovery", "question": self.tool_text}}
 
 
 def test_builder_intake_turn_writes_then_ask_gap() -> None:
@@ -101,7 +103,7 @@ def test_builder_intake_turn_ignores_sync_prefix() -> None:
     assert tools == []
 
 
-def test_builder_intake_turn_wait_state_does_not_write() -> None:
+def test_builder_intake_turn_research_wait_runs_research_then_asks() -> None:
     client = _SeqClient(
         [
             {
@@ -111,13 +113,16 @@ def test_builder_intake_turn_wait_state_does_not_write() -> None:
                 "answers": [],
                 "form_data": {"projectSummary": "Harbor"},
             }
-        ]
+        ],
+        tool_text="What problem is this solving?",
     )
     spoken, tools = asyncio.run(
         run_builder_intake_turn(client, engagement_id="eng-1", text="while we wait tell me more")
     )
-    assert tools == []
-    assert "research" in spoken.lower() or "hang on" in spoken.lower()
+    assert "proposal_research" in tools
+    assert "proposal_ask_gap" in tools
+    assert "hang on" not in spoken.lower()
+    assert "problem" in spoken.lower() or "what" in spoken.lower()
 
 
 def test_builder_intake_turn_dump_applies_summary() -> None:

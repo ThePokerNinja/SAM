@@ -21,25 +21,25 @@ from sam_worker.tools.rainmaker_registry import engagement_id_from_room
 from sam_worker.tools.select import INTAKE_PACK_TOOLS, VOICE_INTAKE_LLM_TOOLS, select_tools_for_utterance
 
 
-def test_owner_phone_call_room_routes_intake_from_start() -> None:
+def test_owner_phone_call_starts_as_samuel_not_intake() -> None:
     assert is_owner_inbound_phone_call("call-_+15551212_abc")
     assert not is_owner_inbound_phone_call("samuel-dial-guest")
-    assert route_session_kind(surface="phone", room_name="call-_+15551212_abc") == "intake"
+    assert route_session_kind(surface="phone", room_name="call-_+15551212_abc") == "trading"
     session = build_session(
         session_id="call-owner",
         surface="phone",
         room_name="call-_+15551212_abc",
     )
-    assert session.kind == "intake"
-    assert session.pack == "intake"
+    assert session.kind == "trading"
+    assert session.pack == "trading"
 
 
-def test_owner_phone_call_uses_builder_opening_not_trading_greet() -> None:
-    assert should_speak_builder_opening("call-_+15551212_abc", is_phone=True)
-    assert not should_speak_builder_opening("call-_+15551212_abc", is_phone=False)
+def test_owner_phone_call_uses_samuel_greet_not_builder_opening() -> None:
+    assert not should_speak_builder_opening("call-_+15551212_abc", is_phone=True)
+    assert should_speak_builder_opening("builder-abc", is_phone=True)
     trading = greeting_instructions("trading")
     assert "how you can help" in trading.lower()
-    assert BUILDER_OPENING.lower() not in trading.lower()
+    assert "proposal builder" not in trading.lower()
     assert "make real" in BUILDER_OPENING.lower()
 
 
@@ -76,7 +76,7 @@ def test_demo_cap_hangup_rules() -> None:
 
 def test_builder_room_uses_spoken_opening() -> None:
     assert should_speak_builder_opening("builder-abc")
-    assert should_speak_builder_opening("call-_+15551212_abc", is_phone=True)
+    assert not should_speak_builder_opening("call-_+15551212_abc", is_phone=True)
     assert not should_speak_builder_opening("demo-abc")
     assert not should_speak_builder_opening("sam-owner")
     assert should_use_builder_intake_path("builder-abc", "intake")
@@ -108,7 +108,7 @@ def test_voice_intake_llm_tools_omit_page_only_writers() -> None:
 def test_builder_greeting_is_not_the_portal_greeting() -> None:
     builder = greeting_instructions("intake")
     portal = greeting_instructions("trading")
-    assert "proposal builder" in builder.lower()
+    assert "samuel" in builder.lower()
     assert "how you can help" not in builder.lower()
     assert "how you can help" in portal.lower()
     assert "proposal builder" not in portal.lower()
@@ -116,7 +116,7 @@ def test_builder_greeting_is_not_the_portal_greeting() -> None:
 
 def test_intake_overlay_stays_collaborative() -> None:
     overlay = PackRegistry().get("intake").persona_overlay.lower()
-    assert "few minutes" in overlay
+    assert "one question at a time" in overlay
     assert "how their day" in overlay
 
 
@@ -215,12 +215,18 @@ def test_phone_owner_intake_turn_sequence_after_fragment_dump() -> None:
                     "text": "Got it — lining up research.",
                     "gap": {"field": "research", "question": "Hang on while I pull research."},
                 }
+            if name == "proposal_research":
+                return {"ok": True, "text": "Research attached."}
             if name == "proposal_ask_gap":
                 return {
                     "ok": True,
                     "engagementId": "eng-phone-lab",
-                    "text": "Hang on while I pull research.",
-                    "gap": {"field": "research", "question": "Hang on while I pull research."},
+                    "text": "What problem is Harbor Izakaya solving?",
+                    "gap": {
+                        "field": "discovery",
+                        "questionId": "problem-statement",
+                        "question": "What problem is Harbor Izakaya solving?",
+                    },
                     "complete": False,
                 }
             return {"ok": True, "text": "Next?"}
@@ -242,5 +248,6 @@ def test_phone_owner_intake_turn_sequence_after_fragment_dump() -> None:
         run_builder_intake_turn(client, engagement_id="eng-phone-lab", text=dump)
     )
     assert "proposal_apply_summary" in tools or "proposal_ask_gap" in tools
+    assert "hang on" not in (spoken or "").lower()
     assert "putting the estimate up" not in (spoken or "").lower()
-    assert "research" in (spoken or "").lower() or tools == ["proposal_ask_gap"]
+    assert "problem" in (spoken or "").lower() or "what" in (spoken or "").lower()

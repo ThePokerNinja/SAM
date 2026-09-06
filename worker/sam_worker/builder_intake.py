@@ -124,7 +124,7 @@ def _gap_spoken_text(gap_res: dict[str, Any]) -> str:
         return ""
     if gap.get("field") == "discovery" and gap.get("questionId"):
         if not _question_published(gap_res, str(gap.get("questionId") or "")):
-            return _spoken_only("One moment while I line up the next questions.") or ""
+            return spoken or _spoken_only(str(gap.get("question") or "What else should I know about the job?")) or ""
     return spoken or ""
 
 
@@ -173,14 +173,25 @@ async def run_builder_intake_turn(
 
     gap = gaps[0] if isinstance(gaps[0], dict) else {}
     if _is_wait_gap(gap):
-        wait = str(gap.get("question") or "One moment.")
-        return _spoken_only(wait) or wait, tools
+        if str(gap.get("field") or "") == "research":
+            await client.run_tool("proposal_research", {"engagement_id": engagement_id})
+            tools.append("proposal_research")
+        gap_res = await client.run_tool("proposal_ask_gap", {"engagement_id": engagement_id})
+        tools.append("proposal_ask_gap")
+        spoken = _gap_spoken_text(gap_res)
+        nxt = gap_res.get("gap") if isinstance(gap_res.get("gap"), dict) else {}
+        if spoken and not _is_wait_gap(nxt):
+            return spoken, tools
+        fallback = str(nxt.get("question") or gap_res.get("text") or "")
+        if fallback and "hang on" not in fallback.lower() and "one second" not in fallback.lower():
+            return _spoken_only(fallback) or fallback, tools
+        return "What else should I know about the job?", tools
 
     if str(gap.get("field") or "") == "discovery":
         qid = str(gap.get("questionId") or "")
         if qid and qid not in _WAIT_QIDS and not _question_published(sync, qid):
-            wait = "One moment while I line up the next questions."
-            return wait, tools
+            spoken = str(gap.get("question") or "What else should I know about the job?")
+            return _spoken_only(spoken) or spoken, tools
 
     wrote = False
     if _looks_like_dump(cleaned, sync):
