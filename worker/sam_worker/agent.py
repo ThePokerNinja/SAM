@@ -661,6 +661,7 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     builder_engagement_id = engagement_id_from_room(room_name)
     proposal_engagement_id: dict[str, str] = {"value": builder_engagement_id or ""}
+    phone_dump_buffer = {"text": ""}
     continuity_state_ref = [
         ContinuityState(
             engagement_id=builder_engagement_id,
@@ -981,11 +982,32 @@ async def entrypoint(ctx: JobContext) -> None:
         if close_persistence_state["post_call_sms"]:
             return
         if not _session_is_owner() or is_outbound_guest or not is_phone:
+            _log.info("post-call resume sms skipped reason=not_owner_phone")
             return
         if not session_turns:
+            _log.info("post-call resume sms skipped reason=no_turns")
             return
         eid = proposal_engagement_id["value"] or builder_engagement_id
         if not eid:
+            blob = phone_dump_buffer["text"] or _session_close_summary(session_turns)
+            if blob.strip():
+                try:
+                    result = await rm_client.run_tool(
+                        "proposal_apply_summary",
+                        {"summary": blob, "channel": "phone"},
+                    )
+                    eid = str(
+                        result.get("engagementId") or result.get("engagement_id") or ""
+                    ).strip()
+                    if not eid and isinstance(result.get("engagement"), dict):
+                        eid = str(result["engagement"].get("id") or "").strip()
+                    if eid:
+                        proposal_engagement_id["value"] = eid
+                        _log.info("post-call engagement created from transcript=%s", eid)
+                except Exception:  # noqa: BLE001
+                    _log.exception("post-call engagement create failed")
+        if not eid:
+            _log.warning("post-call resume sms skipped reason=no_eid")
             return
         try:
             result = await rm_client.post_call_resume_sms(eid, channel="phone")
@@ -995,6 +1017,14 @@ async def entrypoint(ctx: JobContext) -> None:
                     _log.info("post-call resume sms sent engagement=%s", eid)
                 elif result.get("skipped"):
                     _log.info("post-call resume sms skipped engagement=%s", eid)
+                else:
+                    _log.info("post-call resume sms ok engagement=%s sent=%s", eid, result.get("sent"))
+            else:
+                _log.warning(
+                    "post-call resume sms failed engagement=%s reason=%s",
+                    eid,
+                    result.get("reason") or result.get("error"),
+                )
         except Exception:  # noqa: BLE001
             _log.exception("post-call resume sms failed engagement=%s", eid)
 
@@ -1427,7 +1457,6 @@ async def entrypoint(ctx: JobContext) -> None:
 
     builder_dump_applied = {"done": False}
     builder_last_turn = {"text": "", "at": 0.0}
-    phone_dump_buffer = {"text": ""}
     phone_intake_reask = {"done": False}
 
     @session.on("function_tools_executed")
@@ -1612,7 +1641,7 @@ async def entrypoint(ctx: JobContext) -> None:
         return await handle_commit_calendar_change(rm_client, session_id=session_id)
 
     def _calendar_confirm_allowed(_text: str) -> bool:
-        if should_speak_builder_opening(room_name):
+        if should_speak_builder_opening(room_name, is_phone=is_phone):
             return False
         if sam_session.kind == "intake" or sam_session.pack in {"intake", "guest_intake"}:
             return False
@@ -1729,7 +1758,7 @@ async def entrypoint(ctx: JobContext) -> None:
             audio_was_enabled = session.output.audio_enabled
             session.output.set_audio_enabled(False)
             try:
-                if should_speak_builder_opening(room_name):
+                if should_speak_builder_opening(room_name, is_phone=is_phone):
                     reply = await _builder_turn_reply(text)
                     await ctx.room.local_participant.publish_data(
                         json.dumps(
@@ -1833,8 +1862,8 @@ async def entrypoint(ctx: JobContext) -> None:
 
     # Client must be in the room and subscribed, or the opening plays into silence.
     await _wait_for_sip_participants(ctx.room, timeout_s=8.0)
-    await asyncio.sleep(2.5 if should_speak_builder_opening(room_name) else 1.0)
-    if should_speak_builder_opening(room_name):
+    await asyncio.sleep(2.5 if should_speak_builder_opening(room_name, is_phone=is_phone) else 1.0)
+    if should_speak_builder_opening(room_name, is_phone=is_phone):
         # Mic is often already live; an interruptible say gets cancelled by VAD.
         builder_heard = {"user": False}
 

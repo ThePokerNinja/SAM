@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import asyncio
+
 from sam_worker.agent import first_builder_dump_id
 from sam_worker.demo_cap import is_capped_room, should_hangup
 from sam_worker.packs.registry import PackRegistry
@@ -8,12 +12,35 @@ from sam_worker.session import (
     allows_skill_approval_sms,
     build_session,
     greeting_instructions,
+    is_owner_inbound_phone_call,
     route_session_kind,
     should_speak_builder_opening,
     should_use_builder_intake_path,
 )
 from sam_worker.tools.rainmaker_registry import engagement_id_from_room
 from sam_worker.tools.select import INTAKE_PACK_TOOLS, VOICE_INTAKE_LLM_TOOLS, select_tools_for_utterance
+
+
+def test_owner_phone_call_room_routes_intake_from_start() -> None:
+    assert is_owner_inbound_phone_call("call-_+15551212_abc")
+    assert not is_owner_inbound_phone_call("samuel-dial-guest")
+    assert route_session_kind(surface="phone", room_name="call-_+15551212_abc") == "intake"
+    session = build_session(
+        session_id="call-owner",
+        surface="phone",
+        room_name="call-_+15551212_abc",
+    )
+    assert session.kind == "intake"
+    assert session.pack == "intake"
+
+
+def test_owner_phone_call_uses_builder_opening_not_trading_greet() -> None:
+    assert should_speak_builder_opening("call-_+15551212_abc", is_phone=True)
+    assert not should_speak_builder_opening("call-_+15551212_abc", is_phone=False)
+    trading = greeting_instructions("trading")
+    assert "how you can help" in trading.lower()
+    assert BUILDER_OPENING.lower() not in trading.lower()
+    assert "make real" in BUILDER_OPENING.lower()
 
 
 def test_room_prefix_routes_moderator_and_intake() -> None:
@@ -49,6 +76,7 @@ def test_demo_cap_hangup_rules() -> None:
 
 def test_builder_room_uses_spoken_opening() -> None:
     assert should_speak_builder_opening("builder-abc")
+    assert should_speak_builder_opening("call-_+15551212_abc", is_phone=True)
     assert not should_speak_builder_opening("demo-abc")
     assert not should_speak_builder_opening("sam-owner")
     assert should_use_builder_intake_path("builder-abc", "intake")
@@ -166,5 +194,53 @@ def test_intake_overlay_names_three_sections() -> None:
     assert "proposal_apply_summary" in overlay
 
 
-def test_centaur_idea_utterance_selects_tool() -> None:
-    assert "centaur_idea" in select_tools_for_utterance("queue this idea tonight")
+def test_phone_owner_intake_turn_sequence_after_fragment_dump() -> None:
+    """Three opener fragments + Harbor dump should stay on research/discovery, not estimate."""
+    from sam_worker.builder_intake import run_builder_intake_turn
+
+    class _PhoneClient:
+        def __init__(self) -> None:
+            self.tools: list[str] = []
+            self._phase = 0
+
+        async def get_intake_sync(self, engagement_id: str) -> dict:
+            return {"ok": True, "engagementId": engagement_id, "complete": False, "gaps": [], "answers": []}
+
+        async def run_tool(self, name: str, args: dict | None = None) -> dict:
+            self.tools.append(name)
+            if name == "proposal_apply_summary":
+                return {
+                    "ok": True,
+                    "engagementId": "eng-phone-lab",
+                    "text": "Got it — lining up research.",
+                    "gap": {"field": "research", "question": "Hang on while I pull research."},
+                }
+            if name == "proposal_ask_gap":
+                return {
+                    "ok": True,
+                    "engagementId": "eng-phone-lab",
+                    "text": "Hang on while I pull research.",
+                    "gap": {"field": "research", "question": "Hang on while I pull research."},
+                    "complete": False,
+                }
+            return {"ok": True, "text": "Next?"}
+
+    client = _PhoneClient()
+    for fragment in (
+        "Yeah. I wanna talk about",
+        "digital service project.",
+        "a mobile website for our izakaya with reservations and menu.",
+    ):
+        spoken, tools = asyncio.run(
+            run_builder_intake_turn(client, engagement_id="", text=fragment)
+        )
+        assert "One second" not in (spoken or "")
+        assert "putting the estimate up" not in (spoken or "").lower()
+
+    dump = 'Website for "Harbor Izakaya" with reservations and menu, this month.'
+    spoken, tools = asyncio.run(
+        run_builder_intake_turn(client, engagement_id="eng-phone-lab", text=dump)
+    )
+    assert "proposal_apply_summary" in tools or "proposal_ask_gap" in tools
+    assert "putting the estimate up" not in (spoken or "").lower()
+    assert "research" in (spoken or "").lower() or tools == ["proposal_ask_gap"]

@@ -75,8 +75,16 @@ BUILDER_OPENING = "I'm Samuel. What's the thing you want to make real?"
 BUILDER_REASK = "Whenever you're ready — what's the job?"
 
 
-def should_speak_builder_opening(room_name: str) -> bool:
-    return (room_name or "").lower().startswith("builder-")
+def is_owner_inbound_phone_call(room_name: str) -> bool:
+    """Owner dials 855 — LiveKit room is call-<caller>_<id>, not outbound samuel-dial-."""
+    return (room_name or "").lower().startswith("call-")
+
+
+def should_speak_builder_opening(room_name: str, *, is_phone: bool = False) -> bool:
+    room = (room_name or "").lower()
+    if room.startswith("builder-"):
+        return True
+    return bool(is_phone and is_owner_inbound_phone_call(room_name))
 
 
 def should_use_builder_intake_path(
@@ -147,6 +155,8 @@ def route_session_kind(
     if room.startswith("staging-") or "staging-" in blob:
         return "skillbuilder"
     if room.startswith("samuel-dial-"):
+        return "intake"
+    if surface == "phone" and is_owner_inbound_phone_call(room_name):
         return "intake"
     if room.startswith("mod-"):
         return "moderator"
