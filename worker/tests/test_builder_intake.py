@@ -30,6 +30,12 @@ class _SeqClient:
             return {"ok": True, "text": "Set field."}
         if name == "proposal_research":
             return {"ok": True, "text": "Research attached."}
+        if name == "proposal_mark_estimate_ready":
+            return {
+                "ok": True,
+                "text": "Intake is complete. I'll put the estimate up.",
+                "complete": True,
+            }
         return {"ok": True, "text": self.tool_text, "gap": {"questionId": "cms", "field": "discovery", "question": self.tool_text}}
 
 
@@ -156,3 +162,82 @@ def test_builder_intake_turn_dump_applies_summary() -> None:
     assert "proposal_apply_summary" in tools
     assert "proposal_answer_question" not in tools
     assert spoken
+
+
+def test_builder_intake_turn_estimate_wait_marks_ready_not_what_else() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": False,
+                "gaps": [{"field": "estimate", "questionId": "_pending", "question": "One second — putting the estimate up."}],
+                "focus": {"field": "estimate"},
+                "answers": [{"questionId": "pages", "value": "8"}],
+                "questions": [{"id": "pages", "text": "How many pages?"}],
+                "form_data": {"projectSummary": "Harbor"},
+            }
+        ],
+        tool_text="Intake is complete. I'll put the estimate up.",
+    )
+    spoken, tools = asyncio.run(
+        run_builder_intake_turn(client, engagement_id="eng-1", text="ok go ahead")
+    )
+    assert "proposal_mark_estimate_ready" in tools
+    assert "proposal_ask_gap" not in tools
+    assert "what else should i know" not in spoken.lower()
+    assert "intake is complete" in spoken.lower()
+
+
+def test_builder_intake_turn_phone_fragment_holds_then_merges() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": False,
+                "gaps": [{"field": "discovery", "questionId": "pages", "question": "How many pages?"}],
+                "focus": {"questionId": "pages"},
+                "answers": [],
+                "questions": [{"id": "pages", "text": "How many pages?"}],
+                "form_data": {"projectSummary": "Harbor"},
+            },
+            {
+                "complete": False,
+                "gaps": [{"field": "discovery", "questionId": "pages", "question": "How many pages?"}],
+                "focus": {"questionId": "pages"},
+                "answers": [],
+                "questions": [{"id": "pages", "text": "How many pages?"}],
+                "form_data": {"projectSummary": "Harbor"},
+            },
+            {
+                "complete": False,
+                "gaps": [{"field": "discovery", "questionId": "cms", "question": "CMS?"}],
+                "focus": {"questionId": "cms"},
+                "answers": [{"questionId": "pages", "value": "Yeah. about eight pages"}],
+                "questions": [{"id": "pages", "text": "How many pages?"}, {"id": "cms", "text": "CMS?"}],
+                "form_data": {"projectSummary": "Harbor"},
+            },
+        ],
+        tool_text="Do you need a CMS?",
+    )
+    buffer: dict[str, str] = {}
+    spoken1, tools1 = asyncio.run(
+        run_builder_intake_turn(
+            client,
+            engagement_id="eng-1",
+            text="Yeah.",
+            is_phone=True,
+            answer_buffer=buffer,
+        )
+    )
+    assert tools1 == []
+    assert spoken1 == ""
+
+    spoken2, tools2 = asyncio.run(
+        run_builder_intake_turn(
+            client,
+            engagement_id="eng-1",
+            text="about eight pages",
+            is_phone=True,
+            answer_buffer=buffer,
+        )
+    )
+    assert tools2 == ["proposal_answer_question", "proposal_ask_gap"]
+    assert "CMS" in spoken2

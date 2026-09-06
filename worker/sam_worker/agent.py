@@ -1458,6 +1458,8 @@ async def entrypoint(ctx: JobContext) -> None:
     builder_dump_applied = {"done": False}
     builder_last_turn = {"text": "", "at": 0.0}
     phone_intake_reask = {"done": False}
+    builder_answer_buffer: dict[str, str] = {}
+    builder_last_spoken: dict[str, str] = {}
 
     @session.on("function_tools_executed")
     def _track_proposal_engagement(ev) -> None:
@@ -1582,6 +1584,9 @@ async def entrypoint(ctx: JobContext) -> None:
             rm_client,
             engagement_id=eid,
             text=cleaned,
+            is_phone=is_phone,
+            answer_buffer=builder_answer_buffer,
+            last_spoken=builder_last_spoken,
         )
         if tools:
             _log.info("builder intake turn engagement=%s tools=%s", eid, ",".join(tools))
