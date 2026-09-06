@@ -92,6 +92,23 @@ INTAKE_PACK_TOOLS: frozenset[str] = frozenset(
     }
 )
 
+# Voice intake uses the deterministic builder path; the LLM only gets lightweight tools.
+VOICE_INTAKE_LLM_TOOLS: frozenset[str] = frozenset(
+    {
+        "capture_note",
+        "proposal_apply_summary",
+        "proposal_set_field",
+        "proposal_focus",
+        "proposal_ask_gap",
+        "proposal_answer_question",
+        "proposal_revise",
+        "proposal_resume",
+        "proposal_research",
+        "correct_craft",
+        "proposal_send",
+    }
+)
+
 # Tiny fallback when the utterance is Rainmaker-ish but no specific tool matched.
 _FALLBACK_VOICE: tuple[str, ...] = ("get_pulse", "get_scans")
 

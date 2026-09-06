@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, TypedDict
 
 from livekit.agents import RunContext
 
@@ -50,6 +50,18 @@ def _room_engagement_id(deps: dict[str, Any], explicit: str = "") -> str:
     if explicit.strip():
         return explicit.strip()
     return engagement_id_from_room(str(deps.get("session_id") or deps.get("room_name") or ""))
+
+
+class ProposalQuestionItem(TypedDict, total=False):
+    """Discovery question row — explicit fields for OpenAI strict tool schemas."""
+
+    id: str
+    text: str
+    type: str
+    options: list[str]
+    required: bool
+    category: str
+    weight: float
 
 
 def register_rainmaker_tools(registry: ToolRegistry) -> None:
@@ -1037,7 +1049,7 @@ def _build_proposal_save_research(client: Any, _is_owner: Any, deps: dict[str, A
 def _build_proposal_save_questions(client: Any, _is_owner: Any, deps: dict[str, Any]):
     async def proposal_save_questions(
         context: RunContext,
-        questions: list[dict[str, Any]],
+        questions: list[ProposalQuestionItem],
         engagement_id: str = "",
     ) -> str:
         args: dict[str, Any] = {"questions": questions}

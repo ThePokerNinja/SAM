@@ -13,7 +13,7 @@ from sam_worker.session import (
     should_use_builder_intake_path,
 )
 from sam_worker.tools.rainmaker_registry import engagement_id_from_room
-from sam_worker.tools.select import INTAKE_PACK_TOOLS, select_tools_for_utterance
+from sam_worker.tools.select import INTAKE_PACK_TOOLS, VOICE_INTAKE_LLM_TOOLS, select_tools_for_utterance
 
 
 def test_room_prefix_routes_moderator_and_intake() -> None:
@@ -65,9 +65,11 @@ def test_intake_pack_tool_set_is_closed() -> None:
     assert names <= INTAKE_PACK_TOOLS
 
 
-def test_short_intake_confirmations_do_not_drop_proposal_tools() -> None:
-    assert "proposal_apply_summary" in INTAKE_PACK_TOOLS
-    assert select_tools_for_utterance("that's good") == ["run_command"]
+def test_voice_intake_llm_tools_omit_page_only_writers() -> None:
+    assert "proposal_save_questions" in INTAKE_PACK_TOOLS
+    assert "proposal_save_questions" not in VOICE_INTAKE_LLM_TOOLS
+    assert "proposal_save_research" not in VOICE_INTAKE_LLM_TOOLS
+    assert "proposal_apply_summary" in VOICE_INTAKE_LLM_TOOLS
 
 
 def test_builder_greeting_is_not_the_portal_greeting() -> None:

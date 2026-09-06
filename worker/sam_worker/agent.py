@@ -282,6 +282,9 @@ def _is_missing_tool_error(error: Any) -> bool:
 def _recovery_utterance(error: Any) -> str | None:
     if _is_missing_tool_error(error):
         return None
+    text = str(error or "").lower()
+    if "invalid_function_parameters" in text or "invalid schema for function" in text:
+        return "Hang on — I'm opening the estimate notebook."
     if _error_status(error) == 429:
         return "Give me one moment."
     return "One sec."
@@ -1471,8 +1474,8 @@ async def entrypoint(ctx: JobContext) -> None:
         cleaned = (text or "").strip()
         if not cleaned or cleaned.startswith("[SYNC]"):
             return ""
-        if len(cleaned) < 24 and not re.search(
-            r"\b(website|reservation|menu|app|logo|izakaya|project|build)\b",
+        if len(cleaned) < 12 and not re.search(
+            r"\b(website|reservation|menu|app|logo|izakaya|project|build|estimate|scope)\b",
             cleaned,
             re.I,
         ):
@@ -1488,6 +1491,12 @@ async def entrypoint(ctx: JobContext) -> None:
             if eid:
                 proposal_engagement_id["value"] = eid
                 _log.info("phone intake engagement created=%s chars=%d", eid, len(cleaned))
+            else:
+                _log.warning(
+                    "phone intake engagement create returned no id ok=%s reason=%s",
+                    result.get("ok"),
+                    result.get("reason"),
+                )
             return eid
         except Exception:  # noqa: BLE001
             _log.exception("phone intake engagement create failed")
@@ -1575,7 +1584,11 @@ async def entrypoint(ctx: JobContext) -> None:
                 return pending
         if should_use_builder_intake_path(room_name, sam_session.kind, is_phone=is_phone):
             reply = await _builder_turn_reply(text)
-            return reply if reply else None
+            if reply:
+                return reply
+            if is_phone and sam_session.kind == "intake":
+                return "What's the job you want to make real?"
+            return None
         return None
 
     def _route_timing(decision, elapsed_ms: float) -> None:

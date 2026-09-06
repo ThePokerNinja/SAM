@@ -25,6 +25,7 @@ from .tools.handlers import (
 from .tools.select import (
     CALENDAR_PACK_TOOLS,
     INTAKE_PACK_TOOLS,
+    VOICE_INTAKE_LLM_TOOLS,
     calendar_action_for_utterance,
     filter_tools,
     is_calendar_confirm,
@@ -327,14 +328,23 @@ class RoutedSamuelAgent(Agent):
         available = list(tools or [])
         available_names = {tool_callable_name(tool) for tool in available}
         appointment_pack = bool(available_names) and available_names <= CALENDAR_PACK_TOOLS
-        intake_pack = bool(available_names) and available_names <= INTAKE_PACK_TOOLS
+        intake_pack = (
+            "proposal_apply_summary" in available_names and "run_command" not in available_names
+        )
         names = [] if tool_completed else select_tools_for_utterance(text)
-        if appointment_pack or intake_pack:
+        if appointment_pack:
             # Groq still emits leftover calendar tool calls. An empty request.tools
             # fails every fallback rung with "not in request.tools" and Samuel
-            # starts repeating the recovery line. Intake needs every proposal tool
-            # on short answers like "yep" / "that's good" — keyword routing drops them.
+            # starts repeating the recovery line.
             selected = available
+        elif intake_pack:
+            # Phone/browser intake: keep proposal tools available; drop page-only writers
+            # that the deterministic builder path handles (research + question list).
+            selected = [
+                tool
+                for tool in available
+                if tool_callable_name(tool) in VOICE_INTAKE_LLM_TOOLS
+            ]
         else:
             selected = (
                 available
