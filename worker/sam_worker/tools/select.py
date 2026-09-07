@@ -87,6 +87,8 @@ INTAKE_PACK_TOOLS: frozenset[str] = frozenset(
         "proposal_revise",
         "proposal_resume",
         "proposal_research",
+        "proposal_mark_estimate_ready",
+        "proposal_sales_advance",
         "correct_craft",
         "proposal_send",
     }
@@ -105,7 +107,6 @@ VOICE_INTAKE_LLM_TOOLS: frozenset[str] = frozenset(
         "proposal_resume",
         "proposal_research",
         "correct_craft",
-        "proposal_send",
     }
 )
 

@@ -88,6 +88,8 @@ INTAKE = PackManifest(
         "proposal_revise",
         "proposal_resume",
         "proposal_research",
+        "proposal_mark_estimate_ready",
+        "proposal_sales_advance",
         "correct_craft",
         "proposal_send",
     ),

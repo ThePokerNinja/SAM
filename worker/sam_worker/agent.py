@@ -981,7 +981,11 @@ async def entrypoint(ctx: JobContext) -> None:
     async def _send_post_call_resume_sms() -> None:
         if close_persistence_state["post_call_sms"]:
             return
-        if not _session_is_owner() or is_outbound_guest or not is_phone:
+        inbound_owner = (room_name or "").lower().startswith("call-")
+        if is_outbound_guest or not is_phone:
+            _log.info("post-call resume sms skipped reason=not_owner_phone")
+            return
+        if not _session_is_owner() and not inbound_owner:
             _log.info("post-call resume sms skipped reason=not_owner_phone")
             return
         if not session_turns:

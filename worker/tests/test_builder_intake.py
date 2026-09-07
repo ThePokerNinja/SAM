@@ -36,6 +36,37 @@ class _SeqClient:
                 "text": "Intake is complete. I'll put the estimate up.",
                 "complete": True,
             }
+        if name == "proposal_sales_advance":
+            event = str((args or {}).get("event") or "")
+            if event == "offer_review":
+                return {
+                    "ok": True,
+                    "text": "I am about 90% confident on the scope. Want the draft by text or email?",
+                    "sales": {"phase": "review_offered", "confidence": 90},
+                }
+            if event == "choose_channel":
+                return {"ok": True, "text": "Got it.", "sales": {"phase": "review_sent", "confidence": 90}}
+            if event == "mark_reviewed":
+                return {"ok": True, "text": "Got it.", "sales": {"phase": "reviewed", "confidence": 90}}
+            if event == "approve_phase1":
+                return {"ok": True, "text": "Got it.", "sales": {"phase": "budget", "confidence": 90}}
+            if event == "set_budget":
+                return {
+                    "ok": True,
+                    "text": "Got it.",
+                    "sales": {"phase": "budget", "confidence": 90, "budgetBand": "15000"},
+                }
+            if event == "approve_phase2":
+                return {"ok": True, "text": "Approved.", "sales": {"phase": "phase2_approved", "confidence": 90}}
+            return {"ok": False, "text": "Unknown sales event."}
+        if name == "proposal_send":
+            kind = str((args or {}).get("kind") or "draft")
+            return {
+                "ok": True,
+                "text": "Sent.",
+                "kind": kind,
+                "body": "Harbor Izakaya — $4,125 (33 hours)\nEngagement eng-1\nOpen: https://start.michaelstewman.com/?e=eng-1",
+            }
         return {"ok": True, "text": self.tool_text, "gap": {"questionId": "cms", "field": "discovery", "question": self.tool_text}}
 
 
@@ -182,9 +213,11 @@ def test_builder_intake_turn_estimate_wait_marks_ready_not_what_else() -> None:
         run_builder_intake_turn(client, engagement_id="eng-1", text="ok go ahead")
     )
     assert "proposal_mark_estimate_ready" in tools
+    assert "proposal_sales_advance" in tools
     assert "proposal_ask_gap" not in tools
     assert "what else should i know" not in spoken.lower()
-    assert "intake is complete" in spoken.lower()
+    assert "confident" in spoken.lower()
+    assert "text or email" in spoken.lower()
 
 
 def test_builder_intake_turn_phone_fragment_holds_then_merges() -> None:
@@ -241,3 +274,63 @@ def test_builder_intake_turn_phone_fragment_holds_then_merges() -> None:
     )
     assert tools2 == ["proposal_answer_question", "proposal_ask_gap"]
     assert "CMS" in spoken2
+
+
+def test_complete_yeah_does_not_send_proposal() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": True,
+                "gaps": [],
+                "sales": {"phase": "review_offered", "confidence": 90},
+                "confidence": 90,
+                "form_data": {"projectSummary": "Harbor"},
+            }
+        ]
+    )
+    spoken, tools = asyncio.run(
+        run_builder_intake_turn(client, engagement_id="eng-1", text="Yeah.", is_phone=True)
+    )
+    assert "proposal_send" not in tools
+    assert "confident" in spoken.lower() or "text or email" in spoken.lower()
+
+
+def test_complete_email_sends_draft_not_job_id() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": True,
+                "gaps": [],
+                "sales": {"phase": "review_offered", "confidence": 90},
+                "confidence": 90,
+                "form_data": {"projectSummary": "Harbor"},
+            }
+        ]
+    )
+    spoken, tools = asyncio.run(
+        run_builder_intake_turn(client, engagement_id="eng-1", text="email it", is_phone=True)
+    )
+    assert tools == ["proposal_sales_advance", "proposal_send"]
+    assert "draft" in spoken.lower()
+    assert "job id" not in spoken.lower()
+
+
+def test_phase2_lock_sends_final() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": True,
+                "gaps": [],
+                "sales": {"phase": "budget", "confidence": 90, "budgetBand": "$15,000"},
+                "confidence": 90,
+                "form_data": {"projectSummary": "Harbor"},
+            }
+        ]
+    )
+    spoken, tools = asyncio.run(
+        run_builder_intake_turn(client, engagement_id="eng-1", text="lock it", is_phone=True)
+    )
+    assert "proposal_sales_advance" in tools
+    assert "proposal_send" in tools
+    assert "emailed" in spoken.lower()
+    assert "text" in spoken.lower()

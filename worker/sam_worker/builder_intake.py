@@ -37,7 +37,20 @@ _FINALIZE_RE = re.compile(
 )
 _CONTINUE_RE = re.compile(r"\b(continue|resume|pick up|where were we)\b", re.I)
 _WHAT_ELSE_RE = re.compile(r"what else should i know", re.I)
+_EMAIL_RE = re.compile(r"\b(email|e-mail|mail it)\b", re.I)
+_TEXT_RE = re.compile(r"\b(text|sms|message me)\b", re.I)
+_REVIEWED_RE = re.compile(
+    r"\b(i (?:looked|reviewed|read|saw)|reviewed it|looks good|i'm good|im good|"
+    r"no questions|approved|approve)\b",
+    re.I,
+)
+_BUDGET_RE = re.compile(
+    r"\$\s*\d|\b(\d{1,3}(?:,\d{3})+|\d+)\s*(k|thousand|grand)?\b|\bbudget\b",
+    re.I,
+)
+_LOCK_RE = re.compile(r"\b(lock it|final|go ahead|send the final|approved|approve that)\b", re.I)
 _SMS_FALLBACK = "I'll text you the link to finish the form."
+_OFFER_LINE = "Want the draft by text or email?"
 
 
 def _answered_ids(sync: dict[str, Any]) -> set[str]:
@@ -260,6 +273,178 @@ async def _ask_gap_spoken(
     return spoken, gap_res
 
 
+def _sales_from(sync: dict[str, Any]) -> dict[str, Any]:
+    raw = sync.get("sales")
+    return dict(raw) if isinstance(raw, dict) else {}
+
+
+def _confidence_offer_line(sync: dict[str, Any], sales: dict[str, Any] | None = None) -> str:
+    state = sales or _sales_from(sync)
+    try:
+        conf = float(state.get("confidence") or sync.get("confidence") or 0)
+    except (TypeError, ValueError):
+        conf = 0.0
+    if conf >= 85:
+        return f"I'm about {conf:.0f}% confident on the scope. {_OFFER_LINE}"
+    return (
+        "I still need more of the actual job before I send a draft — "
+        "what has to ship on the site?"
+    )
+
+
+async def _advance_sales(
+    client: RainmakerClient,
+    *,
+    engagement_id: str,
+    event: str,
+    tools: list[str],
+    **extra: Any,
+) -> dict[str, Any]:
+    args = {"engagement_id": engagement_id, "event": event, **extra}
+    result = await client.run_tool("proposal_sales_advance", args)
+    tools.append("proposal_sales_advance")
+    return result
+
+
+async def _send_proposal(
+    client: RainmakerClient,
+    *,
+    engagement_id: str,
+    kind: str,
+    tools: list[str],
+) -> dict[str, Any]:
+    result = await client.run_tool(
+        "proposal_send",
+        {"engagement_id": engagement_id, "kind": kind},
+    )
+    tools.append("proposal_send")
+    return result
+
+
+async def _handle_sales_close(
+    client: RainmakerClient,
+    *,
+    engagement_id: str,
+    text: str,
+    sync: dict[str, Any],
+    tools: list[str],
+) -> str:
+    """Walk text/email offer → draft send → review → budget → final priced send."""
+    cleaned = (text or "").strip()
+    sales = _sales_from(sync)
+    phase = str(sales.get("phase") or "context")
+    try:
+        conf = float(sales.get("confidence") or sync.get("confidence") or 0)
+    except (TypeError, ValueError):
+        conf = 0.0
+
+    if _CONTINUE_RE.search(cleaned):
+        resume = await client.run_tool(
+            "proposal_resume",
+            {"engagement_id": engagement_id, "channel": "voice"},
+        )
+        tools.append("proposal_resume")
+        return _spoken_only(str(resume.get("text") or "")) or "Picking up where we left off."
+
+    if phase in {"budget", "phase1_approved"} and _BUDGET_RE.search(cleaned):
+        advanced = await _advance_sales(
+            client,
+            engagement_id=engagement_id,
+            event="set_budget",
+            tools=tools,
+            budgetBand=cleaned[:120],
+        )
+        if not advanced.get("ok"):
+            return _spoken_only(str(advanced.get("text") or "")) or "What budget are you working with?"
+        return "Got it. I can work the bid to that. Want me to lock this as the final estimate?"
+
+    if phase == "budget" and sales.get("budgetBand") and _LOCK_RE.search(cleaned):
+        approved = await _advance_sales(
+            client,
+            engagement_id=engagement_id,
+            event="approve_phase2",
+            tools=tools,
+        )
+        if not approved.get("ok"):
+            return _spoken_only(str(approved.get("text") or "")) or "I still need the budget locked."
+        sent = await _send_proposal(
+            client, engagement_id=engagement_id, kind="final", tools=tools
+        )
+        if not sent.get("ok"):
+            return _spoken_only(str(sent.get("text") or "")) or "I couldn't send the final estimate."
+        return (
+            "Locked. I emailed the priced estimate and I'll text the notebook link — "
+            "mission, timeline, and the number."
+        )
+
+    if phase in {"review_sent", "reviewed"} and _REVIEWED_RE.search(cleaned):
+        if phase == "review_sent":
+            marked = await _advance_sales(
+                client,
+                engagement_id=engagement_id,
+                event="mark_reviewed",
+                tools=tools,
+            )
+            if not marked.get("ok"):
+                return _spoken_only(str(marked.get("text") or "")) or "Did you get a chance to look at the draft?"
+        approved = await _advance_sales(
+            client,
+            engagement_id=engagement_id,
+            event="approve_phase1",
+            tools=tools,
+        )
+        if not approved.get("ok"):
+            return _spoken_only(str(approved.get("text") or "")) or "Any questions on the draft?"
+        return "What's your budget for this?"
+
+    wants_email = bool(_EMAIL_RE.search(cleaned))
+    wants_text = bool(_TEXT_RE.search(cleaned)) and not wants_email
+    if wants_email or wants_text:
+        if phase in {"context", "review_offered"} and conf < 85 and phase != "review_offered":
+            return _confidence_offer_line(sync, sales)
+        if phase in {"context", "review_offered"}:
+            chosen = await _advance_sales(
+                client,
+                engagement_id=engagement_id,
+                event="choose_channel",
+                tools=tools,
+                channel="email" if wants_email else "text",
+            )
+            if not chosen.get("ok"):
+                return _spoken_only(str(chosen.get("text") or "")) or _OFFER_LINE
+        sent = await _send_proposal(
+            client, engagement_id=engagement_id, kind="draft", tools=tools
+        )
+        if not sent.get("ok"):
+            return _spoken_only(str(sent.get("text") or "")) or _confidence_offer_line(sync, sales)
+        channel = "email" if wants_email else "text"
+        return f"Draft is on the way by {channel}. Tell me when you've looked it over."
+
+    if phase in {"review_offered", "review_sent", "reviewed", "budget", "phase1_approved"}:
+        if phase == "review_offered":
+            return _confidence_offer_line(sync, sales)
+        if phase == "review_sent":
+            return "Tell me when you've looked at the draft."
+        if phase == "reviewed":
+            return "Any questions, or should we talk budget?"
+        return "What budget are you working with?"
+
+    if conf >= 85 or phase == "review_offered":
+        offered = await _advance_sales(
+            client,
+            engagement_id=engagement_id,
+            event="offer_review",
+            tools=tools,
+        )
+        if offered.get("ok"):
+            return _spoken_only(str(offered.get("text") or "")) or _confidence_offer_line(
+                offered, offered.get("sales") if isinstance(offered.get("sales"), dict) else sales
+            )
+        return _confidence_offer_line(sync, sales)
+
+    return _confidence_offer_line(sync, sales)
+
+
 async def run_builder_intake_turn(
     client: RainmakerClient,
     *,
@@ -281,24 +466,14 @@ async def run_builder_intake_turn(
     if not sync.get("ok"):
         return "I lost the form session.", tools
     if sync.get("complete"):
-        if _CONTINUE_RE.search(cleaned):
-            resume = await client.run_tool(
-                "proposal_resume",
-                {"engagement_id": engagement_id, "channel": "voice"},
-            )
-            tools.append("proposal_resume")
-            return _spoken_only(str(resume.get("text") or "")) or "Picking up where we left off.", tools
-        if _FINALIZE_RE.search(cleaned) and not _LEAVE_RE.match(cleaned):
-            send = await client.run_tool("proposal_send", {"engagement_id": engagement_id})
-            tools.append("proposal_send")
-            spoken = _spoken_only(str(send.get("text") or "")) or "Sent."
-            return spoken, tools
-        base = _spoken_only(str(sync.get("text") or "")) or (
-            "Intake is complete — tap the bar to edit."
+        spoken = await _handle_sales_close(
+            client,
+            engagement_id=engagement_id,
+            text=cleaned,
+            sync=sync,
+            tools=tools,
         )
-        if engagement_id and "Job id" not in base:
-            base = f"{base} Job id {engagement_id}."
-        return base, tools
+        return spoken, tools
 
     gaps = sync.get("gaps") or []
     if not gaps:
@@ -334,7 +509,19 @@ async def run_builder_intake_turn(
                 {"engagement_id": engagement_id},
             )
             tools.append("proposal_mark_estimate_ready")
-            spoken = _spoken_only(str(est.get("text") or "")) or ""
+            offered = await _advance_sales(
+                client,
+                engagement_id=engagement_id,
+                event="offer_review",
+                tools=tools,
+            )
+            if offered.get("ok"):
+                spoken = _spoken_only(str(offered.get("text") or "")) or _confidence_offer_line(
+                    offered, offered.get("sales") if isinstance(offered.get("sales"), dict) else None
+                )
+                spoken = _track_spoken(engagement_id, spoken, last_spoken=last_spoken)
+                return spoken or SMS_FALLBACK, tools
+            spoken = _spoken_only(str(est.get("text") or offered.get("text") or "")) or ""
             if _forbidden_spoken(spoken):
                 spoken = ""
             if spoken:
