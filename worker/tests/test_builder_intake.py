@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from sam_worker.builder_intake import run_builder_intake_turn
+from sam_worker.builder_intake import classify_close_turn, run_builder_intake_turn
 
 
 class _SeqClient:
@@ -11,13 +11,21 @@ class _SeqClient:
         self.tools: list[str] = []
         self.tool_text = tool_text
         self._sync_idx = 0
+        self.pending: dict[str, str] = {}
 
     async def get_intake_sync(self, engagement_id: str) -> dict:
         row = self._sync_rows[min(self._sync_idx, len(self._sync_rows) - 1)]
-        return {"ok": True, "engagementId": engagement_id, **row}
+        sales = dict(row.get("sales") or {})
+        if self.pending:
+            sales.update(self.pending)
+        return {"ok": True, "engagementId": engagement_id, **row, "sales": sales}
 
     async def run_tool(self, name: str, args: dict | None = None) -> dict:
         self.tools.append(name)
+        if name == "proposal_sales_set_pending":
+            self.pending["pendingOffer"] = str((args or {}).get("pendingOffer") or "")
+            self.pending["pendingPrompt"] = str((args or {}).get("pendingPrompt") or "")
+            return {"ok": True, "sales": self.pending}
         if name == "proposal_apply_summary":
             self._sync_idx = min(self._sync_idx + 1, len(self._sync_rows) - 1)
             row = self._sync_rows[self._sync_idx]
@@ -41,7 +49,10 @@ class _SeqClient:
             if event == "offer_review":
                 return {
                     "ok": True,
-                    "text": "I am about 90% confident on the scope. Want the draft by text or email?",
+                    "text": (
+                        "I am about 90% confident on the scope. "
+                        "I can send the draft by email or text — which do you want?"
+                    ),
                     "sales": {"phase": "review_offered", "confidence": 90},
                 }
             if event == "choose_channel":
@@ -68,6 +79,16 @@ class _SeqClient:
                 "body": "Harbor Izakaya — $4,125 (33 hours)\nEngagement eng-1\nOpen: https://start.michaelstewman.com/?e=eng-1",
             }
         return {"ok": True, "text": self.tool_text, "gap": {"questionId": "cms", "field": "discovery", "question": self.tool_text}}
+
+
+def test_classify_close_turn_paraphrases() -> None:
+    assert classify_close_turn("sure", pending_offer="send_final", phase="budget") == "affirm"
+    assert classify_close_turn("yeah", pending_offer="", phase="review_offered") == "affirm_no_offer"
+    assert classify_close_turn("send it to my inbox", pending_offer="", phase="review_offered") == "choose_email"
+    assert classify_close_turn("just text me", pending_offer="", phase="review_offered") == "choose_text"
+    assert classify_close_turn("I looked", pending_offer="mark_reviewed", phase="review_sent") == "reviewed"
+    assert classify_close_turn("fifteen thousand", pending_offer="", phase="budget") == "budget"
+    assert classify_close_turn("what's this cost?", pending_offer="", phase="review_offered") == "cost_question"
 
 
 def test_builder_intake_turn_writes_then_ask_gap() -> None:
@@ -214,10 +235,10 @@ def test_builder_intake_turn_estimate_wait_marks_ready_not_what_else() -> None:
     )
     assert "proposal_mark_estimate_ready" in tools
     assert "proposal_sales_advance" in tools
+    assert "proposal_sales_set_pending" in tools
     assert "proposal_ask_gap" not in tools
     assert "what else should i know" not in spoken.lower()
-    assert "confident" in spoken.lower()
-    assert "text or email" in spoken.lower()
+    assert "email or text" in spoken.lower()
 
 
 def test_builder_intake_turn_phone_fragment_holds_then_merges() -> None:
@@ -282,7 +303,12 @@ def test_complete_yeah_does_not_send_proposal() -> None:
             {
                 "complete": True,
                 "gaps": [],
-                "sales": {"phase": "review_offered", "confidence": 90},
+                "sales": {
+                    "phase": "review_offered",
+                    "confidence": 90,
+                    "pendingOffer": "choose_channel",
+                    "pendingPrompt": "I can send the draft by email or text — which do you want?",
+                },
                 "confidence": 90,
                 "form_data": {"projectSummary": "Harbor"},
             }
@@ -292,10 +318,10 @@ def test_complete_yeah_does_not_send_proposal() -> None:
         run_builder_intake_turn(client, engagement_id="eng-1", text="Yeah.", is_phone=True)
     )
     assert "proposal_send" not in tools
-    assert "confident" in spoken.lower() or "text or email" in spoken.lower()
+    assert "email or text" in spoken.lower()
 
 
-def test_complete_email_sends_draft_not_job_id() -> None:
+def test_complete_inbox_sends_draft_not_job_id() -> None:
     client = _SeqClient(
         [
             {
@@ -308,27 +334,61 @@ def test_complete_email_sends_draft_not_job_id() -> None:
         ]
     )
     spoken, tools = asyncio.run(
-        run_builder_intake_turn(client, engagement_id="eng-1", text="email it", is_phone=True)
+        run_builder_intake_turn(
+            client, engagement_id="eng-1", text="send it to my inbox", is_phone=True
+        )
     )
-    assert tools == ["proposal_sales_advance", "proposal_send"]
+    assert "proposal_sales_advance" in tools
+    assert "proposal_send" in tools
+    assert "proposal_sales_set_pending" in tools
     assert "draft" in spoken.lower()
     assert "job id" not in spoken.lower()
 
 
-def test_phase2_lock_sends_final() -> None:
+def test_complete_sure_after_email_offer_sends_draft() -> None:
     client = _SeqClient(
         [
             {
                 "complete": True,
                 "gaps": [],
-                "sales": {"phase": "budget", "confidence": 90, "budgetBand": "$15,000"},
+                "sales": {
+                    "phase": "review_offered",
+                    "confidence": 90,
+                    "pendingOffer": "choose_email",
+                    "pendingPrompt": "Want me to send the draft by email?",
+                },
                 "confidence": 90,
                 "form_data": {"projectSummary": "Harbor"},
             }
         ]
     )
     spoken, tools = asyncio.run(
-        run_builder_intake_turn(client, engagement_id="eng-1", text="lock it", is_phone=True)
+        run_builder_intake_turn(client, engagement_id="eng-1", text="sure", is_phone=True)
+    )
+    assert "proposal_send" in tools
+    assert "draft" in spoken.lower()
+
+
+def test_phase2_go_ahead_sends_final() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": True,
+                "gaps": [],
+                "sales": {
+                    "phase": "budget",
+                    "confidence": 90,
+                    "budgetBand": "$15,000",
+                    "pendingOffer": "send_final",
+                    "pendingPrompt": "Want me to send the final estimate and text the link?",
+                },
+                "confidence": 90,
+                "form_data": {"projectSummary": "Harbor"},
+            }
+        ]
+    )
+    spoken, tools = asyncio.run(
+        run_builder_intake_turn(client, engagement_id="eng-1", text="go ahead", is_phone=True)
     )
     assert "proposal_sales_advance" in tools
     assert "proposal_send" in tools

@@ -73,6 +73,7 @@ INTAKE = PackManifest(
         "Do not name tools, walk a wizard, or offer trading or calendar. "
         "Do not discuss hours-trim, email, or SOW in this intake. "
         "Reflect their words in a half-sentence, then the next real gap only. "
+        "After intake is complete, always name the next confirmable move — never require a secret phrase. "
         "When the form is complete, say exactly: Intake is complete. I'll put the "
         "estimate up. Tap the bar if you want to change the form."
     ),
