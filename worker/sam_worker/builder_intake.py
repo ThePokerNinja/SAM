@@ -107,9 +107,40 @@ def classify_close_turn(text: str, *, pending_offer: str, phase: str) -> str:
     return "unclear"
 
 
-def _offer_prompt(conf: float) -> str:
+def _pack_hint(sync: dict[str, Any]) -> str:
+    pack = sync.get("packMatch") if isinstance(sync.get("packMatch"), dict) else {}
+    name = str(pack.get("name") or pack.get("label") or pack.get("id") or "").strip()
+    if not name or pack.get("unmatched"):
+        return ""
+    return name.replace("-", " ").replace("_", " ")
+
+
+def _reflect_answer(answer: str) -> str:
+    """Half-sentence SPIN reflect before the next discovery question."""
+    cleaned = (answer or "").strip()
+    if not cleaned or _LEAVE_RE.match(cleaned):
+        return ""
+    words = [w for w in re.split(r"\s+", cleaned) if w]
+    if len(words) < 3:
+        return ""
+    snippet = " ".join(words[:8])
+    if len(snippet) > 52:
+        snippet = snippet[:49].rsplit(" ", 1)[0] + "..."
+    return f"Got it — {snippet}. "
+
+
+def _closer_discovery_line(answer: str, question: str) -> str:
+    reflect = _reflect_answer(answer)
+    q = (question or "").strip()
+    if reflect and q:
+        return f"{reflect}{q}"
+    return q or reflect.strip()
+
+
+def _offer_prompt(conf: float, *, pack_hint: str = "") -> str:
+    lead = f"This looks like a {pack_hint} job. " if pack_hint else ""
     return (
-        f"I'm about {conf:.0f}% confident on the scope. "
+        f"{lead}I'm about {conf:.0f}% confident on the scope. "
         "I can send the draft by email or text — which do you want?"
     )
 
@@ -119,11 +150,14 @@ def _draft_sent_prompt(channel: str) -> str:
 
 
 def _budget_prompt() -> str:
-    return "What's your budget for this?"
+    return "Before I lock the bid — what budget are you working with?"
 
 
 def _final_offer_prompt() -> str:
-    return "I can work the bid to that. Want me to send the final estimate and text the link?"
+    return (
+        "I can work the bid to that range. "
+        "Want me to send the final estimate and text the notebook link?"
+    )
 
 
 def _restate_pending(sales: dict[str, Any], *, sync: dict[str, Any] | None = None) -> str:
@@ -136,7 +170,7 @@ def _restate_pending(sales: dict[str, Any], *, sync: dict[str, Any] | None = Non
     except (TypeError, ValueError):
         conf = 0.0
     if phase in {"review_offered", "context"} and conf >= 85:
-        return _offer_prompt(conf)
+        return _offer_prompt(conf, pack_hint=_pack_hint(sync or {}))
     if phase == "review_sent":
         return "Tell me when you've looked at the draft."
     if phase in {"reviewed", "phase1_approved"}:
@@ -145,7 +179,7 @@ def _restate_pending(sales: dict[str, Any], *, sync: dict[str, Any] | None = Non
         if sales.get("budgetBand"):
             return _final_offer_prompt()
         return _budget_prompt()
-    return _offer_prompt(conf) if conf >= 85 else (
+    return _offer_prompt(conf, pack_hint=_pack_hint(sync or {})) if conf >= 85 else (
         "I still need more of the actual job before I send a draft — "
         "what has to ship on the site?"
     )
@@ -383,7 +417,7 @@ def _confidence_offer_line(sync: dict[str, Any], sales: dict[str, Any] | None = 
     except (TypeError, ValueError):
         conf = 0.0
     if conf >= 85:
-        return _offer_prompt(conf)
+        return _offer_prompt(conf, pack_hint=_pack_hint(sync))
     return (
         "I still need more of the actual job before I send a draft — "
         "what has to ship on the site?"
@@ -434,7 +468,9 @@ async def _send_draft_by_channel(
             channel=channel,
         )
         if not chosen.get("ok"):
-            line = _spoken_only(str(chosen.get("text") or "")) or _offer_prompt(conf)
+            line = _spoken_only(str(chosen.get("text") or "")) or _offer_prompt(
+                conf, pack_hint=_pack_hint(sync)
+            )
             await _set_pending_offer(
                 client,
                 engagement_id=engagement_id,
@@ -597,8 +633,8 @@ async def _send_final_estimate(
         tools=tools,
     )
     return (
-        "Locked. I emailed the priced estimate and I'll text the notebook link — "
-        "mission, timeline, and the number."
+        "Done — the priced estimate is in your inbox and I'll text the notebook link "
+        "with mission, timeline, and the number."
     )
 
 
@@ -786,6 +822,21 @@ async def run_builder_intake_turn(
     sync = await client.get_intake_sync(engagement_id)
     if not sync.get("ok"):
         return "I lost the form session.", tools
+
+    if not sync.get("complete") and _COST_QUESTION_RE.search(cleaned):
+        gaps = sync.get("gaps") or []
+        active = gaps[0] if gaps and isinstance(gaps[0], dict) else {}
+        if active and not _is_wait_gap(active):
+            q = _spoken_only(str(active.get("question") or "")) or str(active.get("question") or "")
+            line = f"I'll get you a real number once I understand the job — {q}".strip(" —")
+            line = _track_spoken(engagement_id, line, last_spoken=last_spoken) or line
+            return line, tools
+        line = (
+            "I'll get you a real number once I understand the job — "
+            "what's the main thing that has to work on day one?"
+        )
+        return line, tools
+
     if sync.get("complete"):
         spoken = await _handle_sales_close(
             client,
@@ -928,13 +979,18 @@ async def run_builder_intake_turn(
             tools.append("proposal_set_field")
             wrote = True
 
-    spoken, _ = await _ask_gap_spoken(
+    spoken, gap_res = await _ask_gap_spoken(
         client,
         engagement_id=engagement_id,
         tools=tools,
         sync=sync,
         last_spoken=last_spoken,
     )
+    if wrote and answer_text and spoken:
+        nxt_gap = gap_res.get("gap") if isinstance(gap_res.get("gap"), dict) else {}
+        if str(nxt_gap.get("field") or "") == "discovery":
+            spoken = _closer_discovery_line(answer_text, spoken)
+            spoken = _track_spoken(engagement_id, spoken, last_spoken=last_spoken) or spoken
     if not spoken and wrote:
         spoken = "Got it."
     return spoken or ("Got it." if wrote else ""), tools

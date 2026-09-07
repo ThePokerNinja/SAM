@@ -114,10 +114,23 @@ def test_builder_greeting_is_not_the_portal_greeting() -> None:
     assert "proposal builder" not in portal.lower()
 
 
-def test_intake_overlay_stays_collaborative() -> None:
+def test_intake_overlay_is_spin_closer_not_clerk() -> None:
     overlay = PackRegistry().get("intake").persona_overlay.lower()
-    assert "one question at a time" in overlay
+    assert "spin" in overlay
+    assert "not a form clerk" in overlay
     assert "how their day" in overlay
+    assert "do not discuss hours-trim" not in overlay
+
+
+def test_intake_overlay_walks_gaps_and_confirms_filled_rows() -> None:
+    overlay = PackRegistry().get("intake").persona_overlay.lower()
+    assert "proposal_ask_gap" in overlay
+    assert "want to change this, or leave it" in overlay
+    assert "tiny jobs" not in overlay
+    assert "proposal_save_research" not in overlay
+    assert "phase 1 is the job only" in overlay
+    assert "confirmable move" in overlay
+    assert "tap the bar" in overlay
 
 
 def test_first_builder_dump_skips_sync_and_portal() -> None:
@@ -173,25 +186,6 @@ def test_builder_room_stays_intake_when_utterance_says_moderate() -> None:
     assert session.pack == "intake"
     assert not session.activate_from_utterance("go back to trading mode")
     assert session.kind == "intake"
-
-
-def test_intake_overlay_walks_gaps_and_confirms_filled_rows() -> None:
-    overlay = PackRegistry().get("intake").persona_overlay.lower()
-    assert "proposal_ask_gap" in overlay
-    assert "want to change this, or leave it" in overlay
-    assert "tiny jobs" not in overlay
-    assert "proposal_save_research" not in overlay
-    assert "do not discuss hours-trim" in overlay
-    assert "email" in overlay and "sow" in overlay
-    assert "tap the bar" in overlay
-
-
-def test_intake_overlay_names_three_sections() -> None:
-    overlay = PackRegistry().get("intake").persona_overlay.lower()
-    assert "research" in overlay
-    assert "discovery" in overlay
-    assert "tap the bar" in overlay
-    assert "proposal_apply_summary" in overlay
 
 
 def test_phone_owner_intake_turn_sequence_after_fragment_dump() -> None:

@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import asyncio
 
-from sam_worker.builder_intake import classify_close_turn, run_builder_intake_turn
+from sam_worker.builder_intake import (
+    _closer_discovery_line,
+    _reflect_answer,
+    classify_close_turn,
+    run_builder_intake_turn,
+)
 
 
 class _SeqClient:
@@ -79,6 +84,38 @@ class _SeqClient:
                 "body": "Harbor Izakaya — $4,125 (33 hours)\nEngagement eng-1\nOpen: https://start.michaelstewman.com/?e=eng-1",
             }
         return {"ok": True, "text": self.tool_text, "gap": {"questionId": "cms", "field": "discovery", "question": self.tool_text}}
+
+
+def test_reflect_answer_skips_short_fragments() -> None:
+    assert _reflect_answer("Yeah.") == ""
+    assert _reflect_answer("Eight pages with menu and reservations").startswith("Got it")
+
+
+def test_closer_discovery_line_reflects_then_asks() -> None:
+    line = _closer_discovery_line("Eight pages with menu", "Do you need a CMS?")
+    assert line.startswith("Got it")
+    assert "CMS" in line
+
+
+def test_cost_question_during_discovery_deflects() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": False,
+                "gaps": [{"field": "discovery", "questionId": "pages", "question": "How many pages?"}],
+                "focus": {"questionId": "pages"},
+                "answers": [],
+                "questions": [{"id": "pages", "text": "How many pages?"}],
+                "form_data": {"projectSummary": "Harbor"},
+            }
+        ]
+    )
+    spoken, tools = asyncio.run(
+        run_builder_intake_turn(client, engagement_id="eng-1", text="How much will this cost?")
+    )
+    assert tools == []
+    assert "real number" in spoken.lower()
+    assert "pages" in spoken.lower()
 
 
 def test_classify_close_turn_paraphrases() -> None:
@@ -392,5 +429,5 @@ def test_phase2_go_ahead_sends_final() -> None:
     )
     assert "proposal_sales_advance" in tools
     assert "proposal_send" in tools
-    assert "emailed" in spoken.lower()
+    assert "inbox" in spoken.lower()
     assert "text" in spoken.lower()
