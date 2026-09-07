@@ -106,6 +106,10 @@ VOICE_INTAKE_LLM_TOOLS: frozenset[str] = frozenset(
         "proposal_revise",
         "proposal_resume",
         "proposal_research",
+        "proposal_mark_estimate_ready",
+        "proposal_sales_advance",
+        "proposal_sales_set_pending",
+        "proposal_send",
         "correct_craft",
     }
 )

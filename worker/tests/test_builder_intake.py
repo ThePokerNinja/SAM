@@ -118,6 +118,40 @@ def test_cost_question_during_discovery_deflects() -> None:
     assert "pages" in spoken.lower()
 
 
+def test_silent_sync_writes_without_speaking() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": False,
+                "gaps": [{"field": "discovery", "questionId": "pages", "question": "How many pages?"}],
+                "focus": {"questionId": "pages"},
+                "answers": [],
+                "questions": [{"id": "pages", "text": "How many pages?"}],
+                "form_data": {"projectSummary": "Harbor"},
+            },
+            {
+                "complete": False,
+                "gaps": [{"field": "discovery", "questionId": "cms", "question": "CMS?"}],
+                "focus": {"questionId": "cms"},
+                "answers": [{"questionId": "pages", "value": "Eight pages with menu"}],
+                "questions": [{"id": "pages", "text": "How many pages?"}, {"id": "cms", "text": "CMS?"}],
+                "form_data": {"projectSummary": "Harbor"},
+            },
+        ],
+        tool_text="Do you need a CMS?",
+    )
+    spoken, tools = asyncio.run(
+        run_builder_intake_turn(
+            client,
+            engagement_id="eng-1",
+            text="Eight pages with menu",
+            speak=False,
+        )
+    )
+    assert spoken == ""
+    assert "proposal_answer_question" in tools
+
+
 def test_classify_close_turn_paraphrases() -> None:
     assert classify_close_turn("sure", pending_offer="send_final", phase="budget") == "affirm"
     assert classify_close_turn("yeah", pending_offer="", phase="review_offered") == "affirm_no_offer"

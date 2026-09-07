@@ -104,6 +104,7 @@ from .session import (
     greeting_instructions,
     should_speak_builder_opening,
     should_use_builder_intake_path,
+    should_use_phone_listen_first_intake,
 )
 from .session_log import SessionLogger
 from .safety import SafetyState
@@ -1630,6 +1631,37 @@ async def entrypoint(ctx: JobContext) -> None:
                 else:
                     _log.info("outbound first speech=voicemail; holding script")
                 return pending
+        if should_use_phone_listen_first_intake(
+            room_name, sam_session.kind, is_phone=is_phone
+        ):
+            eid = (
+                proposal_engagement_id["value"]
+                or builder_engagement_id
+                or engagement_id_from_room(room_name)
+            )
+            if not eid:
+                eid = await _create_phone_engagement(text)
+            if eid:
+                proposal_engagement_id["value"] = eid
+                try:
+                    _, tools = await run_builder_intake_turn(
+                        rm_client,
+                        engagement_id=eid,
+                        text=text,
+                        is_phone=True,
+                        answer_buffer=builder_answer_buffer,
+                        last_spoken=builder_last_spoken,
+                        speak=False,
+                    )
+                    if tools:
+                        _log.info(
+                            "silent intake sync engagement=%s tools=%s",
+                            eid,
+                            ",".join(tools),
+                        )
+                except Exception:  # noqa: BLE001
+                    _log.exception("silent phone intake sync failed")
+            return None
         if should_use_builder_intake_path(room_name, sam_session.kind, is_phone=is_phone):
             reply = await _builder_turn_reply(text)
             if reply:

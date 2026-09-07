@@ -86,16 +86,28 @@ def should_speak_builder_opening(room_name: str, *, is_phone: bool = False) -> b
     return (room_name or "").lower().startswith("builder-")
 
 
+def should_use_phone_listen_first_intake(
+    room_name: str,
+    kind: SessionKind,
+    *,
+    is_phone: bool = False,
+) -> bool:
+    """Owner 855 scoping: Samuel talks via LLM; notebook sync stays silent."""
+    return bool(is_phone and kind == "intake" and (room_name or "").lower().startswith("call-"))
+
+
 def should_use_builder_intake_path(
     room_name: str,
     kind: SessionKind,
     *,
     is_phone: bool = False,
 ) -> bool:
-    """Deterministic proposal-tool turns for builder rooms and owner phone scoping."""
+    """Deterministic proposal-tool turns for builder portal rooms only."""
+    if should_use_phone_listen_first_intake(room_name, kind, is_phone=is_phone):
+        return False
     if should_speak_builder_opening(room_name):
         return True
-    return bool(is_phone and kind == "intake" and (room_name or "").lower().startswith("call-"))
+    return False
 
 
 def greeting_instructions(kind: SessionKind) -> str:

@@ -16,6 +16,7 @@ from sam_worker.session import (
     route_session_kind,
     should_speak_builder_opening,
     should_use_builder_intake_path,
+    should_use_phone_listen_first_intake,
 )
 from sam_worker.tools.rainmaker_registry import engagement_id_from_room
 from sam_worker.tools.select import INTAKE_PACK_TOOLS, VOICE_INTAKE_LLM_TOOLS, select_tools_for_utterance
@@ -80,7 +81,8 @@ def test_builder_room_uses_spoken_opening() -> None:
     assert not should_speak_builder_opening("demo-abc")
     assert not should_speak_builder_opening("sam-owner")
     assert should_use_builder_intake_path("builder-abc", "intake")
-    assert should_use_builder_intake_path("call-_+15551212_abc", "intake", is_phone=True)
+    assert should_use_phone_listen_first_intake("call-_+15551212_abc", "intake", is_phone=True)
+    assert not should_use_builder_intake_path("call-_+15551212_abc", "intake", is_phone=True)
     assert not should_use_builder_intake_path("call-_+15551212_abc", "trading", is_phone=True)
     assert not should_use_builder_intake_path("sam-owner", "intake", is_phone=False)
     assert "Samuel" in BUILDER_OPENING
@@ -114,12 +116,12 @@ def test_builder_greeting_is_not_the_portal_greeting() -> None:
     assert "proposal builder" not in portal.lower()
 
 
-def test_intake_overlay_is_spin_closer_not_clerk() -> None:
+def test_intake_overlay_is_listen_first() -> None:
     overlay = PackRegistry().get("intake").persona_overlay.lower()
-    assert "spin" in overlay
-    assert "not a form clerk" in overlay
-    assert "how their day" in overlay
-    assert "do not discuss hours-trim" not in overlay
+    assert "listen first" in overlay
+    assert "answer the last thing they said" in overlay
+    assert "never repeat the same offer line twice" in overlay
+    assert "event reset" in overlay
 
 
 def test_intake_overlay_walks_gaps_and_confirms_filled_rows() -> None:
@@ -128,8 +130,8 @@ def test_intake_overlay_walks_gaps_and_confirms_filled_rows() -> None:
     assert "want to change this, or leave it" in overlay
     assert "tiny jobs" not in overlay
     assert "proposal_save_research" not in overlay
-    assert "phase 1 is the job only" in overlay
-    assert "confirmable move" in overlay
+    assert "phase 1 is understanding the job" in overlay
+    assert "never repeat the same offer line twice" in overlay
     assert "tap the bar" in overlay
 
 

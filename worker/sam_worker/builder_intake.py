@@ -810,34 +810,43 @@ async def run_builder_intake_turn(
     is_phone: bool = False,
     answer_buffer: dict[str, str] | None = None,
     last_spoken: dict[str, str] | None = None,
+    speak: bool = True,
 ) -> tuple[str, list[str]]:
     """Infer from context when possible; write only the visible unfilled gap."""
     cleaned = (text or "").strip()
     tools: list[str] = []
+
+    def _out(spoken: str) -> tuple[str, list[str]]:
+        return (spoken if speak else ""), tools
+
     if not cleaned or cleaned.startswith("[SYNC]"):
-        return "", tools
+        return _out("")
     if len(cleaned) < _MIN_ANSWER_LEN and not _LEAVE_RE.match(cleaned):
-        return "", tools
+        return _out("")
 
     sync = await client.get_intake_sync(engagement_id)
     if not sync.get("ok"):
-        return "I lost the form session.", tools
+        return _out("I lost the form session." if speak else "")
 
     if not sync.get("complete") and _COST_QUESTION_RE.search(cleaned):
+        if not speak:
+            return _out("")
         gaps = sync.get("gaps") or []
         active = gaps[0] if gaps and isinstance(gaps[0], dict) else {}
         if active and not _is_wait_gap(active):
             q = _spoken_only(str(active.get("question") or "")) or str(active.get("question") or "")
             line = f"I'll get you a real number once I understand the job — {q}".strip(" —")
             line = _track_spoken(engagement_id, line, last_spoken=last_spoken) or line
-            return line, tools
+            return _out(line)
         line = (
             "I'll get you a real number once I understand the job — "
             "what's the main thing that has to work on day one?"
         )
-        return line, tools
+        return _out(line)
 
     if sync.get("complete"):
+        if not speak:
+            return _out("")
         spoken = await _handle_sales_close(
             client,
             engagement_id=engagement_id,
@@ -845,7 +854,7 @@ async def run_builder_intake_turn(
             sync=sync,
             tools=tools,
         )
-        return spoken, tools
+        return _out(spoken)
 
     gaps = sync.get("gaps") or []
     if not gaps:
@@ -856,7 +865,7 @@ async def run_builder_intake_turn(
             sync=sync,
             last_spoken=last_spoken,
         )
-        return spoken or SMS_FALLBACK, tools
+        return _out(spoken or (SMS_FALLBACK if speak else ""))
 
     gap = gaps[0] if isinstance(gaps[0], dict) else {}
     if _is_wait_gap(gap):
@@ -873,39 +882,35 @@ async def run_builder_intake_turn(
             )
             nxt = gap_res.get("gap") if isinstance(gap_res.get("gap"), dict) else {}
             if spoken and not _is_wait_gap(nxt):
-                return spoken, tools
-            return spoken or SMS_FALLBACK, tools
+                return _out(spoken)
+            return _out(spoken or (SMS_FALLBACK if speak else ""))
         if field == "estimate":
-            est = await client.run_tool(
+            await client.run_tool(
                 "proposal_mark_estimate_ready",
                 {"engagement_id": engagement_id},
             )
             tools.append("proposal_mark_estimate_ready")
-            offered = await _advance_sales(
-                client,
-                engagement_id=engagement_id,
-                event="offer_review",
-                tools=tools,
-            )
-            if offered.get("ok"):
-                spoken = _spoken_only(str(offered.get("text") or "")) or _confidence_offer_line(
-                    offered, offered.get("sales") if isinstance(offered.get("sales"), dict) else None
-                )
-                await _set_pending_offer(
+            if speak:
+                offered = await _advance_sales(
                     client,
                     engagement_id=engagement_id,
-                    offer="choose_channel",
-                    prompt=spoken,
+                    event="offer_review",
                     tools=tools,
                 )
-                spoken = _track_spoken(engagement_id, spoken, last_spoken=last_spoken)
-                return spoken or SMS_FALLBACK, tools
-            spoken = _spoken_only(str(est.get("text") or offered.get("text") or "")) or ""
-            if _forbidden_spoken(spoken):
-                spoken = ""
-            if spoken:
-                spoken = _track_spoken(engagement_id, spoken, last_spoken=last_spoken)
-            return spoken or SMS_FALLBACK, tools
+                if offered.get("ok"):
+                    spoken = _spoken_only(str(offered.get("text") or "")) or _confidence_offer_line(
+                        offered, offered.get("sales") if isinstance(offered.get("sales"), dict) else None
+                    )
+                    await _set_pending_offer(
+                        client,
+                        engagement_id=engagement_id,
+                        offer="choose_channel",
+                        prompt=spoken,
+                        tools=tools,
+                    )
+                    spoken = _track_spoken(engagement_id, spoken, last_spoken=last_spoken)
+                    return _out(spoken or SMS_FALLBACK)
+            return _out("")
         spoken, gap_res = await _ask_gap_spoken(
             client,
             engagement_id=engagement_id,
@@ -915,8 +920,8 @@ async def run_builder_intake_turn(
         )
         nxt = gap_res.get("gap") if isinstance(gap_res.get("gap"), dict) else {}
         if spoken and not _is_wait_gap(nxt):
-            return spoken, tools
-        return spoken or SMS_FALLBACK, tools
+            return _out(spoken)
+        return _out(spoken or (SMS_FALLBACK if speak else ""))
 
     if str(gap.get("field") or "") == "discovery":
         qid = str(gap.get("questionId") or "")
@@ -926,7 +931,7 @@ async def run_builder_intake_turn(
             if spoken and not _forbidden_spoken(spoken):
                 spoken = _track_spoken(engagement_id, spoken, last_spoken=last_spoken)
                 if spoken:
-                    return spoken, tools
+                    return _out(spoken)
             spoken, _ = await _ask_gap_spoken(
                 client,
                 engagement_id=engagement_id,
@@ -934,7 +939,7 @@ async def run_builder_intake_turn(
                 sync=sync,
                 last_spoken=last_spoken,
             )
-            return spoken or SMS_FALLBACK, tools
+            return _out(spoken or (SMS_FALLBACK if speak else ""))
 
     wrote = False
     answer_text = cleaned
@@ -948,7 +953,7 @@ async def run_builder_intake_turn(
             is_phone=is_phone,
         )
         if not ready:
-            return "", tools
+            return _out("")
 
     if _looks_like_dump(answer_text, sync):
         await client.run_tool(
@@ -986,11 +991,11 @@ async def run_builder_intake_turn(
         sync=sync,
         last_spoken=last_spoken,
     )
-    if wrote and answer_text and spoken:
+    if wrote and answer_text and spoken and speak:
         nxt_gap = gap_res.get("gap") if isinstance(gap_res.get("gap"), dict) else {}
         if str(nxt_gap.get("field") or "") == "discovery":
             spoken = _closer_discovery_line(answer_text, spoken)
             spoken = _track_spoken(engagement_id, spoken, last_spoken=last_spoken) or spoken
-    if not spoken and wrote:
+    if not spoken and wrote and speak:
         spoken = "Got it."
-    return spoken or ("Got it." if wrote else ""), tools
+    return _out(spoken or ("Got it." if wrote and speak else ""))
