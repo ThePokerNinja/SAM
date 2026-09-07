@@ -17,6 +17,7 @@ from sam_worker.session import (
     should_speak_builder_opening,
     should_use_builder_intake_path,
     should_use_phone_listen_first_intake,
+    should_use_phone_phase2_agentic,
 )
 from sam_worker.tools.rainmaker_registry import engagement_id_from_room
 from sam_worker.tools.select import INTAKE_PACK_TOOLS, VOICE_INTAKE_LLM_TOOLS, select_tools_for_utterance
@@ -88,6 +89,15 @@ def test_builder_room_uses_spoken_opening() -> None:
     assert "Samuel" in BUILDER_OPENING
     assert "make real" in BUILDER_OPENING
     assert "what's the job" in BUILDER_REASK.lower()
+
+
+def test_phase2_agentic_disables_silent_clerk(monkeypatch) -> None:
+    monkeypatch.delenv("SAM_PHASE2_AGENTIC", raising=False)
+    assert not should_use_phone_phase2_agentic()
+    assert should_use_phone_listen_first_intake("call-_+15551212_abc", "intake", is_phone=True)
+    monkeypatch.setenv("SAM_PHASE2_AGENTIC", "1")
+    assert should_use_phone_phase2_agentic()
+    assert not should_use_phone_listen_first_intake("call-_+15551212_abc", "intake", is_phone=True)
 
 
 def test_intake_pack_tool_set_is_closed() -> None:

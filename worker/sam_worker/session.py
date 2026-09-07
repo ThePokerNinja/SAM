@@ -6,6 +6,7 @@ Trading is the degenerate default so today's single-user flow does not break.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 import re
 from typing import Literal
 
@@ -86,6 +87,11 @@ def should_speak_builder_opening(room_name: str, *, is_phone: bool = False) -> b
     return (room_name or "").lower().startswith("builder-")
 
 
+def should_use_phone_phase2_agentic() -> bool:
+    """855 Phase 2: LLM picks scoping tools; protocol still locks send. Off until operator unhold."""
+    return os.environ.get("SAM_PHASE2_AGENTIC", "").strip().lower() in {"1", "true", "yes"}
+
+
 def should_use_phone_listen_first_intake(
     room_name: str,
     kind: SessionKind,
@@ -93,6 +99,8 @@ def should_use_phone_listen_first_intake(
     is_phone: bool = False,
 ) -> bool:
     """Owner 855 scoping: Samuel talks via LLM; notebook sync stays silent."""
+    if should_use_phone_phase2_agentic():
+        return False
     return bool(is_phone and kind == "intake" and (room_name or "").lower().startswith("call-"))
 
 
