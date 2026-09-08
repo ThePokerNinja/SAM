@@ -14,6 +14,8 @@ class _SeqClient:
     def __init__(self, sync_rows: list[dict], tool_text: str = "Next gap?") -> None:
         self._sync_rows = list(sync_rows)
         self.tools: list[str] = []
+        self.last_args: dict = {}
+        self.send_args: dict = {}
         self.tool_text = tool_text
         self._sync_idx = 0
         self.pending: dict[str, str] = {}
@@ -27,6 +29,9 @@ class _SeqClient:
 
     async def run_tool(self, name: str, args: dict | None = None) -> dict:
         self.tools.append(name)
+        self.last_args = dict(args or {})
+        if name == "proposal_send":
+            self.send_args = dict(args or {})
         if name == "proposal_sales_set_pending":
             self.pending["pendingOffer"] = str((args or {}).get("pendingOffer") or "")
             self.pending["pendingPrompt"] = str((args or {}).get("pendingPrompt") or "")
@@ -197,6 +202,35 @@ def test_silent_complete_continue_returns_pickup() -> None:
     assert "proposal_resume" in tools
     assert "Harbor" in spoken
     assert "email" in spoken.lower()
+
+
+def test_choose_text_sends_draft_with_text_channel() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": True,
+                "gaps": [],
+                "sales": {
+                    "phase": "review_offered",
+                    "pendingOffer": "choose_channel",
+                    "confidence": 100,
+                },
+                "form_data": {"projectName": "Harbor Izakaya"},
+            }
+        ]
+    )
+    spoken, tools = asyncio.run(
+        run_builder_intake_turn(
+            client,
+            engagement_id="eng-1",
+            text="Just text me.",
+            speak=False,
+        )
+    )
+    assert "proposal_sales_advance" in tools
+    assert "proposal_send" in tools
+    assert client.send_args.get("channel") == "text"
+    assert "text" in spoken.lower()
 
 
 def test_builder_intake_turn_writes_then_ask_gap() -> None:

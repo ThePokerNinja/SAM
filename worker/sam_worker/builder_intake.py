@@ -480,7 +480,11 @@ async def _send_draft_by_channel(
             )
             return line
     sent = await _send_proposal(
-        client, engagement_id=engagement_id, kind="draft", tools=tools
+        client,
+        engagement_id=engagement_id,
+        kind="draft",
+        tools=tools,
+        channel=channel,
     )
     if not sent.get("ok"):
         line = _confidence_offer_line(sync, sales)
@@ -658,11 +662,12 @@ async def _send_proposal(
     engagement_id: str,
     kind: str,
     tools: list[str],
+    channel: str = "",
 ) -> dict[str, Any]:
-    result = await client.run_tool(
-        "proposal_send",
-        {"engagement_id": engagement_id, "kind": kind},
-    )
+    args: dict[str, Any] = {"engagement_id": engagement_id, "kind": kind}
+    if channel:
+        args["channel"] = channel
+    result = await client.run_tool("proposal_send", args)
     tools.append("proposal_send")
     return result
 
