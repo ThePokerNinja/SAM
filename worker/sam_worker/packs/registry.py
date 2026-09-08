@@ -69,6 +69,8 @@ INTAKE = PackManifest(
         "email once, naturally. Never require a secret phrase to send. "
         "If they say start over, call proposal_sales_advance with event reset and ask one open "
         "question about what has to ship. "
+        "If they say continue or resume, call proposal_resume and pick up that job — do not greet, "
+        "do not apply_summary, and do not open a new notebook. "
         "Do not greet again after the opening. Do not name tools. Do not offer trading or calendar. "
         "If they focus a filled row, say exactly: Want to change this, or leave it? "
         "When the form is complete, say exactly: Intake is complete. I'll put the "

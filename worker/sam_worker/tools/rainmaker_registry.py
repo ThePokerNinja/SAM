@@ -46,6 +46,15 @@ def engagement_id_from_room(room_name: str) -> str:
     return ""
 
 
+def _tool_channel(deps: dict[str, Any], explicit: str = "") -> str:
+    if explicit.strip():
+        return explicit.strip()[:20]
+    room = str(deps.get("room_name") or deps.get("session_id") or "").lower()
+    if room.startswith("call-"):
+        return "phone"
+    return "voice"
+
+
 def _room_engagement_id(deps: dict[str, Any], explicit: str = "") -> str:
     if explicit.strip():
         return explicit.strip()
@@ -966,7 +975,7 @@ def _build_proposal_apply_summary(client: Any, _is_owner: Any, deps: dict[str, A
         projectName: str = "",
         projectSummary: str = "",
     ) -> str:
-        args: dict[str, Any] = {"summary": summary}
+        args: dict[str, Any] = {"summary": summary, "channel": _tool_channel(deps)}
         eid = _room_engagement_id(deps, engagement_id)
         if eid:
             args["engagement_id"] = eid

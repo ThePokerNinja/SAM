@@ -1527,6 +1527,12 @@ async def entrypoint(ctx: JobContext) -> None:
         blob = phone_dump_buffer["text"]
         if not blob:
             return ""
+        if re.search(r"assistant:\s|i['’]m samuel|i am samuel", blob, re.I) or re.match(
+            r"^(continue|resume|email it|just text me|text me|same job)\.?$",
+            blob.strip(),
+            re.I,
+        ):
+            return proposal_engagement_id["value"]
         if len(blob) < 12 and not re.search(
             r"\b(website|reservation|menu|app|logo|izakaya|project|build|estimate|scope)\b",
             blob,
