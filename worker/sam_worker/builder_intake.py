@@ -845,8 +845,6 @@ async def run_builder_intake_turn(
         return _out(line)
 
     if sync.get("complete"):
-        if not speak:
-            return _out("")
         spoken = await _handle_sales_close(
             client,
             engagement_id=engagement_id,
@@ -854,6 +852,15 @@ async def run_builder_intake_turn(
             sync=sync,
             tools=tools,
         )
+        # #region agent log
+        try:
+            import json as _json
+            import time as _time
+            with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
+                _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "F", "location": "builder_intake.py:complete_close", "message": "sales_close", "data": {"speak": speak, "tools": tools, "spokenLen": len(spoken or ""), "textLen": len(cleaned)}, "timestamp": int(_time.time() * 1000)}) + "\n")
+        except Exception:
+            pass
+        # #endregion
         return _out(spoken)
 
     gaps = sync.get("gaps") or []
