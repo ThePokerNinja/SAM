@@ -44,6 +44,32 @@ _REVIEWED_RE = re.compile(
     r"no questions|approved|approve|yeah looks good)\b",
     re.I,
 )
+_CONFUSED_RE = re.compile(
+    r"\b(i don'?t understand|don'?t get it|what do you mean|confused|huh|wait what|"
+    r"that doesn'?t make sense|not sure what)\b",
+    re.I,
+)
+_LOOKS_FINE_RE = re.compile(
+    r"\b(looks good|looks fine|numbers look|that works|sounds good|good with|"
+    r"ready to go|let'?s do it|ship it|approve|approved)\b",
+    re.I,
+)
+_TOO_HIGH_RE = re.compile(
+    r"\b(too (?:high|much|expensive)|lower|cheaper|cut|trim|reduce)\b",
+    re.I,
+)
+_RECEIVED_RE = re.compile(
+    r"\b(got it|received|i opened|opened it|opened the link|see it|got the text|got the email)\b",
+    re.I,
+)
+_NO_QUESTIONS_RE = re.compile(
+    r"\b(no questions|no more questions|all good|nothing else|we'?re good|that'?s it)\b",
+    re.I,
+)
+_HANDOFF_RE = re.compile(
+    r"\b(thank|thanks|all set|goodbye|bye)\b",
+    re.I,
+)
 _BUDGET_RE = re.compile(
     r"\$\s*\d|\b(\d{1,3}(?:,\d{3})+|\d+)\s*(k|thousand|grand)?\b|\bbudget\b",
     re.I,
@@ -85,15 +111,39 @@ def classify_close_turn(text: str, *, pending_offer: str, phase: str) -> str:
         return "choose_text"
     if _CONTINUE_RE.search(cleaned):
         return "continue"
+    if phase == "closed":
+        if _HANDOFF_RE.search(cleaned):
+            return "closed_ack"
+        return "closed"
+    if pending_offer == "confirm_received" and _RECEIVED_RE.search(cleaned):
+        return "received_link"
+    if pending_offer == "any_questions" and _NO_QUESTIONS_RE.search(cleaned):
+        return "no_more_questions"
+    if pending_offer in {"any_questions", "approve_bid"} and _LOOKS_FINE_RE.search(cleaned):
+        return "approve_bid"
+    if pending_offer == "workshop_bid":
+        if _CONFUSED_RE.search(cleaned):
+            return "confused"
+        if _TOO_HIGH_RE.search(cleaned) or (
+            _BUDGET_RE.search(cleaned) and re.search(r"\b(lower|less|under|around|about)\b", low)
+        ):
+            return "named_lower"
+        if _BUDGET_RE.search(cleaned) or _BUDGET_WORDS_RE.search(cleaned):
+            if re.search(r"\b(more|higher|extra|add|expand)\b", low):
+                return "named_higher"
+            return "named_lower"
+        if _LOOKS_FINE_RE.search(cleaned):
+            return "look_fine"
     if _REVIEWED_RE.search(cleaned) or re.search(
-        r"\b(i looked|looked at|read it|no questions)\b", cleaned, re.I
+        r"\b(i looked|looked at|read it)\b", cleaned, re.I
     ):
         return "reviewed"
-    if (
-        phase in {"budget", "phase1_approved"}
-        and (_BUDGET_RE.search(cleaned) or _BUDGET_WORDS_RE.search(cleaned))
+    if phase in {"workshop", "budget", "phase1_approved"} and (
+        _BUDGET_RE.search(cleaned) or _BUDGET_WORDS_RE.search(cleaned)
     ):
-        return "budget"
+        if re.search(r"\b(more|higher|extra|add|expand)\b", low):
+            return "named_higher"
+        return "named_lower"
     if _AFFIRM_ONLY_RE.match(cleaned.strip()):
         return "affirm" if pending_offer else "affirm_no_offer"
     if re.search(r"\bsend it\b", cleaned, re.I) and pending_offer in {
@@ -102,6 +152,8 @@ def classify_close_turn(text: str, *, pending_offer: str, phase: str) -> str:
         "choose_text",
         "send_draft",
         "mark_reviewed",
+        "workshop_bid",
+        "lock_bid",
     }:
         return "affirm"
     return "unclear"
@@ -149,15 +201,38 @@ def _draft_sent_prompt(channel: str) -> str:
     return f"Draft is on the way by {channel}. Tell me when you've looked it over."
 
 
-def _budget_prompt() -> str:
-    return "Before I lock the bid — what budget are you working with?"
+def _workshop_prompt() -> str:
+    return (
+        "Thanks for looking. How do those hours and dollars look — "
+        "anything feel high, or ready to adjust scope?"
+    )
+
+
+def _confused_prompt() -> str:
+    return (
+        "The total is hours times our blended rate — we can trim optional tasks or add polish. "
+        "What would you cut first, or does the total feel about right?"
+    )
 
 
 def _final_offer_prompt() -> str:
-    return (
-        "I can work the bid to that range. "
-        "Want me to send the final estimate and text the notebook link?"
-    )
+    return "Want me to send the final estimate and text the notebook link?"
+
+
+def _confirm_received_prompt() -> str:
+    return "Did you get the text or email, and were you able to open the notebook link?"
+
+
+def _any_questions_prompt() -> str:
+    return "Any last questions on scope, timeline, or the number before we wrap?"
+
+
+def _handoff_line() -> str:
+    return "Thank you — you're all set. A sales associate will follow up within 24 hours."
+
+
+def _budget_prompt() -> str:
+    return _workshop_prompt()
 
 
 def _restate_pending(sales: dict[str, Any], *, sync: dict[str, Any] | None = None) -> str:
@@ -173,12 +248,18 @@ def _restate_pending(sales: dict[str, Any], *, sync: dict[str, Any] | None = Non
         return _offer_prompt(conf, pack_hint=_pack_hint(sync or {}))
     if phase == "review_sent":
         return "Tell me when you've looked at the draft."
-    if phase in {"reviewed", "phase1_approved"}:
-        return _budget_prompt()
+    if phase in {"reviewed", "workshop", "phase1_approved"}:
+        return _workshop_prompt()
     if phase == "budget":
         if sales.get("budgetBand"):
             return _final_offer_prompt()
-        return _budget_prompt()
+        return _workshop_prompt()
+    if phase == "closed":
+        return _handoff_line()
+    if pending_offer == "confirm_received":
+        return _confirm_received_prompt()
+    if pending_offer == "any_questions":
+        return _any_questions_prompt()
     return _offer_prompt(conf, pack_hint=_pack_hint(sync or {})) if conf >= 85 else (
         "I still need more of the actual job before I send a draft — "
         "what has to ship on the site?"
@@ -507,12 +588,13 @@ async def _send_draft_by_channel(
     return line
 
 
-async def _mark_reviewed_and_budget(
+async def _mark_reviewed_and_workshop(
     client: RainmakerClient,
     *,
     engagement_id: str,
     sales: dict[str, Any],
     tools: list[str],
+    last_spoken: dict[str, str] | None = None,
 ) -> str:
     phase = str(sales.get("phase") or "context")
     if phase == "review_sent":
@@ -532,14 +614,11 @@ async def _mark_reviewed_and_budget(
                 tools=tools,
             )
             return line
-    approved = await _advance_sales(
-        client,
-        engagement_id=engagement_id,
-        event="approve_phase1",
-        tools=tools,
-    )
-    if not approved.get("ok"):
-        line = _spoken_only(str(approved.get("text") or "")) or "Any questions on the draft?"
+        line = _spoken_only(str(marked.get("text") or "")) or _workshop_prompt()
+    elif phase in {"workshop", "reviewed", "budget"}:
+        line = str(sales.get("pendingPrompt") or _workshop_prompt())
+    else:
+        line = "Did you get a chance to look at the draft?"
         await _set_pending_offer(
             client,
             engagement_id=engagement_id,
@@ -548,37 +627,41 @@ async def _mark_reviewed_and_budget(
             tools=tools,
         )
         return line
-    line = _budget_prompt()
+    line = _track_spoken(engagement_id, line, last_spoken=last_spoken) or line
     await _set_pending_offer(
         client,
         engagement_id=engagement_id,
-        offer="ask_budget",
+        offer="workshop_bid",
         prompt=line,
         tools=tools,
     )
     return line
 
 
-async def _set_budget_and_offer_final(
+async def _lock_bid_and_offer_final(
     client: RainmakerClient,
     *,
     engagement_id: str,
-    budget: str,
     tools: list[str],
+    mode: str = "accept",
+    budget: str = "",
 ) -> str:
-    advanced = await _advance_sales(
+    extra: dict[str, Any] = {"mode": mode}
+    if budget:
+        extra["budgetBand"] = budget[:120]
+    locked = await _advance_sales(
         client,
         engagement_id=engagement_id,
-        event="set_budget",
+        event="lock_bid",
         tools=tools,
-        budgetBand=budget[:120],
+        **extra,
     )
-    if not advanced.get("ok"):
-        line = _spoken_only(str(advanced.get("text") or "")) or _budget_prompt()
+    if not locked.get("ok"):
+        line = _spoken_only(str(locked.get("text") or "")) or _workshop_prompt()
         await _set_pending_offer(
             client,
             engagement_id=engagement_id,
-            offer="ask_budget",
+            offer="workshop_bid",
             prompt=line,
             tools=tools,
         )
@@ -592,6 +675,94 @@ async def _set_budget_and_offer_final(
         tools=tools,
     )
     return line
+
+
+async def _workshop_named_target(
+    client: RainmakerClient,
+    *,
+    engagement_id: str,
+    budget: str,
+    tools: list[str],
+    intent: str,
+) -> str:
+    await _advance_sales(
+        client,
+        engagement_id=engagement_id,
+        event="set_budget",
+        tools=tools,
+        budgetBand=budget[:120],
+    )
+    mode = "expand" if intent == "named_higher" else "cut"
+    if intent == "named_higher":
+        line = (
+            f"Got it — I'll add hours toward {budget[:40]}. "
+            "Where should the extra time go — polish, timeline, or another feature?"
+        )
+        await _set_pending_offer(
+            client,
+            engagement_id=engagement_id,
+            offer="lock_bid",
+            prompt=line,
+            tools=tools,
+        )
+        return line
+    line = (
+        f"I can trim optional tasks to land near {budget[:40]}. "
+        "Want me to lock that revised bid?"
+    )
+    await _set_pending_offer(
+        client,
+        engagement_id=engagement_id,
+        offer="lock_bid",
+        prompt=line,
+        tools=tools,
+    )
+    return line
+
+
+async def _confirm_received(
+    client: RainmakerClient,
+    *,
+    engagement_id: str,
+    tools: list[str],
+) -> str:
+    advanced = await _advance_sales(
+        client,
+        engagement_id=engagement_id,
+        event="confirm_opened",
+        tools=tools,
+    )
+    line = _spoken_only(str(advanced.get("text") or "")) or _any_questions_prompt()
+    await _set_pending_offer(
+        client,
+        engagement_id=engagement_id,
+        offer="any_questions",
+        prompt=line,
+        tools=tools,
+    )
+    return line
+
+
+async def _close_with_handoff(
+    client: RainmakerClient,
+    *,
+    engagement_id: str,
+    tools: list[str],
+) -> str:
+    await _advance_sales(
+        client,
+        engagement_id=engagement_id,
+        event="approve_close",
+        tools=tools,
+    )
+    await _set_pending_offer(
+        client,
+        engagement_id=engagement_id,
+        offer="",
+        prompt="",
+        tools=tools,
+    )
+    return _handoff_line()
 
 
 async def _send_final_estimate(
@@ -629,17 +800,15 @@ async def _send_final_estimate(
             tools=tools,
         )
         return line
+    line = _confirm_received_prompt()
     await _set_pending_offer(
         client,
         engagement_id=engagement_id,
-        offer="",
-        prompt="",
+        offer="confirm_received",
+        prompt=line,
         tools=tools,
     )
-    return (
-        "Done — the priced estimate is in your inbox and I'll text the notebook link "
-        "with mission, timeline, and the number."
-    )
+    return f"Done — final estimate sent. {line}"
 
 
 async def _advance_sales(
@@ -679,6 +848,7 @@ async def _handle_sales_close(
     text: str,
     sync: dict[str, Any],
     tools: list[str],
+    last_spoken: dict[str, str] | None = None,
 ) -> str:
     """Last-offer confirmations: affirm fires only the pending named move."""
     cleaned = (text or "").strip()
@@ -689,6 +859,9 @@ async def _handle_sales_close(
         conf = float(sales.get("confidence") or sync.get("confidence") or 0)
     except (TypeError, ValueError):
         conf = 0.0
+
+    if phase == "closed":
+        return _handoff_line()
 
     intent = classify_close_turn(cleaned, pending_offer=pending_offer, phase=phase)
 
@@ -701,7 +874,17 @@ async def _handle_sales_close(
         return _spoken_only(str(resume.get("text") or "")) or "Picking up where we left off."
 
     if intent == "cost_question":
-        return _restate_pending(sales, sync=sync)
+        alt = _confused_prompt() if pending_offer == "workshop_bid" else _restate_pending(sales, sync=sync)
+        alt = _track_spoken(engagement_id, alt, last_spoken=last_spoken) or alt
+        if pending_offer == "workshop_bid":
+            await _set_pending_offer(
+                client,
+                engagement_id=engagement_id,
+                offer="workshop_bid",
+                prompt=alt,
+                tools=tools,
+            )
+        return alt
 
     if intent == "choose_email":
         return await _send_draft_by_channel(
@@ -724,14 +907,46 @@ async def _handle_sales_close(
         )
 
     if intent == "reviewed":
-        return await _mark_reviewed_and_budget(
-            client, engagement_id=engagement_id, sales=sales, tools=tools
+        return await _mark_reviewed_and_workshop(
+            client,
+            engagement_id=engagement_id,
+            sales=sales,
+            tools=tools,
+            last_spoken=last_spoken,
         )
 
-    if intent == "budget":
-        return await _set_budget_and_offer_final(
-            client, engagement_id=engagement_id, budget=cleaned, tools=tools
+    if intent == "confused":
+        line = _track_spoken(engagement_id, _confused_prompt(), last_spoken=last_spoken)
+        if not line:
+            return ""
+        await _set_pending_offer(
+            client,
+            engagement_id=engagement_id,
+            offer="workshop_bid",
+            prompt=line,
+            tools=tools,
         )
+        return line
+
+    if intent in {"named_lower", "named_higher"}:
+        return await _workshop_named_target(
+            client,
+            engagement_id=engagement_id,
+            budget=cleaned,
+            tools=tools,
+            intent=intent,
+        )
+
+    if intent == "look_fine":
+        return await _lock_bid_and_offer_final(
+            client, engagement_id=engagement_id, tools=tools, mode="accept"
+        )
+
+    if intent == "received_link":
+        return await _confirm_received(client, engagement_id=engagement_id, tools=tools)
+
+    if intent in {"no_more_questions", "approve_bid", "closed_ack"}:
+        return await _close_with_handoff(client, engagement_id=engagement_id, tools=tools)
 
     if intent == "affirm":
         if pending_offer == "choose_channel":
@@ -755,25 +970,63 @@ async def _handle_sales_close(
                 tools=tools,
             )
         if pending_offer == "mark_reviewed":
-            return await _mark_reviewed_and_budget(
-                client, engagement_id=engagement_id, sales=sales, tools=tools
+            return await _mark_reviewed_and_workshop(
+                client,
+                engagement_id=engagement_id,
+                sales=sales,
+                tools=tools,
+                last_spoken=last_spoken,
             )
-        if pending_offer == "ask_budget":
-            return _restate_pending(sales, sync=sync)
+        if pending_offer in {"workshop_bid", "ask_budget"}:
+            alt = _track_spoken(engagement_id, _confused_prompt(), last_spoken=last_spoken)
+            if not alt:
+                return ""
+            await _set_pending_offer(
+                client,
+                engagement_id=engagement_id,
+                offer="workshop_bid",
+                prompt=alt,
+                tools=tools,
+            )
+            return alt
+        if pending_offer == "lock_bid":
+            return await _lock_bid_and_offer_final(
+                client, engagement_id=engagement_id, tools=tools, mode="cut"
+            )
         if pending_offer == "send_final":
             return await _send_final_estimate(
                 client, engagement_id=engagement_id, tools=tools
             )
+        if pending_offer == "confirm_received":
+            return await _confirm_received(client, engagement_id=engagement_id, tools=tools)
+        if pending_offer == "any_questions":
+            return await _close_with_handoff(client, engagement_id=engagement_id, tools=tools)
 
     if intent in {"affirm_no_offer", "unclear"}:
         if pending_offer or phase in {
             "review_offered",
             "review_sent",
             "reviewed",
+            "workshop",
             "budget",
             "phase1_approved",
+            "phase2_approved",
         }:
-            return _restate_pending(sales, sync=sync)
+            alt = _restate_pending(sales, sync=sync)
+            if pending_offer == "workshop_bid":
+                alt = _track_spoken(engagement_id, alt, last_spoken=last_spoken)
+                if not alt:
+                    alt = _confused_prompt()
+                    alt = _track_spoken(engagement_id, alt, last_spoken=last_spoken) or alt
+                    await _set_pending_offer(
+                        client,
+                        engagement_id=engagement_id,
+                        offer="workshop_bid",
+                        prompt=alt,
+                        tools=tools,
+                    )
+                    return alt
+            return alt or _confused_prompt()
 
     if conf >= 85 or phase == "review_offered":
         offered = await _advance_sales(
@@ -856,18 +1109,11 @@ async def run_builder_intake_turn(
             text=cleaned,
             sync=sync,
             tools=tools,
+            last_spoken=last_spoken,
         )
-        # #region agent log
-        try:
-            import json as _json
-            import time as _time
-            with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
-                _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "F", "location": "builder_intake.py:complete_close", "message": "sales_close", "data": {"speak": speak, "tools": tools, "spokenLen": len(spoken or ""), "textLen": len(cleaned)}, "timestamp": int(_time.time() * 1000)}) + "\n")
-        except Exception:
-            pass
-        # #endregion
-        # Phase 2 pickup must reach 855 even when discovery sync stays silent.
-        return (spoken or "", tools)
+        if not speak and "proposal_resume" not in tools and "proposal_send" not in tools:
+            spoken = ""
+        return (spoken or ""), tools
 
     gaps = sync.get("gaps") or []
     if not gaps:

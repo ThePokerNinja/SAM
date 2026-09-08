@@ -103,14 +103,6 @@ class ToolLatencyManager:
             filler = getattr(context, "with_filler", None)
             skip_filler = name.startswith("proposal_")
             if callable(filler) and not skip_filler:
-                # #region agent log
-                try:
-                    import json as _json
-                    with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
-                        _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "D", "location": "tool_latency.py:filler", "message": "checking_that_now", "data": {"tool": name, "delay": 0.0, "readOnly": read_only, "skipped": False}, "timestamp": int(time.time() * 1000)}) + "\n")
-                except Exception:
-                    pass
-                # #endregion
                 async with filler(
                     "Checking that now.",
                     delay=0.0,
@@ -119,14 +111,6 @@ class ToolLatencyManager:
                 ):
                     value = await execute()
             else:
-                # #region agent log
-                try:
-                    import json as _json
-                    with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
-                        _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "D", "location": "tool_latency.py:filler", "message": "checking_that_now", "data": {"tool": name, "skipped": skip_filler}, "timestamp": int(time.time() * 1000)}) + "\n")
-                except Exception:
-                    pass
-                # #endregion
                 value = await execute()
             elapsed_ms = (time.perf_counter() - started) * 1000.0
             _log.info("TOOL_LATENCY name=%s cache=miss elapsed_ms=%.1f", name, elapsed_ms)

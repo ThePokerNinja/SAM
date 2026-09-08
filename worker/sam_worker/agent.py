@@ -1544,15 +1544,6 @@ async def entrypoint(ctx: JobContext) -> None:
                 "proposal_apply_summary",
                 {"summary": blob, "channel": "phone"},
             )
-            # #region agent log
-            try:
-                import json as _json
-                import time as _time
-                with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
-                    _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "C", "location": "agent.py:_create_phone_engagement", "message": "apply_summary_no_eid", "data": {"blobLen": len(blob), "resultOk": bool(result.get("ok")), "eid": str(result.get("engagementId") or "")[:40]}, "timestamp": int(_time.time() * 1000)}) + "\n")
-            except Exception:
-                pass
-            # #endregion
             eid = str(result.get("engagementId") or result.get("engagement_id") or "").strip()
             if not eid and isinstance(result.get("engagement"), dict):
                 eid = str(result["engagement"].get("id") or "").strip()
@@ -1578,6 +1569,12 @@ async def entrypoint(ctx: JobContext) -> None:
     async def _builder_turn_reply(text: str) -> str:
         cleaned = (text or "").strip()
         if cleaned.startswith("[SYNC]"):
+            review_match = re.search(
+                r"Say this greet — do not give the builder opening: (.+)$",
+                cleaned,
+            )
+            if review_match:
+                return review_match.group(1).strip()
             return ""
         norm = re.sub(r"\s+", " ", cleaned.lower())
         now = time.monotonic()
@@ -1654,15 +1651,6 @@ async def entrypoint(ctx: JobContext) -> None:
                 listen_first = should_use_phone_listen_first_intake(
                     room_name, sam_session.kind, is_phone=is_phone
                 )
-                # #region agent log
-                try:
-                    import json as _json
-                    import time as _time
-                    with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
-                        _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "H", "location": "agent.py:continue_override", "message": "continue_resume", "data": {"kind": sam_session.kind, "pack": sam_session.pack, "listenFirst": listen_first, "eid": rid, "pickupChars": len(pickup), "namedHarbor": "harbor" in pickup.lower()}, "timestamp": int(_time.time() * 1000)}) + "\n")
-                except Exception:
-                    pass
-                # #endregion
                 if not listen_first:
                     return pickup
         if is_outbound_guest:
@@ -1704,15 +1692,6 @@ async def entrypoint(ctx: JobContext) -> None:
                             eid,
                             ",".join(tools),
                         )
-                    # #region agent log
-                    try:
-                        import json as _json
-                        import time as _time
-                        with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
-                            _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "D", "location": "agent.py:silent_sync", "message": "silent_intake_tools", "data": {"eid": eid, "tools": tools, "spokenLen": len(spoken or ""), "textLen": len(text or ""), "willSpeakClose": bool(spoken)}, "timestamp": int(_time.time() * 1000)}) + "\n")
-                    except Exception:
-                        pass
-                    # #endregion
                     if spoken:
                         return spoken
                 except Exception:  # noqa: BLE001

@@ -68,15 +68,25 @@ class _SeqClient:
             if event == "choose_channel":
                 return {"ok": True, "text": "Got it.", "sales": {"phase": "review_sent", "confidence": 90}}
             if event == "mark_reviewed":
-                return {"ok": True, "text": "Got it.", "sales": {"phase": "reviewed", "confidence": 90}}
-            if event == "approve_phase1":
-                return {"ok": True, "text": "Got it.", "sales": {"phase": "budget", "confidence": 90}}
+                return {
+                    "ok": True,
+                    "text": "Thanks for looking. How do those numbers look?",
+                    "sales": {"phase": "workshop", "confidence": 90, "pendingOffer": "workshop_bid"},
+                }
+            if event == "lock_bid":
+                return {
+                    "ok": True,
+                    "text": "Bid locked.",
+                    "sales": {"phase": "budget", "confidence": 90, "pendingOffer": "send_final"},
+                }
             if event == "set_budget":
                 return {
                     "ok": True,
                     "text": "Got it.",
-                    "sales": {"phase": "budget", "confidence": 90, "budgetBand": "15000"},
+                    "sales": {"phase": "workshop", "confidence": 90, "budgetBand": "15000"},
                 }
+            if event == "approve_phase1":
+                return {"ok": True, "text": "Got it.", "sales": {"phase": "workshop", "confidence": 90}}
             if event == "approve_phase2":
                 return {"ok": True, "text": "Approved.", "sales": {"phase": "phase2_approved", "confidence": 90}}
             return {"ok": False, "text": "Unknown sales event."}
@@ -169,7 +179,7 @@ def test_classify_close_turn_paraphrases() -> None:
     assert classify_close_turn("send it to my inbox", pending_offer="", phase="review_offered") == "choose_email"
     assert classify_close_turn("just text me", pending_offer="", phase="review_offered") == "choose_text"
     assert classify_close_turn("I looked", pending_offer="mark_reviewed", phase="review_sent") == "reviewed"
-    assert classify_close_turn("fifteen thousand", pending_offer="", phase="budget") == "budget"
+    assert classify_close_turn("fifteen thousand", pending_offer="workshop_bid", phase="workshop") == "named_lower"
     assert classify_close_turn("what's this cost?", pending_offer="", phase="review_offered") == "cost_question"
     assert classify_close_turn("Continue. Email it.", pending_offer="choose_channel", phase="review_offered") == "choose_email"
     assert classify_close_turn("Continue.", pending_offer="choose_channel", phase="review_offered") == "continue"
@@ -511,6 +521,68 @@ def test_complete_sure_after_email_offer_sends_draft() -> None:
     assert "draft" in spoken.lower()
 
 
+def test_i_looked_opens_workshop_not_budget() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": True,
+                "gaps": [],
+                "sales": {
+                    "phase": "review_sent",
+                    "pendingOffer": "mark_reviewed",
+                    "confidence": 100,
+                },
+                "form_data": {"projectName": "Harbor Izakaya"},
+            }
+        ]
+    )
+    spoken, tools = asyncio.run(
+        run_builder_intake_turn(client, engagement_id="eng-1", text="I looked at it.")
+    )
+    assert "proposal_sales_advance" in tools
+    assert client.pending.get("pendingOffer") == "workshop_bid"
+    assert "budget are you working with" not in spoken.lower()
+    assert "numbers look" in spoken.lower() or "how do those" in spoken.lower()
+
+
+def test_confused_workshop_does_not_repeat_budget_ask() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": True,
+                "gaps": [],
+                "sales": {
+                    "phase": "workshop",
+                    "pendingOffer": "workshop_bid",
+                    "pendingPrompt": "How do those numbers look?",
+                    "confidence": 100,
+                },
+                "form_data": {"projectName": "Harbor"},
+            }
+        ]
+    )
+    buffer: dict[str, str] = {}
+    last: dict[str, str] = {}
+    spoken1, _ = asyncio.run(
+        run_builder_intake_turn(
+            client,
+            engagement_id="eng-1",
+            text="I don't understand",
+            last_spoken=last,
+        )
+    )
+    spoken2, _ = asyncio.run(
+        run_builder_intake_turn(
+            client,
+            engagement_id="eng-1",
+            text="I don't understand",
+            last_spoken=last,
+        )
+    )
+    assert "budget are you working with" not in spoken1.lower()
+    assert spoken2 == ""
+
+
 def test_phase2_go_ahead_sends_final() -> None:
     client = _SeqClient(
         [
@@ -534,5 +606,4 @@ def test_phase2_go_ahead_sends_final() -> None:
     )
     assert "proposal_sales_advance" in tools
     assert "proposal_send" in tools
-    assert "inbox" in spoken.lower()
-    assert "text" in spoken.lower()
+    assert "confirm" in spoken.lower() or "open" in spoken.lower()
