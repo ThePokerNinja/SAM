@@ -174,6 +174,11 @@ def route_session_kind(
         return "skillbuilder"
     if room.startswith("samuel-dial-"):
         return "intake"
+    if (surface == "phone" or room.startswith("call-")) and re.search(
+        r"\b(continue|resume|pick (?:this|it) back up|where were we|same job|email it|text me)\b",
+        blob,
+    ):
+        return "intake"
     if room.startswith("mod-"):
         return "moderator"
     if room.startswith("demo-") or room.startswith("intake-") or room.startswith("builder-"):

@@ -1641,7 +1641,7 @@ async def entrypoint(ctx: JobContext) -> None:
             r"\b(continue|resume|pick (?:this|it) back up|where were we|same job|email it|text me)\b",
             normalized,
         ):
-            if sam_session.kind == "intake":
+            if is_phone or sam_session.kind == "intake":
                 resume_args = {"channel": "voice"}
                 eid = proposal_engagement_id["value"] or builder_engagement_id
                 if eid:
@@ -1650,10 +1650,21 @@ async def entrypoint(ctx: JobContext) -> None:
                 rid = str(resume.get("engagementId") or resume.get("engagement_id") or "").strip()
                 if rid:
                     proposal_engagement_id["value"] = rid
-                if not should_use_phone_listen_first_intake(
+                pickup = str(resume.get("text") or "Picking up where we left off.")
+                listen_first = should_use_phone_listen_first_intake(
                     room_name, sam_session.kind, is_phone=is_phone
-                ):
-                    return str(resume.get("text") or "Picking up where we left off.")
+                )
+                # #region agent log
+                try:
+                    import json as _json
+                    import time as _time
+                    with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
+                        _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "H", "location": "agent.py:continue_override", "message": "continue_resume", "data": {"kind": sam_session.kind, "pack": sam_session.pack, "listenFirst": listen_first, "eid": rid, "pickupChars": len(pickup), "namedHarbor": "harbor" in pickup.lower()}, "timestamp": int(_time.time() * 1000)}) + "\n")
+                except Exception:
+                    pass
+                # #endregion
+                if not listen_first:
+                    return pickup
         if is_outbound_guest:
             pending = take_pending_script(outbound_script, text)
             if pending is not None:

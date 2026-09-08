@@ -23,6 +23,27 @@ from sam_worker.tools.rainmaker_registry import engagement_id_from_room
 from sam_worker.tools.select import INTAKE_PACK_TOOLS, VOICE_INTAKE_LLM_TOOLS, select_tools_for_utterance
 
 
+def test_owner_phone_continue_routes_intake() -> None:
+    assert (
+        route_session_kind(
+            surface="phone",
+            keyword="Continue.",
+            room_name="call-_+15551212_abc",
+            current_kind="trading",
+        )
+        == "intake"
+    )
+    session = build_session(
+        session_id="call-owner",
+        surface="phone",
+        room_name="call-_+15551212_abc",
+    )
+    assert session.kind == "trading"
+    assert session.activate_from_utterance("Continue.") is True
+    assert session.kind == "intake"
+    assert session.pack == "intake"
+
+
 def test_owner_phone_call_starts_as_samuel_not_intake() -> None:
     assert is_owner_inbound_phone_call("call-_+15551212_abc")
     assert not is_owner_inbound_phone_call("samuel-dial-guest")
