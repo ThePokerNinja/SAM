@@ -1509,7 +1509,18 @@ async def entrypoint(ctx: JobContext) -> None:
             return ""
 
     async def _create_phone_engagement(text: str) -> str:
-        """First owner phone scoping turn creates the shared builder notebook."""
+        """First owner phone scoping turn binds the open notebook, or creates one."""
+        if proposal_engagement_id["value"]:
+            return proposal_engagement_id["value"]
+        try:
+            resume = await rm_client.run_tool("proposal_resume", {"channel": "phone"})
+            rid = str(resume.get("engagementId") or resume.get("engagement_id") or "").strip()
+            if rid:
+                proposal_engagement_id["value"] = rid
+                _log.info("phone intake resumed latest=%s", rid)
+                return rid
+        except Exception:  # noqa: BLE001
+            _log.exception("phone latest resume failed")
         cleaned = (text or "").strip()
         if cleaned and not cleaned.startswith("[SYNC]"):
             phone_dump_buffer["text"] = (phone_dump_buffer["text"] + " " + cleaned).strip()
@@ -1621,15 +1632,22 @@ async def entrypoint(ctx: JobContext) -> None:
         if sam_session.paused:
             return "We're still paused. Say resume when you're ready to continue."
         if re.search(
-            r"\b(continue|resume|pick (?:this|it) back up|where were we)\b", normalized
+            r"\b(continue|resume|pick (?:this|it) back up|where were we|same job|email it|text me)\b",
+            normalized,
         ):
-            eid = proposal_engagement_id["value"] or builder_engagement_id
-            if eid and sam_session.kind == "intake":
-                resume = await rm_client.run_tool(
-                    "proposal_resume",
-                    {"engagement_id": eid, "channel": "voice"},
-                )
-                return str(resume.get("text") or "Picking up where we left off.")
+            if sam_session.kind == "intake":
+                resume_args = {"channel": "voice"}
+                eid = proposal_engagement_id["value"] or builder_engagement_id
+                if eid:
+                    resume_args["engagement_id"] = eid
+                resume = await rm_client.run_tool("proposal_resume", resume_args)
+                rid = str(resume.get("engagementId") or resume.get("engagement_id") or "").strip()
+                if rid:
+                    proposal_engagement_id["value"] = rid
+                if not should_use_phone_listen_first_intake(
+                    room_name, sam_session.kind, is_phone=is_phone
+                ):
+                    return str(resume.get("text") or "Picking up where we left off.")
         if is_outbound_guest:
             pending = take_pending_script(outbound_script, text)
             if pending is not None:
