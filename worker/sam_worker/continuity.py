@@ -122,8 +122,8 @@ def engagement_fields_for_context(engagement: dict[str, Any] | None) -> str:
         answers = {}
     fields = [
         ("client", engagement.get("client_name") or answers.get("clientName")),
-        ("project", engagement.get("project_name") or answers.get("projectName")),
-        ("summary", answers.get("summary") or answers.get("openingSummary")),
+        ("project", engagement.get("project_name") or answers.get("projectName") or engagement.get("company")),
+        ("summary", answers.get("projectSummary") or answers.get("summary") or answers.get("openingSummary")),
         ("stage", engagement.get("stage")),
     ]
     rendered = []

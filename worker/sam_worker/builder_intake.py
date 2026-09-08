@@ -73,8 +73,6 @@ def classify_close_turn(text: str, *, pending_offer: str, phase: str) -> str:
     low = cleaned.lower()
     if not cleaned:
         return "unclear"
-    if _CONTINUE_RE.search(cleaned):
-        return "continue"
     if _COST_QUESTION_RE.search(cleaned) and phase in {
         "context",
         "review_offered",
@@ -85,6 +83,8 @@ def classify_close_turn(text: str, *, pending_offer: str, phase: str) -> str:
         return "choose_email"
     if _TEXT_RE.search(cleaned) or "just text" in low:
         return "choose_text"
+    if _CONTINUE_RE.search(cleaned):
+        return "continue"
     if _REVIEWED_RE.search(cleaned) or re.search(
         r"\b(i looked|looked at|read it|no questions)\b", cleaned, re.I
     ):
@@ -861,7 +861,8 @@ async def run_builder_intake_turn(
         except Exception:
             pass
         # #endregion
-        return _out(spoken)
+        # Phase 2 pickup must reach 855 even when discovery sync stays silent.
+        return (spoken or "", tools)
 
     gaps = sync.get("gaps") or []
     if not gaps:

@@ -75,6 +75,12 @@ class _SeqClient:
             if event == "approve_phase2":
                 return {"ok": True, "text": "Approved.", "sales": {"phase": "phase2_approved", "confidence": 90}}
             return {"ok": False, "text": "Unknown sales event."}
+        if name == "proposal_resume":
+            row = self._sync_rows[0]
+            sales = row.get("sales") or {}
+            name = str((row.get("form_data") or {}).get("projectName") or "the job")
+            prompt = str(sales.get("pendingPrompt") or "I can send the draft by email or text — which do you want?")
+            return {"ok": True, "text": f"We're back on {name}. {prompt}", "sales": sales}
         if name == "proposal_send":
             kind = str((args or {}).get("kind") or "draft")
             return {
@@ -160,6 +166,37 @@ def test_classify_close_turn_paraphrases() -> None:
     assert classify_close_turn("I looked", pending_offer="mark_reviewed", phase="review_sent") == "reviewed"
     assert classify_close_turn("fifteen thousand", pending_offer="", phase="budget") == "budget"
     assert classify_close_turn("what's this cost?", pending_offer="", phase="review_offered") == "cost_question"
+    assert classify_close_turn("Continue. Email it.", pending_offer="choose_channel", phase="review_offered") == "choose_email"
+    assert classify_close_turn("Continue.", pending_offer="choose_channel", phase="review_offered") == "continue"
+
+
+def test_silent_complete_continue_returns_pickup() -> None:
+    client = _SeqClient(
+        [
+            {
+                "complete": True,
+                "gaps": [],
+                "sales": {
+                    "phase": "review_offered",
+                    "pendingOffer": "choose_channel",
+                    "pendingPrompt": "I can send the draft by email or text — which do you want?",
+                    "confidence": 100,
+                },
+                "form_data": {"projectName": "Harbor Izakaya"},
+            }
+        ]
+    )
+    spoken, tools = asyncio.run(
+        run_builder_intake_turn(
+            client,
+            engagement_id="eng-1",
+            text="Continue.",
+            speak=False,
+        )
+    )
+    assert "proposal_resume" in tools
+    assert "Harbor" in spoken
+    assert "email" in spoken.lower()
 
 
 def test_builder_intake_turn_writes_then_ask_gap() -> None:

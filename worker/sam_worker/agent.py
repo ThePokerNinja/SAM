@@ -1678,7 +1678,7 @@ async def entrypoint(ctx: JobContext) -> None:
             if eid:
                 proposal_engagement_id["value"] = eid
                 try:
-                    _, tools = await run_builder_intake_turn(
+                    spoken, tools = await run_builder_intake_turn(
                         rm_client,
                         engagement_id=eid,
                         text=text,
@@ -1698,10 +1698,12 @@ async def entrypoint(ctx: JobContext) -> None:
                         import json as _json
                         import time as _time
                         with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
-                            _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "D", "location": "agent.py:silent_sync", "message": "silent_intake_tools", "data": {"eid": eid, "tools": tools, "textLen": len(text or "")}, "timestamp": int(_time.time() * 1000)}) + "\n")
+                            _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "D", "location": "agent.py:silent_sync", "message": "silent_intake_tools", "data": {"eid": eid, "tools": tools, "spokenLen": len(spoken or ""), "textLen": len(text or ""), "willSpeakClose": bool(spoken)}, "timestamp": int(_time.time() * 1000)}) + "\n")
                     except Exception:
                         pass
                     # #endregion
+                    if spoken:
+                        return spoken
                 except Exception:  # noqa: BLE001
                     _log.exception("silent phone intake sync failed")
             return None
