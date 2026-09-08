@@ -49,6 +49,13 @@ def engagement_id_from_room(room_name: str) -> str:
 def _room_engagement_id(deps: dict[str, Any], explicit: str = "") -> str:
     if explicit.strip():
         return explicit.strip()
+    held = deps.get("engagement_id")
+    if isinstance(held, dict):
+        val = str(held.get("value") or "").strip()
+        if val:
+            return val
+    if isinstance(held, str) and held.strip():
+        return held.strip()
     return engagement_id_from_room(str(deps.get("session_id") or deps.get("room_name") or ""))
 
 

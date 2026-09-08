@@ -1256,6 +1256,7 @@ async def entrypoint(ctx: JobContext) -> None:
             "tool_latency_manager": tool_latency_manager,
             "session_id": session_id,
             "room_name": room_name,
+            "engagement_id": proposal_engagement_id,
             "calendar_turn_state": calendar_turn_state,
         },
     )
@@ -1526,6 +1527,15 @@ async def entrypoint(ctx: JobContext) -> None:
                 "proposal_apply_summary",
                 {"summary": blob, "channel": "phone"},
             )
+            # #region agent log
+            try:
+                import json as _json
+                import time as _time
+                with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
+                    _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "C", "location": "agent.py:_create_phone_engagement", "message": "apply_summary_no_eid", "data": {"blobLen": len(blob), "resultOk": bool(result.get("ok")), "eid": str(result.get("engagementId") or "")[:40]}, "timestamp": int(_time.time() * 1000)}) + "\n")
+            except Exception:
+                pass
+            # #endregion
             eid = str(result.get("engagementId") or result.get("engagement_id") or "").strip()
             if not eid and isinstance(result.get("engagement"), dict):
                 eid = str(result["engagement"].get("id") or "").strip()
@@ -1659,6 +1669,15 @@ async def entrypoint(ctx: JobContext) -> None:
                             eid,
                             ",".join(tools),
                         )
+                    # #region agent log
+                    try:
+                        import json as _json
+                        import time as _time
+                        with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
+                            _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "D", "location": "agent.py:silent_sync", "message": "silent_intake_tools", "data": {"eid": eid, "tools": tools, "textLen": len(text or "")}, "timestamp": int(_time.time() * 1000)}) + "\n")
+                    except Exception:
+                        pass
+                    # #endregion
                 except Exception:  # noqa: BLE001
                     _log.exception("silent phone intake sync failed")
             return None
