@@ -1651,6 +1651,17 @@ async def entrypoint(ctx: JobContext) -> None:
                 listen_first = should_use_phone_listen_first_intake(
                     room_name, sam_session.kind, is_phone=is_phone
                 )
+                # #region agent log
+                try:
+                    import json as _json
+                    import time as _time
+                    with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
+                        _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "A", "location": "agent.py:continue_override", "message": "continue", "data": {"listenFirst": listen_first, "eid": rid, "pickupLen": len(pickup), "pickupHasBudgetAsk": "budget are you working with" in pickup.lower()}, "timestamp": int(_time.time() * 1000)}) + "\n")
+                except Exception:
+                    pass
+                # #endregion
+                if is_phone and pickup.strip():
+                    return pickup
                 if not listen_first:
                     return pickup
         if is_outbound_guest:
