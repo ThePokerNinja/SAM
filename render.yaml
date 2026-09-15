@@ -134,6 +134,9 @@ services:
         value: "1200"
       - key: SAM_PROMPT_TOOL_MODE
         value: dynamic
+      # GPT-Live lab (staging only — never set gpt-live on prod without ADR-30 Accepted):
+      # SAM_VOICE_ARCH=cascade | gpt-live  (gpt-live requires room staging-* or sam-gptlive-*)
+      # OPENAI_API_KEY, optional OPENAI_CUSTOM_VOICE_ID, SAM_GPT_LIVE_VOICE=meridian
       # SAM-075: the Pythia calibration job runs in this process because the
       # forecast ledger lives on this service's disk. Code defaults match these,
       # so an unset dashboard key still behaves as written here.

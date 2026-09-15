@@ -46,6 +46,17 @@ On **sam-token** and **sam-agent** (Environment):
 
 Optional: `OPENAI_API_KEY` if not using Groq.
 
+**GPT-Live lab (staging only — do not enable on prod until ADR-30 Accepted):**
+
+| Variable | Notes |
+|----------|-------|
+| `SAM_VOICE_ARCH` | `cascade` (default) or `gpt-live` |
+| `OPENAI_API_KEY` | Required for `gpt-live` |
+| `OPENAI_CUSTOM_VOICE_ID` | Optional; else `SAM_GPT_LIVE_VOICE` (default `meridian`) |
+| Room name | Must start with `staging-` or `sam-gptlive-` |
+
+See rainMaker `studios/research/sam-human-conversation.md`.
+
 **Owner portal gate (no login UI):** set `SAM_PORTAL_ACCESS_KEY` on **sam-token** to a long random string. Bookmark once (use `#access=` so base64 `+` is safe):
 
 `https://voice.michaelstewman.com/#access=<your-key>`

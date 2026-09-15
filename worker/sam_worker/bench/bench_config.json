@@ -1,10 +1,13 @@
 {
-  "method_version": "0.1.0",
+  "method_version": "0.2.0",
   "kpi": {
     "v2v_p50_ms": 800,
     "v2v_p95_ms": 1200,
     "grounded_task_success_min": 0.90,
-    "hallucination_rate_max": 0.02
+    "hallucination_rate_max": 0.02,
+    "duplex_pause_respect_min": 0.90,
+    "duplex_backchannel_f1_min": 0.85,
+    "naturalness_mos_required": true
   },
   "tiered_targets": {
     "minimum_enterprise": { "v2v_p50_ms": 1000, "v2v_p95_ms": 1500, "barge_in_ms": 400 },
@@ -23,15 +26,17 @@
     "min_turns_per_arm_per_scenario": 30,
     "min_sessions": 3,
     "network_profiles": ["wifi", "throttled_mobile"],
-    "turn_mode_experiment": { "short_turns": 10, "long_turns": 10 }
+    "turn_mode_experiment": { "short_turns": 10, "long_turns": 10 },
+    "duplex_cases_min": 8
   },
   "arms": [
     {
       "id": "samuel",
-      "label": "Samuel (production LiveKit worker)",
+      "label": "Samuel (production LiveKit cascade)",
       "enabled": true,
       "transport": "livekit",
-      "brain": "hermes",
+      "voice_arch": "cascade",
+      "brain": "groq",
       "note": "Runnable through run_audio_bench.py; grounded tools are live."
     },
     {
@@ -39,24 +44,46 @@
       "label": "Samuel (candidate, Groq openai/gpt-oss-20b)",
       "enabled": false,
       "transport": "livekit",
+      "voice_arch": "cascade",
       "brain": "groq",
       "note": "Wave 8.4 replacement candidate; production verification required."
     },
     {
+      "id": "samuel-pvc",
+      "label": "Samuel cascade + ElevenLabs PVC (likeness A/B)",
+      "enabled": true,
+      "transport": "livekit",
+      "voice_arch": "cascade",
+      "tts_model": "eleven_flash_v2_5",
+      "voice_profile": "pvc",
+      "note": "Set SAM_VOICE_ID to PVC clone; duplex + general arenas only until grounded parity confirmed."
+    },
+    {
+      "id": "samuel-v3-conversational",
+      "label": "Samuel cascade + eleven_v3_conversational",
+      "enabled": true,
+      "transport": "livekit",
+      "voice_arch": "cascade",
+      "tts_model": "eleven_v3_conversational",
+      "note": "Expressiveness mid-step; expect ~280ms TTS TTFB vs Flash ~75ms."
+    },
+    {
       "id": "chatgpt-voice",
-      "label": "ChatGPT Advanced Voice (S2S)",
+      "label": "ChatGPT Advanced Voice (S2S reference)",
       "enabled": false,
       "transport": "openai_realtime_or_manual",
+      "voice_arch": "s2s",
       "brain": "gpt-realtime",
-      "note": "Respect OpenAI ToS. Prefer official realtime API for an automatable arm; else documented manual protocol. General arena only \u2014 cannot play the grounded arena (no platform access)."
+      "note": "Manual MOS reference only — respect OpenAI ToS. General + duplex arenas; no grounded arena."
     },
     {
       "id": "samuel-s2s",
-      "label": "Samuel S2S experiment (future Tier 0)",
-      "enabled": false,
+      "label": "Samuel GPT-Live / Realtime experiment",
+      "enabled": true,
       "transport": "livekit",
-      "brain": "gpt-realtime",
-      "note": "Optional future experiment per ADR-2; not the foundation."
+      "voice_arch": "gpt-live",
+      "brain": "delegated",
+      "note": "Staging rooms only (SAM_VOICE_ARCH=gpt-live). Client delegation to Groq/Hermes + Rainmaker tools."
     }
   ],
   "weights": {
@@ -65,6 +92,13 @@
       "barge_in": 0.25,
       "naturalness": 0.25,
       "recovery_charm": 0.15
+    },
+    "duplex_arena": {
+      "pause_respect": 0.30,
+      "backchannel_f1": 0.25,
+      "truncation": 0.20,
+      "participate": 0.15,
+      "side_speech": 0.10
     },
     "grounded_arena": {
       "task_success": 0.45,

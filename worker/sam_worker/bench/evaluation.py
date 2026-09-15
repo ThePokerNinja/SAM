@@ -7,7 +7,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .fixtures import GROUNDED_TASKS, GroundedTask
-from .scorecard import GeneralArena, GroundedArena, LatencyStats, RunScorecard
+from .scorecard import (
+    DuplexArena,
+    GeneralArena,
+    GroundedArena,
+    LatencyStats,
+    RunScorecard,
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +60,7 @@ def evaluate_observations(
     interruption_accuracy: float = 0.0,
     naturalness_mos: float = 0.0,
     recovery_charm: float = 0.0,
+    duplex: DuplexArena | None = None,
     learning_efficiency: float | None = None,
     arm: str = "samuel",
 ) -> IntelligenceReport:
@@ -92,10 +99,13 @@ def evaluate_observations(
         naturalness_mos=naturalness_mos,
         recovery_charm=recovery_charm,
     )
+    if naturalness_mos <= 0.0:
+        failures.append("missing:naturalness_mos")
     scorecard = RunScorecard(
         arm=arm,
         n_turns=count,
         general=general,
+        duplex=duplex or DuplexArena(),
         grounded=grounded,
         notes="Wave 8 deterministic fixture evaluation",
     )

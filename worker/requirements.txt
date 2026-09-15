@@ -1,18 +1,18 @@
 # S.A.M. agent worker. The --mock loop and --bench harness need only httpx/dotenv (see below);
 # the real LiveKit pipeline needs the agents stack.
 
-# Exact versions resolved in the verified production-compatible worker environment.
-livekit-agents==1.6.10              # TurnHandlingOptions + FallbackAdapter
-livekit-plugins-elevenlabs==1.6.2   # ElevenLabs streaming TTS (our key)
-livekit-plugins-openai==1.4.5       # OpenAI-compatible Groq/Cerebras clients
-livekit-plugins-silero==1.4.5       # VAD
-livekit-plugins-deepgram==1.6.10    # Direct Nova-3 + Flux STTv2/eot_timeout_ms support
-livekit-plugins-turn-detector==1.6.10
+# Bumped 2026-09-14 for GPTLiveModel (gpt-live lab). Pin together — do not mix 1.6/1.8.
+livekit-agents==1.8.1
+livekit-plugins-elevenlabs==1.8.1
+livekit-plugins-openai==1.8.1
+livekit-plugins-silero==1.8.1
+livekit-plugins-deepgram==1.8.1
+livekit-plugins-turn-detector==1.8.1
 livekit-api==1.2.0
-livekit==1.1.14
+livekit==1.1.18
 livekit-protocol==1.1.22
 livekit-blingfire==1.1.0
-livekit-local-inference==0.2.6
+livekit-local-inference==0.2.7
 # Default STT = LiveKit Inference (deepgram/nova-3 string model). Set DEEPGRAM_API_KEY + SAM_STT=deepgram to use direct.
 
 # Token server (only needed for a custom client; the Agents Playground does not require it)

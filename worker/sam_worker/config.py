@@ -10,6 +10,7 @@ from typing import Literal
 TurnMode = Literal["cloud", "mini", "vad", "stt"]
 InterruptionMode = Literal["adaptive", "vad"]
 PromptToolMode = Literal["dynamic", "stable_full"]
+VoiceArch = Literal["cascade", "gpt-live"]
 TURN_MODES: frozenset[str] = frozenset({"cloud", "mini", "vad", "stt"})
 
 # Per-tier brain model map. Mirrors the client presets; placeholders until Hermes
@@ -153,6 +154,11 @@ class Settings:
     # explicit measurement arm for Groq's exact-prefix prompt cache.
     prompt_tool_mode: PromptToolMode = "dynamic"
     groq_tpm_budget: int = 8000
+    # Voice architecture: cascade (prod) or gpt-live (staging lab only).
+    voice_arch: VoiceArch = "cascade"
+    gpt_live_model: str = "gpt-live-1"
+    gpt_live_voice: str = "meridian"
+    openai_custom_voice_id: str = ""
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -244,4 +250,12 @@ class Settings:
             groq_tpm_budget=max(
                 1, int(os.getenv("GROQ_TPM_BUDGET", "8000") or 8000)
             ),
+            voice_arch=(
+                "gpt-live"
+                if os.getenv("SAM_VOICE_ARCH", "cascade").strip().lower() == "gpt-live"
+                else "cascade"
+            ),
+            gpt_live_model=os.getenv("SAM_GPT_LIVE_MODEL", "gpt-live-1"),
+            gpt_live_voice=os.getenv("SAM_GPT_LIVE_VOICE", "meridian"),
+            openai_custom_voice_id=os.getenv("OPENAI_CUSTOM_VOICE_ID", "").strip(),
         )

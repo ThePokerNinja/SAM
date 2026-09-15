@@ -4,8 +4,9 @@ Mirrors ``sam-benchmark-methodology.md`` sections 3-4. Pure functions + dataclas
 unit-testable without any live pipeline. Latency is reported as p50/p90/p95; quality metrics are
 normalized to 0..1 before weighting.
 
-Two arenas:
+Three arenas:
 - General arena (table stakes): latency, barge-in, naturalness, recovery/charm.
+- Duplex arena (conversational-human): thinking pauses, backchannels, truncation, participate rubric.
 - Grounded arena (the product KPI): task success, (1 - hallucination), tool accuracy, refusal.
 """
 
@@ -77,6 +78,20 @@ class GeneralArena:
 
 
 @dataclass
+class DuplexArena:
+    """Full-duplex conversational quality (GPT-Live / ChatGPT voice bar)."""
+
+    pause_respect_rate: float = 0.0       # 0..1 — did not interrupt thinking pauses
+    backchannel_f1: float = 0.0           # F1 for backchannel vs true interrupt
+    truncation_correct_rate: float = 0.0  # 0..1 — post-barge-in context matches heard audio
+    participate_score: float = 0.0        # 0..1 — rubric: participate vs FAQ bot
+    side_speech_false_trigger_rate: float = 0.0  # lower is better; stored as failure rate 0..1
+
+    def score(self) -> float:
+        return duplex_arena_score(self)
+
+
+@dataclass
 class GroundedArena:
     """The arena that matters: can the agent act correctly on the user's real data."""
 
@@ -89,12 +104,45 @@ class GroundedArena:
         return grounded_arena_score(self)
 
 
+def general_arena_has_naturalness(a: GeneralArena) -> bool:
+    """MOS must be rated — 0.0 is an incomplete run, not a passing score."""
+    return a.naturalness_mos > 0.0
+
+
+def general_arena_complete(a: GeneralArena) -> bool:
+    """General arena requires naturalness MOS and at least one latency sample or barge metric."""
+    has_latency = bool(a.latency.v2v_ms)
+    has_barge = a.barge_in_f1 > 0.0
+    return general_arena_has_naturalness(a) and (has_latency or has_barge)
+
+
 def general_arena_score(a: GeneralArena) -> float:
+    if not general_arena_has_naturalness(a):
+        return 0.0
     return round(
         0.35 * _clamp01(a.latency.latency_score())
         + 0.25 * _clamp01(a.barge_in_f1)
         + 0.25 * _clamp01(a.naturalness_mos / 5.0)
         + 0.15 * _clamp01(a.recovery_charm),
+        4,
+    )
+
+
+def duplex_arena_score(d: DuplexArena) -> float:
+    if (
+        d.pause_respect_rate <= 0
+        and d.backchannel_f1 <= 0
+        and d.truncation_correct_rate <= 0
+        and d.participate_score <= 0
+    ):
+        return 0.0
+    side_speech_score = _clamp01(1.0 - d.side_speech_false_trigger_rate)
+    return round(
+        0.30 * _clamp01(d.pause_respect_rate)
+        + 0.25 * _clamp01(d.backchannel_f1)
+        + 0.20 * _clamp01(d.truncation_correct_rate)
+        + 0.15 * _clamp01(d.participate_score)
+        + 0.10 * side_speech_score,
         4,
     )
 
@@ -119,6 +167,7 @@ class RunScorecard:
     region: str = "unknown"
     n_turns: int = 0
     general: GeneralArena = field(default_factory=GeneralArena)
+    duplex: DuplexArena = field(default_factory=DuplexArena)
     grounded: GroundedArena = field(default_factory=GroundedArena)
     notes: str = ""
 
@@ -132,7 +181,9 @@ class RunScorecard:
             "latency_p50_ms": round(self.general.latency.p50, 1),
             "latency_p95_ms": round(self.general.latency.p95, 1),
             "passes_latency_kpi": self.general.latency.passes_kpi(),
+            "general_arena_complete": general_arena_complete(self.general),
             "general_arena_score": self.general.score(),
+            "duplex_arena_score": self.duplex.score(),
             "grounded_arena_score": self.grounded.score(),
             "hallucination_rate": self.grounded.hallucination_rate,
             "notes": self.notes,

@@ -114,6 +114,7 @@ from .skillbuilder.models import KPISnapshot
 from .skillbuilder.runtime import SkillBuilderRuntime
 from .skillbuilder.snapshot import live_snapshot, write_snapshot
 from .surfaces import surface_for
+from .gpt_live_lab import gpt_live_lab_enabled, run_gpt_live_entrypoint
 from .stt import build_stt
 from .packs import PackRegistry
 from .tier import TierState
@@ -362,6 +363,9 @@ async def entrypoint(ctx: JobContext) -> None:
     surface_profile = surface_for(surface)
     is_phone = surface_profile.name == "phone"
     s = Settings.from_env()
+    if gpt_live_lab_enabled(s, room_name):
+        await run_gpt_live_entrypoint(ctx, s, room_name=room_name, is_phone=is_phone)
+        return
     if is_phone:
         s = replace(s, stt_model=s.phone_stt_model)
     resolved = resolve_brain(s)
@@ -1651,15 +1655,6 @@ async def entrypoint(ctx: JobContext) -> None:
                 listen_first = should_use_phone_listen_first_intake(
                     room_name, sam_session.kind, is_phone=is_phone
                 )
-                # #region agent log
-                try:
-                    import json as _json
-                    import time as _time
-                    with open(r"c:\Users\User\Desktop\rainMaker\debug-d5ce0e.log", "a", encoding="utf-8") as _f:
-                        _f.write(_json.dumps({"sessionId": "d5ce0e", "hypothesisId": "A", "location": "agent.py:continue_override", "message": "continue", "data": {"listenFirst": listen_first, "eid": rid, "pickupLen": len(pickup), "pickupHasBudgetAsk": "budget are you working with" in pickup.lower()}, "timestamp": int(_time.time() * 1000)}) + "\n")
-                except Exception:
-                    pass
-                # #endregion
                 if is_phone and pickup.strip():
                     return pickup
                 if not listen_first:

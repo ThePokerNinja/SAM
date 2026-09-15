@@ -10,16 +10,19 @@ versioned observations and the existing two-arena scorecard. ChatGPT Voice remai
 
 - `scorecard.py` — metric containers + composite scoring (two arenas), pure + testable now.
 - `fixtures.py` — versioned grounded-task / interruption / general-Q&A suites (ground-truth backed).
-- `bench_config.json` — the arms (`samuel`, `samuel-groq`, `chatgpt-voice`, `samuel-s2s`), KPI gates,
-  sample sizes, and composite weights.
+- `bench_config.json` — arms (`samuel`, `samuel-pvc`, `samuel-v3-conversational`, `samuel-s2s`,
+  `chatgpt-voice`), KPI gates, duplex arena weights, sample sizes.
 - `livekit_audio.py` / `run_audio_bench.py` — full transport/STT/EOU/LLM/TTS audio driver.
 - `evaluation.py` / `run_evaluation.py` — deterministic grounded/intelligence scorer.
 - `worker/bench/audio/manifest.json` — 10 short, 10 long, and controlled barge-in fixtures.
 
-## Two arenas (why)
+## Three arenas (why)
 
 - **General arena** (latency, barge-in, naturalness, recovery/charm): level playing field. A
   speech-to-speech agent like ChatGPT voice is expected to win raw latency — an accepted ADR-2 trade.
+  **MOS required:** `naturalness_mos == 0` fails the run (`general_arena_complete` is false).
+- **Duplex arena** (thinking pauses, backchannels, truncation after barge-in, participate rubric):
+  fixtures in `fixtures.py` `DUPLEX_CASES`. See rainMaker `studios/research/sam-human-conversation.md`.
 - **Grounded arena** (task success, anti-hallucination, tool accuracy, refusal): Samuel's reason to
   exist. ChatGPT voice *cannot play* (no access to your platform). Reported as Samuel's absolute
   capability, not a default-win head-to-head.
