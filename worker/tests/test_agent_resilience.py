@@ -103,6 +103,7 @@ def test_default_groq_fallback_adds_openai_as_independent_rung(monkeypatch) -> N
         lambda **kwargs: SimpleNamespace(rungs=kwargs["llm"]),
     )
     settings = Settings(
+        sam_brain="groq",
         groq_api_key="groq-key",
         groq_model="openai/gpt-oss-20b",
         groq_fallback_model="",
