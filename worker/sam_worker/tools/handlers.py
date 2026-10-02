@@ -180,6 +180,34 @@ async def handle_capture_note(client: RainmakerClient, body: str, kind: str = "n
     return f"Saved that {label}" + (f" as {sid}." if sid else ".")
 
 
+async def handle_save_brainstorm(
+    client: RainmakerClient,
+    *,
+    title: str,
+    decisions: list[str] | None = None,
+    open_questions: list[str] | None = None,
+    next_actions: list[str] | None = None,
+    notes: str = "",
+) -> str:
+    """Brainstorm session kind: rm_api renders the one markdown shape every surface
+    shares (``POST /samuel/tool`` -> ``save_brainstorm`` -> capture kind ``brainstorm``)."""
+    head = " ".join((title or "").split())
+    if len(head) < 2 and not (notes or "").strip():
+        return "Give me a title or a sentence and I'll save the brainstorm."
+    args: dict[str, Any] = {"title": head or "Brainstorm"}
+    for key, val in (("decisions", decisions), ("open_questions", open_questions), ("next_actions", next_actions)):
+        items = [str(v).strip() for v in (val or []) if str(v).strip()]
+        if items:
+            args[key] = items[:12]
+    if (notes or "").strip():
+        args["notes"] = " ".join(notes.split())[:1500]
+    res = await client.run_tool("save_brainstorm", args)
+    text = str(res.get("text") or "").strip()
+    if not res.get("ok") and not text:
+        return _fail("brainstorm")
+    return _spoken_only(text or "Saved the brainstorm.")[:_MAX_SPOKEN]
+
+
 async def handle_list_captures(client: RainmakerClient, limit: int = 8) -> str:
     res = await client.list_captures(limit=limit)
     if not res.get("ok"):

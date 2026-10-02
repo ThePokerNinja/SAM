@@ -151,12 +151,29 @@ SKILLBUILDER = PackManifest(
 )
 
 
+BRAINSTORM = PackManifest(
+    id="brainstorm",
+    persona_overlay=(
+        "You are Samuel taking a brainstorm in the car. Listen. Reflect back in one short "
+        "sentence at most. Ask at most one clarifying question in the whole session, and only "
+        "if a decision is ambiguous. Do not advise, rank, or summarise mid-stream. When the owner "
+        "says done, save it, or goes quiet, call save_brainstorm once with a title, the decisions "
+        "they made, the open questions they raised, the next actions they named, and brief notes. "
+        "Then confirm in one sentence."
+    ),
+    tools=("save_brainstorm", "list_captures"),
+    workflow=("listen", "clarify", "save"),
+    safety_rules=("advisory_only", "one_question_max"),
+    artifacts=("brainstorm",),
+)
+
+
 class PackRegistry:
     def __init__(self) -> None:
         self._packs: dict[str, PackManifest] = {}
         self._warm: set[str] = set()
         self._active_id = "trading"
-        for pack in (TRADING, MODERATOR, APPOINTMENT, SKILLBUILDER, INTAKE, GUEST_INTAKE, FAITH):
+        for pack in (TRADING, MODERATOR, APPOINTMENT, SKILLBUILDER, INTAKE, GUEST_INTAKE, FAITH, BRAINSTORM):
             self.register(pack)
 
     def register(self, pack: PackManifest) -> None:

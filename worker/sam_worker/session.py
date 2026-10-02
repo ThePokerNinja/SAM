@@ -10,7 +10,7 @@ import os
 import re
 from typing import Literal
 
-SessionKind = Literal["trading", "moderator", "appointment", "skillbuilder", "intake"]
+SessionKind = Literal["trading", "moderator", "appointment", "skillbuilder", "intake", "brainstorm"]
 SurfaceName = Literal["portal", "phone", "sms"]
 Role = Literal["host", "party", "observer"]
 
@@ -158,6 +158,7 @@ def pack_for_kind(kind: SessionKind) -> str:
         "appointment": "appointment",
         "skillbuilder": "skillbuilder",
         "intake": "intake",
+        "brainstorm": "brainstorm",
     }.get(kind, "trading")
 
 
@@ -181,8 +182,13 @@ def route_session_kind(
         return "intake"
     if room.startswith("mod-"):
         return "moderator"
+    if room.startswith("brainstorm-"):
+        return "brainstorm"
     if room.startswith("demo-") or room.startswith("intake-") or room.startswith("builder-"):
         return "intake"
+    # Owner-only session kind (Platform 4.0): phone or portal, "brainstorm" / "think out loud".
+    if re.search(r"\b(brainstorm(?:ing)?(?: mode| session)?|think out loud|riff with me|let me talk (?:this|it) through)\b", blob):
+        return "brainstorm"
     if re.search(r"\b(moderat(?:e|or|ion)?|help us disagree|settle a disagreement)\b", blob):
         return "moderator"
     if re.search(r"\b(appointment|book (?:an? )?(?:appointment|meeting)|scheduling mode)\b", blob):

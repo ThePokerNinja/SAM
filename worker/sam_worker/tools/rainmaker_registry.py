@@ -24,6 +24,7 @@ from .handlers import (
     handle_propose_calendar_change,
     handle_queue_research,
     handle_record_studio_publish,
+    handle_save_brainstorm,
     handle_send_brief,
     handle_send_email,
     handle_send_hero,
@@ -148,8 +149,20 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     )
     registry.register(
         ToolSpec(
+            name="save_brainstorm",
+            description=(
+                "Save a brainstorm as one structured page (title, decisions, open questions, next actions, notes). "
+                "Call it when the owner says done or goes quiet after thinking out loud. Owner only."
+            ),
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_save_brainstorm,
+    )
+    registry.register(
+        ToolSpec(
             name="list_captures",
-            description="Read today's notes and tasks.",
+            description="Read today's notes, tasks, and brainstorms.",
             read_only=True,
             requires_approval=False,
         ),
@@ -542,6 +555,15 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
             requires_approval=False,
         ),
         _build_proposal_research,
+    )
+    registry.register(
+        ToolSpec(
+            name="proposal_mark_estimate_ready",
+            description="Mark intake complete and publish the priced estimate on the engagement. Owner only.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_proposal_mark_estimate_ready,
     )
     registry.register(
         ToolSpec(
@@ -1155,6 +1177,40 @@ def _build_proposal_research(client: Any, _is_owner: Any, deps: dict[str, Any]):
         return await handle_named_tool(client, "proposal_research", args)
 
     return proposal_research
+
+
+def _build_proposal_mark_estimate_ready(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    async def proposal_mark_estimate_ready(context: RunContext, engagement_id: str = "", hours: float = 0.0) -> str:
+        args: dict[str, Any] = {}
+        eid = _room_engagement_id(deps, engagement_id)
+        if eid:
+            args["engagement_id"] = eid
+        if hours:
+            args["hours"] = hours
+        return await handle_named_tool(client, "proposal_mark_estimate_ready", args)
+
+    return proposal_mark_estimate_ready
+
+
+def _build_save_brainstorm(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def save_brainstorm(
+        context: RunContext,
+        title: str,
+        decisions: list[str] | None = None,
+        open_questions: list[str] | None = None,
+        next_actions: list[str] | None = None,
+        notes: str = "",
+    ) -> str:
+        return await handle_save_brainstorm(
+            client,
+            title=title,
+            decisions=decisions or [],
+            open_questions=open_questions or [],
+            next_actions=next_actions or [],
+            notes=notes,
+        )
+
+    return save_brainstorm
 
 
 def _build_correct_craft(client: Any, _is_owner: Any, deps: dict[str, Any]):
