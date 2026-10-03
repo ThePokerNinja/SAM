@@ -95,6 +95,30 @@ _TOOL_PARAMS: dict[str, dict[str, Any]] = {
         "properties": {"proposal_id": {"type": "string"}},
         "required": [],
     },
+    "list_proposals": {
+        "type": "object",
+        "properties": {"lane": {"type": "string"}},
+        "required": [],
+    },
+    "get_proposal_artifact": {
+        "type": "object",
+        "properties": {"proposal": {"type": "string"}, "kind": {"type": "string"}},
+        "required": ["proposal"],
+    },
+    "draft_decision": {
+        "type": "object",
+        "properties": {
+            "proposal": {"type": "string"},
+            "decision": {"type": "string"},
+            "note": {"type": "string"},
+        },
+        "required": ["proposal", "decision"],
+    },
+    "review_note": {
+        "type": "object",
+        "properties": {"text": {"type": "string"}, "proposal": {"type": "string"}},
+        "required": ["text"],
+    },
 }
 
 _EMPTY_PARAMS: dict[str, Any] = {

@@ -32,7 +32,19 @@ def health_payload() -> dict[str, Any]:
         "endpointingMax": os.environ.get("SAM_ENDPOINTING_MAX", ""),
         "groqModel": os.environ.get("GROQ_MODEL", ""),
         "uptimeSec": int(time.time() - _STARTED_AT),
+        # Outbound readiness without secrets: rm_api's lab proof reads this before a dry run.
+        "outboundConfigured": _outbound_configured(),
+        "dialDryRun": True,
     }
+
+
+def _outbound_configured() -> bool:
+    try:
+        from .outbound import outbound_configured
+
+        return bool(outbound_configured())
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def hero_snapshot_payload() -> dict[str, Any]:
@@ -90,6 +102,7 @@ class _HealthHandler(BaseHTTPRequestHandler):
         guest_name = str((payload or {}).get("guest_name") or "").strip()
         spoken = str((payload or {}).get("spoken") or "").strip()
         notify_owner = bool((payload or {}).get("notify_owner", True))
+        dry_run = bool((payload or {}).get("dry_run", False))
         import asyncio
 
         from .outbound import dial_from_text
@@ -102,6 +115,7 @@ class _HealthHandler(BaseHTTPRequestHandler):
                     guest_name=guest_name,
                     spoken=spoken,
                     notify_owner=notify_owner,
+                    dry_run=dry_run,
                 )
             )
         except Exception:  # noqa: BLE001

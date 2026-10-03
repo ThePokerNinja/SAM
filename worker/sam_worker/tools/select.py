@@ -57,6 +57,56 @@ VOICE_TOOLS: tuple[str, ...] = (
     "proposal_answer_question",
     "proposal_revise",
     "proposal_send",
+    "review_digest",
+    "list_proposals",
+    "get_proposal_artifact",
+    "draft_decision",
+    "review_note",
+    "finish_review",
+)
+
+# Charles's staging-area review on a call. Loaded together once the owner is "in review".
+REVIEW_TOOLS: tuple[str, ...] = (
+    "review_digest",
+    "list_proposals",
+    "get_proposal_artifact",
+    "draft_decision",
+    "review_note",
+    "finish_review",
+)
+
+_REVIEW_WORDS: tuple[str, ...] = (  # already normalized: lowercase, no apostrophes
+    "charles",
+    "staging",
+    "what is he working on",
+    "whats he working on",
+    "review call",
+    "the review",
+    "review the",
+    "lets review",
+    "his ideas",
+    "his proposals",
+    "accept that",
+    "accept it",
+    "reject that",
+    "reject it",
+    "pause that",
+    "pause it",
+    "resume that",
+    "the prd",
+    "personas",
+    "heuristic",
+    "competitive analysis",
+    "problem statement",
+    "ux recommendations",
+    "user feedback",
+    "acceptance criteria",
+    "wrap up",
+    "wrap it up",
+    "thats all for the review",
+    "finish the review",
+    "done reviewing",
+    "note that down",
 )
 
 STUDIO_TOOLS: tuple[str, ...] = (
@@ -259,6 +309,26 @@ def calendar_action_for_utterance(utterance: str) -> str | None:
     return None
 
 
+def is_review_utterance(utterance: str) -> bool:
+    """True when the owner is talking about Charles's proposals or the review call.
+
+    "proposal" alone belongs to the client-proposal builder; the review pack needs Charles,
+    staging, an artifact name, or a decision verb.
+    """
+    text = _normalize(utterance)
+    if text in {"review", "review please", "lets do the review", "start the review"}:
+        return True  # the call-in opener from the REVIEW keyword text
+    if _has_any(text, _REVIEW_WORDS):
+        return True
+    words = set(text.split())
+    if "proposal" in text and (
+        _has_any(text, ("charles", "staging", "accept", "reject", "pause", "resume"))
+        or "his" in words  # "his proposal", not "this proposal"
+    ):
+        return True
+    return False
+
+
 def select_tools_for_utterance(utterance: str) -> list[str]:
     """Return the tool names the LLM should see for this utterance.
 
@@ -273,6 +343,9 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
     if is_calendar_confirm(utterance):
         return ["commit_calendar_change", "run_command"]
     selected: list[str] = []
+
+    if is_review_utterance(utterance):
+        selected.extend(REVIEW_TOOLS)
 
     if _has_any(text, ("studio", "campaign", "deliverable", "asset id", "render")):
         selected.extend(STUDIO_TOOLS)

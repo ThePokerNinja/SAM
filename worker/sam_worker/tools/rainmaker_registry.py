@@ -32,6 +32,12 @@ from .handlers import (
     handle_studio_campaign_report,
     handle_named_tool,
     handle_text_me,
+    handle_review_digest,
+    handle_list_proposals,
+    handle_get_proposal_artifact,
+    handle_draft_decision,
+    handle_review_note,
+    handle_finish_review,
 )
 from .registry import ToolRegistry, ToolSpec
 
@@ -592,6 +598,109 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
         ),
         _build_centaur_idea,
     )
+    # Proposal Studio review: Charles's staging area. Owner only. Reads are owner-gated too
+    # because the artifacts are internal strategy. Nothing moves a lane from voice; the
+    # owner texts YES <code> after the call.
+    registry.register(
+        ToolSpec(
+            name="review_digest",
+            description="What Charles has been working on: new packages in staging, anything urgent. Owner only. No args.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_review_digest,
+    )
+    registry.register(
+        ToolSpec(
+            name="list_proposals",
+            description="List Charles's proposals in a lane (staging, inbox, accepted, rejected, paused). Owner only. Args: lane.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_list_proposals,
+    )
+    registry.register(
+        ToolSpec(
+            name="get_proposal_artifact",
+            description="Read one artifact of a proposal aloud: research, problem statement, competitive analysis, user feedback, heuristics, brief, personas, ux, prd. Owner only. Args: proposal (id or title words), kind.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_get_proposal_artifact,
+    )
+    registry.register(
+        ToolSpec(
+            name="draft_decision",
+            description="Draft accept, reject, pause, or resume for a proposal during the review call. Repeat the decision back first. Nothing moves until the owner texts YES after the call. Owner only. Args: proposal, decision, note.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_draft_decision,
+    )
+    registry.register(
+        ToolSpec(
+            name="review_note",
+            description="Save a note from the review call, optionally attached to a proposal. Owner only. Args: text, proposal.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_review_note,
+    )
+    registry.register(
+        ToolSpec(
+            name="finish_review",
+            description="Wrap up the review call: rm_api texts the accepted, rejected, and paused list with one YES code. Owner only. No args.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_finish_review,
+    )
+
+
+def _review_session_id(deps: dict[str, Any]) -> str:
+    return str(deps.get("room_name") or deps.get("session_id") or "review")
+
+
+def _build_review_digest(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def review_digest(context: RunContext) -> str:
+        return await handle_review_digest(client)
+
+    return review_digest
+
+
+def _build_list_proposals(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def list_proposals(context: RunContext, lane: str = "staging") -> str:
+        return await handle_list_proposals(client, lane=lane)
+
+    return list_proposals
+
+
+def _build_get_proposal_artifact(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def get_proposal_artifact(context: RunContext, proposal: str, kind: str = "brief") -> str:
+        return await handle_get_proposal_artifact(client, proposal, kind)
+
+    return get_proposal_artifact
+
+
+def _build_draft_decision(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    async def draft_decision(context: RunContext, proposal: str, decision: str, note: str = "") -> str:
+        return await handle_draft_decision(client, _review_session_id(deps), proposal, decision, note=note)
+
+    return draft_decision
+
+
+def _build_review_note(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    async def review_note(context: RunContext, text: str, proposal: str = "") -> str:
+        return await handle_review_note(client, _review_session_id(deps), text, proposal=proposal)
+
+    return review_note
+
+
+def _build_finish_review(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    async def finish_review(context: RunContext) -> str:
+        return await handle_finish_review(client, _review_session_id(deps))
+
+    return finish_review
 
 
 def _build_get_scans(client: Any, _is_owner: Any, _deps: dict[str, Any]):

@@ -207,16 +207,21 @@ async def dial_from_text(
     guest_name: str = "",
     spoken: str = "",
     notify_owner: bool = True,
+    dry_run: bool = False,
 ) -> dict[str, Any]:
     """Mint a room, auto-dispatch Samuel, and SIP-dial the allow-listed number into it.
 
     SMS has no live room. This is the text adapter for ``place_call``.
+    ``dry_run`` stops after the allow-list and trunk checks: the lab proof that the live
+    instance can dial without making a phone ring.
     """
     import uuid
 
     ok, detail = can_dial(number)
     if not ok:
         return {"ok": False, "error": detail}
+    if dry_run:
+        return {"ok": True, "dryRun": True, "number": detail, "configured": True}
     room_name = f"samuel-dial-{uuid.uuid4().hex[:10]}"
     from livekit import api
 

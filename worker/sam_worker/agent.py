@@ -84,6 +84,7 @@ from .owner_gate import (
 )
 from .packs.moderator import ModeratorRuntime
 from .prompt_budget import samuel_instructions
+from .review_call import REVIEW_OVERLAY, is_review_call, resolve_outbound_spoken
 from .pythia import BaselineStore, ForecastLedger, predict_threshold_event
 from .router import FastIntentRouter, RoutedSamuelAgent
 from .continuity import (
@@ -354,7 +355,10 @@ async def entrypoint(ctx: JobContext) -> None:
     room_name = (ctx.room.name or job_room or "").strip()
     outbound_meta = decode_outbound_metadata(getattr(ctx.room, "metadata", "") or "")
     is_outbound_guest = is_outbound_dial_room(room_name) or outbound_meta["kind"] == "outbound_guest"
-    outbound_script = {"spoken": str(outbound_meta.get("spoken") or "").strip(), "delivered": False}
+    # REVIEW keyword: we dialed the owner, not a guest. Tools stay on (owner gate decides),
+    # and the opener is Charles's digest instead of a guest script.
+    is_review_leg = is_outbound_guest and is_review_call(outbound_meta)
+    outbound_script = {"spoken": resolve_outbound_spoken(outbound_meta), "delivered": False}
     surface = (
         "phone"
         if room_name.startswith("call-") or is_outbound_guest
@@ -1272,7 +1276,7 @@ async def entrypoint(ctx: JobContext) -> None:
             return list(all_rm_tools)
         return [tool_by_name[name] for name in selected_names if name in tool_by_name]
 
-    rm_tools = [] if is_outbound_guest else _tools_for_pack(pack.id)
+    rm_tools = [] if (is_outbound_guest and not is_review_leg) else _tools_for_pack(pack.id)
     rm_mode = "mock" if (s.sam_mock_rm or not s.rm_api_base_url) else "http:" + s.rm_api_base_url
     _log.info(
         "Rainmaker tools enabled (%d) | client=%s | voice_verify=%s",
@@ -1286,6 +1290,8 @@ async def entrypoint(ctx: JobContext) -> None:
     instructions = base_instructions
     if overlay:
         instructions = f"{instructions}\n\n{overlay}"
+    if is_review_leg:
+        instructions = f"{instructions}\n\n{REVIEW_OVERLAY}"
 
     fast_router = FastIntentRouter()
 
@@ -1765,7 +1771,9 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     if any(connected_meta.get(key) for key in ("kind", "brief", "spoken", "guest_name")):
         outbound_meta.update(connected_meta)
-        outbound_script["spoken"] = str(outbound_meta.get("spoken") or "").strip()
+        outbound_script["spoken"] = resolve_outbound_spoken(outbound_meta)
+        if is_review_call(outbound_meta) and not is_review_leg:
+            _log.info("review call detected after connect; metadata arrived late")
 
     if (
         is_phone
@@ -1932,8 +1940,8 @@ async def entrypoint(ctx: JobContext) -> None:
             _log.info("outbound guest never answered; skipping greeting")
             ctx.shutdown("outbound unanswered")
             return
-        guest = outbound_meta.get("guest_name") or "the recipient"
-        spoken = str(outbound_meta.get("spoken") or outbound_script.get("spoken") or "").strip()
+        guest = outbound_meta.get("guest_name") or ("the owner" if is_review_leg else "the recipient")
+        spoken = (outbound_script.get("spoken") or resolve_outbound_spoken(outbound_meta)).strip()
         outbound_script["spoken"] = spoken
         _log.info(
             "outbound waiting for first speech guest=%s spoken_chars=%d",

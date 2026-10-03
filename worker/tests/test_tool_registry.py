@@ -23,7 +23,7 @@ class RegistryMetadataTests(unittest.TestCase):
         register_rainmaker_tools(self.registry)
 
     def test_registers_rainmaker_tools(self) -> None:
-        self.assertEqual(len(self.registry.names()), 55)
+        self.assertEqual(len(self.registry.names()), 61)
 
     def test_read_only_tools(self) -> None:
         read_only = {s.name for s in self.registry.specs() if s.read_only}
@@ -48,6 +48,9 @@ class RegistryMetadataTests(unittest.TestCase):
                 "get_sales_pulse",
                 "build_status",
                 "capabilities",
+                "review_digest",
+                "list_proposals",
+                "get_proposal_artifact",
             },
         )
 
@@ -78,6 +81,13 @@ class RegistryMetadataTests(unittest.TestCase):
                 "centaur_idea",
                 "save_brainstorm",
                 "proposal_mark_estimate_ready",
+                # Proposal Studio review: internal strategy, so even reads are owner-only.
+                "review_digest",
+                "list_proposals",
+                "get_proposal_artifact",
+                "draft_decision",
+                "review_note",
+                "finish_review",
             },
         )
 
@@ -110,7 +120,7 @@ class RegistryBuildTests(unittest.TestCase):
             function_tool=_identity_decorator,
             owner_refusal=self.owner_refusal,
         )
-        self.assertEqual(len(tools), 55)
+        self.assertEqual(len(tools), 61)
 
     def test_calendar_proposal_schema_only_requires_action(self) -> None:
         tools = self.registry.build_livekit_tools(

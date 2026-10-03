@@ -169,3 +169,6 @@ services:
       # Defense in depth behind LiveKit inbound-trunk allowedNumbers.
       - key: SAM_SIP_OWNER_NUMBERS
         sync: false
+      # Outbound leg for the REVIEW call (docs/runbooks/sip-outbound.md). Unset = call-in fallback.
+      - key: SAM_SIP_OUTBOUND_TRUNK_ID
+        sync: false

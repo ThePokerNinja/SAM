@@ -114,6 +114,13 @@ class RainmakerClient(Protocol):
         self, engagement_id: str, *, channel: str = "phone"
     ) -> dict: ...
     async def run_tool(self, name: str, args: dict[str, Any] | None = None) -> dict: ...
+    # Proposal Studio review (owner-only at the tool layer).
+    async def review_digest(self) -> dict: ...
+    async def list_proposals(self, lane: str = "staging") -> dict: ...
+    async def get_proposal_artifact(self, proposal_id: str, kind: str) -> dict: ...
+    async def review_draft(self, session_id: str, proposal_id: str, decision: str, note: str = "") -> dict: ...
+    async def review_note(self, session_id: str, text: str, proposal_id: str = "") -> dict: ...
+    async def review_finish(self, session_id: str) -> dict: ...
     async def get_intake_sync(self, engagement_id: str) -> dict: ...
     async def tick_room(
         self, room_id: str, *, minutes: float = 1.0, tokens: int = 80
@@ -339,6 +346,34 @@ class MockRainmakerClient:
     async def run_tool(self, name: str, args: dict[str, Any] | None = None) -> dict:
         return {"ok": True, "name": name, "text": f"mock {name}"}
 
+    async def review_digest(self) -> dict:
+        return {
+            "ok": True,
+            "text": "Overnight Charles finished the package for a slippage dashboard; it is in staging for you. Nothing needs you urgently.",
+            "stagedCount": 1,
+        }
+
+    async def list_proposals(self, lane: str = "staging") -> dict:
+        return {
+            "ok": True,
+            "counts": {"inbox": 0, "staging": 1, "accepted": 0, "rejected": 0, "paused": 0},
+            "proposals": [
+                {"id": "ab2cd", "title": "Slippage dashboard", "lane": lane, "built": 9, "total": 9, "summary": "See fills against quotes."}
+            ],
+        }
+
+    async def get_proposal_artifact(self, proposal_id: str, kind: str) -> dict:
+        return {"ok": True, "artifact": {"kind": kind, "label": kind, "body_md": f"## {kind}\nmock body for {proposal_id}"}}
+
+    async def review_draft(self, session_id: str, proposal_id: str, decision: str, note: str = "") -> dict:
+        return {"ok": True, "drafted": {"id": proposal_id, "title": "Slippage dashboard", "decision": decision}, "pending": [{"id": proposal_id, "decision": decision}]}
+
+    async def review_note(self, session_id: str, text: str, proposal_id: str = "") -> dict:
+        return {"ok": True, "notes": 1}
+
+    async def review_finish(self, session_id: str) -> dict:
+        return {"ok": True, "changed": True, "code": "k7m2p", "summary": "Accepted: Slippage dashboard. Rejected: none. Paused: none.", "smsResult": {"sent": True}}
+
     async def get_intake_sync(self, engagement_id: str) -> dict:
         return {
             "ok": True,
@@ -411,6 +446,7 @@ class HttpRainmakerClient:
     CALENDAR_EVENTS_PATH = "/calendar/events"
     CALENDAR_PROPOSALS_PATH = "/calendar/proposals"
     INTAKE_PATH = "/intake"
+    PROPOSALS_PATH = "/ops/proposals"
     _LONG_TIMEOUT = 30.0
 
     def __init__(
@@ -953,6 +989,39 @@ class HttpRainmakerClient:
             return {"ok": False, "error": res["error"], "text": ""}
         data = res.get("data") or {}
         return {"ok": True, **data}
+
+    # ---- Proposal Studio review ---------------------------------------------------------
+    def _unwrap(self, res: dict) -> dict:
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        return {"ok": True, **(res.get("data") or {})}
+
+    async def review_digest(self) -> dict:
+        return self._unwrap(await self._get(f"{self.PROPOSALS_PATH}/digest"))
+
+    async def list_proposals(self, lane: str = "staging") -> dict:
+        params = {"lane": lane} if lane else None
+        return self._unwrap(await self._get(self.PROPOSALS_PATH, params=params))
+
+    async def get_proposal_artifact(self, proposal_id: str, kind: str) -> dict:
+        return self._unwrap(await self._get(f"{self.PROPOSALS_PATH}/{proposal_id}/artifacts/{kind}"))
+
+    async def review_draft(self, session_id: str, proposal_id: str, decision: str, note: str = "") -> dict:
+        return self._unwrap(
+            await self._post(
+                f"{self.PROPOSALS_PATH}/review/{session_id}/draft",
+                body={"id": proposal_id, "decision": decision, "note": note},
+            )
+        )
+
+    async def review_note(self, session_id: str, text: str, proposal_id: str = "") -> dict:
+        body: dict[str, Any] = {"text": text}
+        if proposal_id:
+            body["id"] = proposal_id
+        return self._unwrap(await self._post(f"{self.PROPOSALS_PATH}/review/{session_id}/note", body=body))
+
+    async def review_finish(self, session_id: str) -> dict:
+        return self._unwrap(await self._post(f"{self.PROPOSALS_PATH}/review/{session_id}/finish"))
 
     async def get_intake_sync(self, engagement_id: str) -> dict:
         res = await self._get(f"{self.INTAKE_PATH}/{engagement_id}/sync")

@@ -443,3 +443,198 @@ async def handle_named_tool(
     if not res.get("ok") and not text:
         return "I couldn't do that right now."
     return (text or "Done.")[:_MAX_SPOKEN]
+
+
+# ---- Proposal Studio review (Charles's staging area) --------------------------------------
+# Sam reads these aloud; nothing moves a lane until the owner texts YES <code> after the call.
+
+_REVIEW_MAX_SPOKEN = 700  # artifacts and digests are longer than a scan line; still one breath
+_REVIEW_DECISIONS = {"accept": "accept", "reject": "reject", "pause": "pause", "resume": "resume"}
+_ARTIFACT_KIND_ALIASES = {
+    "research": "research",
+    "problem": "problem_statement",
+    "problem statement": "problem_statement",
+    "competitive": "competitive_analysis",
+    "competitive analysis": "competitive_analysis",
+    "competition": "competitive_analysis",
+    "user feedback": "user_feedback",
+    "feedback": "user_feedback",
+    "heuristic": "heuristic_assessment",
+    "heuristics": "heuristic_assessment",
+    "heuristic assessment": "heuristic_assessment",
+    "brief": "brief",
+    "personas": "personas",
+    "persona": "personas",
+    "ux": "ux_recommendations",
+    "ux recommendations": "ux_recommendations",
+    "prd": "prd",
+    "requirements": "prd",
+    "acceptance criteria": "prd",
+    "kpis": "prd",
+}
+
+
+def artifact_kind_from_words(value: str) -> str:
+    """Map a spoken artifact name ("the PRD", "personas") to a store kind."""
+    text = " ".join(str(value or "").lower().replace("_", " ").split())
+    text = text.removeprefix("the ").strip()
+    if text in _ARTIFACT_KIND_ALIASES:
+        return _ARTIFACT_KIND_ALIASES[text]
+    for alias, kind in _ARTIFACT_KIND_ALIASES.items():
+        if alias in text:
+            return kind
+    return text.replace(" ", "_")
+
+
+def _md_to_speech(body: str, limit: int = _REVIEW_MAX_SPOKEN) -> str:
+    """Flatten markdown into something Sam can read: drop heading marks, bullets, fences."""
+    lines: list[str] = []
+    for raw in (body or "").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("```"):
+            continue
+        if line.startswith("#"):
+            line = line.lstrip("#").strip()
+            line = line.rstrip(":") + ":"
+        elif line[:2] in {"- ", "* "}:
+            line = line[2:].strip()
+        elif line[:1].isdigit() and ". " in line[:4]:
+            line = line.split(". ", 1)[1].strip()
+        line = line.replace("**", "").replace("`", "")
+        lines.append(line)
+    text = " ".join(lines)
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    dot = cut.rfind(". ")
+    return (cut[: dot + 1] if dot > limit // 2 else cut.rstrip() + "...")
+
+
+async def handle_review_digest(client: RainmakerClient) -> str:
+    res = await client.review_digest()
+    if not res.get("ok"):
+        return "I couldn't reach Charles's staging area right now."
+    text = str(res.get("text") or "").strip()
+    return (text or "Charles has nothing new; the staging area is quiet.")[:_REVIEW_MAX_SPOKEN]
+
+
+async def handle_list_proposals(client: RainmakerClient, lane: str = "staging") -> str:
+    lane = (lane or "staging").strip().lower()
+    res = await client.list_proposals(lane)
+    if not res.get("ok"):
+        return "I couldn't read the proposals right now."
+    items = list(res.get("proposals") or [])
+    if not items:
+        counts = res.get("counts") or {}
+        other = ", ".join(f"{k} {v}" for k, v in counts.items() if v)
+        tail = f" Elsewhere: {other}." if other else ""
+        return f"Nothing in {lane}.{tail}"[:_REVIEW_MAX_SPOKEN]
+    parts = []
+    for item in items[:5]:
+        title = str(item.get("title") or "an idea").strip()
+        built = item.get("built")
+        total = item.get("total")
+        progress = ""
+        if isinstance(built, int) and isinstance(total, int) and built < total:
+            progress = f" ({built} of {total} artifacts)"
+        parts.append(f"{title}{progress}")
+    more = f" and {len(items) - 5} more" if len(items) > 5 else ""
+    noun = "idea" if len(items) == 1 else "ideas"
+    return f"{len(items)} {noun} in {lane}: " + "; ".join(parts) + more + "."
+
+
+def _find_proposal_id(items: list[dict], ref: str) -> dict | None:
+    needle = " ".join(str(ref or "").lower().split())
+    if not needle:
+        return None
+    for item in items:
+        if str(item.get("id") or "").lower() == needle:
+            return item
+    for item in items:
+        if needle in str(item.get("title") or "").lower():
+            return item
+    return None
+
+
+async def resolve_proposal(client: RainmakerClient, ref: str) -> dict | None:
+    """Find a proposal by id or title words across the review lanes."""
+    for lane in ("staging", "inbox", "paused", "accepted"):
+        res = await client.list_proposals(lane)
+        if not res.get("ok"):
+            continue
+        hit = _find_proposal_id(list(res.get("proposals") or []), ref)
+        if hit:
+            return hit
+    return None
+
+
+async def handle_get_proposal_artifact(client: RainmakerClient, proposal: str, kind: str) -> str:
+    kind_key = artifact_kind_from_words(kind)
+    item = await resolve_proposal(client, proposal)
+    if item is None:
+        return f"I couldn't find a proposal matching {proposal}."
+    pid = str(item.get("id") or "")
+    res = await client.get_proposal_artifact(pid, kind_key)
+    if not res.get("ok"):
+        error = str(res.get("error") or "")
+        if "404" in error or "not_found" in error:
+            return f"Charles has not written the {kind_key.replace('_', ' ')} for {item.get('title')} yet."
+        return "I couldn't open that artifact right now."
+    art = res.get("artifact") or {}
+    body = str(art.get("body_md") or art.get("body") or "").strip()
+    if not body:
+        return f"The {kind_key.replace('_', ' ')} for {item.get('title')} is empty."
+    label = str(art.get("label") or kind_key.replace("_", " "))
+    return f"{label} for {item.get('title')}: {_md_to_speech(body)}"
+
+
+async def handle_draft_decision(
+    client: RainmakerClient, session_id: str, proposal: str, decision: str, note: str = ""
+) -> str:
+    verb = _REVIEW_DECISIONS.get(str(decision or "").strip().lower())
+    if verb is None:
+        return "Say accept, reject, pause, or resume."
+    item = await resolve_proposal(client, proposal)
+    if item is None:
+        return f"I couldn't find a proposal matching {proposal}."
+    pid = str(item.get("id") or "")
+    res = await client.review_draft(session_id, pid, verb, note=note)
+    if not res.get("ok"):
+        return "I couldn't note that decision right now."
+    pending = list(res.get("pending") or [])
+    title = str(item.get("title") or pid)
+    own = item.get("ownApproval")
+    tail = " Applying the trading change itself still uses its own code." if own else ""
+    count = f" That makes {len(pending)} so far." if len(pending) > 1 else ""
+    return f"Noted: {verb} {title}.{count} Nothing moves until you text YES after the call.{tail}"
+
+
+async def handle_review_note(
+    client: RainmakerClient, session_id: str, text: str, proposal: str = ""
+) -> str:
+    body = str(text or "").strip()
+    if not body:
+        return "What should the note say?"
+    pid = ""
+    if proposal:
+        item = await resolve_proposal(client, proposal)
+        pid = str((item or {}).get("id") or "")
+    res = await client.review_note(session_id, body, proposal_id=pid)
+    if not res.get("ok"):
+        return "I couldn't save that note right now."
+    return "Got it, noted."
+
+
+async def handle_finish_review(client: RainmakerClient, session_id: str) -> str:
+    res = await client.review_finish(session_id)
+    if not res.get("ok"):
+        return "I couldn't wrap up the review right now; I'll text you the summary if the call drops."
+    if res.get("status") == "already_finished":
+        return "We already wrapped that review; check your texts for the code."
+    if not res.get("code"):
+        return "No decisions this time, so nothing to confirm. Your notes are saved."
+    summary = str(res.get("summary") or "").strip()
+    sent = bool((res.get("smsResult") or {}).get("sent"))
+    tail = "I texted you the list; reply YES with the code to commit it." if sent else "Reply YES with the code I text you to commit it."
+    return f"{summary} {tail}"[:_REVIEW_MAX_SPOKEN]
