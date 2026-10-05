@@ -65,7 +65,11 @@ def review_opening(meta: dict[str, Any] | None) -> str:
 
 
 def resolve_outbound_spoken(meta: dict[str, Any] | None) -> str:
-    """The literal first line for an outbound leg; review calls build it from the brief."""
+    """The literal first line for an outbound leg; review and Sentinel calls build it from the brief."""
     if is_review_call(meta):
         return review_opening(meta)
+    from .sentinel_call import is_sentinel_call, sentinel_opening
+
+    if is_sentinel_call(meta):
+        return sentinel_opening(meta)
     return str((meta or {}).get("spoken") or "").strip()

@@ -38,6 +38,8 @@ from .handlers import (
     handle_draft_decision,
     handle_review_note,
     handle_finish_review,
+    handle_charles_decide,
+    handle_charles_activity,
 )
 from .registry import ToolRegistry, ToolSpec
 
@@ -655,6 +657,50 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
         ),
         _build_finish_review,
     )
+    registry.register(
+        ToolSpec(
+            name="charles_decide",
+            description=(
+                "On a Sentinel call, apply the one decision the situation already asked. "
+                "If they say yes, action is the verb on the brief action line: pause, resume, or resume_anyway. "
+                "If they say no, action is leave. "
+                "Never say pause, resume, or resume anyway out loud. "
+                "Say the one-sentence result. "
+                "If the result tells them to text YES, read it and do not claim you already did it."
+            ),
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_charles_decide,
+    )
+    registry.register(
+        ToolSpec(
+            name="charles_activity",
+            description=(
+                "Read what we asked Charles lately and whether a reply came back. "
+                "Owner only. No args. Speak the lines you get. "
+                "Do not ask Charles what he has been doing."
+            ),
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_charles_activity,
+    )
+
+
+def _build_charles_activity(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def charles_activity(context: RunContext) -> str:
+        return await handle_charles_activity(client)
+
+    return charles_activity
+
+
+def _build_charles_decide(client: Any, _is_owner: Any, deps: dict[str, Any]):
+    async def charles_decide(context: RunContext, action: str) -> str:
+        code = str(deps.get("sentinel_code") or "")
+        return await handle_charles_decide(client, action, code)
+
+    return charles_decide
 
 
 def _review_session_id(deps: dict[str, Any]) -> str:

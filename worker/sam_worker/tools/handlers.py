@@ -511,6 +511,39 @@ def _md_to_speech(body: str, limit: int = _REVIEW_MAX_SPOKEN) -> str:
     return (cut[: dot + 1] if dot > limit // 2 else cut.rstrip() + "...")
 
 
+async def handle_charles_activity(client: RainmakerClient) -> str:
+    """Speak the ledger. Do not ask Charles what he has been doing."""
+    res = await client.charles_activity()
+    if not res.get("ok"):
+        return "I could not read what Charles has been doing."
+    lines = [str(line).strip() for line in (res.get("lines") or []) if str(line).strip()]
+    if not lines:
+        return "I do not have a record of Charles working yet."
+    return " ".join(lines[:3])[:700]
+
+
+async def handle_charles_decide(client: RainmakerClient, action: str, code: str) -> str:
+    """Pause, resume, or leave. The code is the call's capability; without it, the text decides."""
+    if not (code or "").strip():
+        return "Tell them to text YES. Do not say you already did it."
+    res = await client.charles_decide(action, code)
+    if not res.get("ok"):
+        return "Tell them to text YES. Do not say you already did it."
+    say = str(res.get("say") or "").strip()
+    if say:
+        return say
+    verb = (action or "").strip().lower().replace(" ", "_")
+    if verb == "pause":
+        return "Charles is off."
+    if verb == "resume_anyway":
+        return "Charles is back on."
+    if verb == "resume":
+        if res.get("paused"):
+            return "The check is not clean. He stays off unless you say yes to turn him on anyway."
+        return "The check is clean. Charles is back on."
+    return "Leaving him as he is. Nothing changed."
+
+
 async def handle_review_digest(client: RainmakerClient) -> str:
     res = await client.review_digest()
     if not res.get("ok"):

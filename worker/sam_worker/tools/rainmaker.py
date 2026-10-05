@@ -121,6 +121,8 @@ class RainmakerClient(Protocol):
     async def review_draft(self, session_id: str, proposal_id: str, decision: str, note: str = "") -> dict: ...
     async def review_note(self, session_id: str, text: str, proposal_id: str = "") -> dict: ...
     async def review_finish(self, session_id: str) -> dict: ...
+    async def charles_decide(self, action: str, code: str) -> dict: ...
+    async def charles_activity(self) -> dict: ...
     async def get_intake_sync(self, engagement_id: str) -> dict: ...
     async def tick_room(
         self, room_id: str, *, minutes: float = 1.0, tokens: int = 80
@@ -373,6 +375,19 @@ class MockRainmakerClient:
 
     async def review_finish(self, session_id: str) -> dict:
         return {"ok": True, "changed": True, "code": "k7m2p", "summary": "Accepted: Slippage dashboard. Rejected: none. Paused: none.", "smsResult": {"sent": True}}
+
+    async def charles_decide(self, action: str, code: str) -> dict:
+        if not code:
+            return {"ok": False, "error": "no_code"}
+        return {"ok": True, "action": action, "via": "call", "paused": action == "pause"}
+
+    async def charles_activity(self) -> dict:
+        return {
+            "ok": True,
+            "lines": ["Sun 19:00. Night shift. reply saved."],
+            "doors": [],
+            "charles": [{"ts": 0, "line": "Sun 19:00. Night shift. reply saved."}],
+        }
 
     async def get_intake_sync(self, engagement_id: str) -> dict:
         return {
@@ -1022,6 +1037,17 @@ class HttpRainmakerClient:
 
     async def review_finish(self, session_id: str) -> dict:
         return self._unwrap(await self._post(f"{self.PROPOSALS_PATH}/review/{session_id}/finish"))
+
+    async def charles_decide(self, action: str, code: str) -> dict:
+        return self._unwrap(
+            await self._post(
+                "/ops/sentinel/charles/decide",
+                body={"action": action, "code": code},
+            )
+        )
+
+    async def charles_activity(self) -> dict:
+        return self._unwrap(await self._get("/ops/sentinel/charles/activity"))
 
     async def get_intake_sync(self, engagement_id: str) -> dict:
         res = await self._get(f"{self.INTAKE_PATH}/{engagement_id}/sync")

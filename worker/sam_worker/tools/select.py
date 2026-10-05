@@ -63,6 +63,8 @@ VOICE_TOOLS: tuple[str, ...] = (
     "draft_decision",
     "review_note",
     "finish_review",
+    "charles_decide",
+    "charles_activity",
 )
 
 # Charles's staging-area review on a call. Loaded together once the owner is "in review".
@@ -309,6 +311,42 @@ def calendar_action_for_utterance(utterance: str) -> str | None:
     return None
 
 
+_SENTINEL_WORDS: tuple[str, ...] = (
+    "sentinel",
+    "stop him",
+    "stop charles",
+    "leave him",
+    "leave charles",
+    "turn him back",
+    "turn charles back",
+    "resume anyway",
+    "safety check",
+    "tool lock",
+)
+
+
+def is_sentinel_utterance(utterance: str) -> bool:
+    """True when the owner is deciding the Sentinel warning, not reviewing ideas."""
+    return _has_any(_normalize(utterance), _SENTINEL_WORDS)
+
+
+_CHARLES_ACTIVITY_WORDS: tuple[str, ...] = (
+    "what has charles",
+    "what is charles doing",
+    "whats charles doing",
+    "what charles has been",
+    "charles been doing",
+    "charles been working",
+    "what charles did",
+    "charles activity",
+)
+
+
+def is_charles_activity_utterance(utterance: str) -> bool:
+    """True when the owner wants the record of what we asked Charles."""
+    return _has_any(_normalize(utterance), _CHARLES_ACTIVITY_WORDS)
+
+
 def is_review_utterance(utterance: str) -> bool:
     """True when the owner is talking about Charles's proposals or the review call.
 
@@ -346,6 +384,12 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
 
     if is_review_utterance(utterance):
         selected.extend(REVIEW_TOOLS)
+
+    if is_sentinel_utterance(utterance):
+        selected.append("charles_decide")
+
+    if is_charles_activity_utterance(utterance):
+        selected.append("charles_activity")
 
     if _has_any(text, ("studio", "campaign", "deliverable", "asset id", "render")):
         selected.extend(STUDIO_TOOLS)

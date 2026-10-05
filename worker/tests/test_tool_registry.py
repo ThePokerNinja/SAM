@@ -23,7 +23,7 @@ class RegistryMetadataTests(unittest.TestCase):
         register_rainmaker_tools(self.registry)
 
     def test_registers_rainmaker_tools(self) -> None:
-        self.assertEqual(len(self.registry.names()), 61)
+        self.assertEqual(len(self.registry.names()), 63)
 
     def test_read_only_tools(self) -> None:
         read_only = {s.name for s in self.registry.specs() if s.read_only}
@@ -51,6 +51,7 @@ class RegistryMetadataTests(unittest.TestCase):
                 "review_digest",
                 "list_proposals",
                 "get_proposal_artifact",
+                "charles_activity",
             },
         )
 
@@ -88,6 +89,8 @@ class RegistryMetadataTests(unittest.TestCase):
                 "draft_decision",
                 "review_note",
                 "finish_review",
+                "charles_decide",
+                "charles_activity",
             },
         )
 
@@ -120,7 +123,7 @@ class RegistryBuildTests(unittest.TestCase):
             function_tool=_identity_decorator,
             owner_refusal=self.owner_refusal,
         )
-        self.assertEqual(len(tools), 61)
+        self.assertEqual(len(tools), 63)
 
     def test_calendar_proposal_schema_only_requires_action(self) -> None:
         tools = self.registry.build_livekit_tools(

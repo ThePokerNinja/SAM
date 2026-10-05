@@ -85,6 +85,7 @@ from .owner_gate import (
 from .packs.moderator import ModeratorRuntime
 from .prompt_budget import samuel_instructions
 from .review_call import REVIEW_OVERLAY, is_review_call, resolve_outbound_spoken
+from .sentinel_call import SENTINEL_OVERLAY, code_from_brief, is_sentinel_call
 from .pythia import BaselineStore, ForecastLedger, predict_threshold_event
 from .router import FastIntentRouter, RoutedSamuelAgent
 from .continuity import (
@@ -353,11 +354,18 @@ async def entrypoint(ctx: JobContext) -> None:
         return
     job_room = str(getattr(getattr(getattr(ctx, "job", None), "room", None), "name", "") or "")
     room_name = (ctx.room.name or job_room or "").strip()
-    outbound_meta = decode_outbound_metadata(getattr(ctx.room, "metadata", "") or "")
+    outbound_meta = decode_outbound_metadata(
+        pick_outbound_metadata(
+            getattr(ctx.room, "metadata", "") or "",
+            getattr(getattr(ctx, "job", None), "metadata", "") or "",
+        )
+    )
     is_outbound_guest = is_outbound_dial_room(room_name) or outbound_meta["kind"] == "outbound_guest"
     # REVIEW keyword: we dialed the owner, not a guest. Tools stay on (owner gate decides),
     # and the opener is Charles's digest instead of a guest script.
+    # TALK is the same shape for a Sentinel warning: tools stay on so charles_decide can run.
     is_review_leg = is_outbound_guest and is_review_call(outbound_meta)
+    is_sentinel_leg = is_outbound_guest and is_sentinel_call(outbound_meta)
     outbound_script = {"spoken": resolve_outbound_spoken(outbound_meta), "delivered": False}
     surface = (
         "phone"
@@ -1254,19 +1262,21 @@ async def entrypoint(ctx: JobContext) -> None:
 
     tool_latency_manager = ToolLatencyManager(on_timing=_tool_timing)
     all_tool_names = tool_registry.names()
+    tool_deps: dict[str, Any] = {
+        "run_scan_bg": _run_scan_bg,
+        "tool_latency_manager": tool_latency_manager,
+        "session_id": session_id,
+        "room_name": room_name,
+        "engagement_id": proposal_engagement_id,
+        "calendar_turn_state": calendar_turn_state,
+        "sentinel_code": code_from_brief(str(outbound_meta.get("brief") or "")),
+    }
     all_rm_tools = tool_registry.build_livekit_tools(
         rm_client,
         _session_is_owner,
         function_tool=function_tool,
         owner_refusal=_OWNER_ONLY,
-        deps={
-            "run_scan_bg": _run_scan_bg,
-            "tool_latency_manager": tool_latency_manager,
-            "session_id": session_id,
-            "room_name": room_name,
-            "engagement_id": proposal_engagement_id,
-            "calendar_turn_state": calendar_turn_state,
-        },
+        deps=tool_deps,
     )
     tool_by_name = dict(zip(all_tool_names, all_rm_tools, strict=True))
 
@@ -1276,7 +1286,7 @@ async def entrypoint(ctx: JobContext) -> None:
             return list(all_rm_tools)
         return [tool_by_name[name] for name in selected_names if name in tool_by_name]
 
-    rm_tools = [] if (is_outbound_guest and not is_review_leg) else _tools_for_pack(pack.id)
+    rm_tools = [] if (is_outbound_guest and not is_review_leg and not is_sentinel_leg) else _tools_for_pack(pack.id)
     rm_mode = "mock" if (s.sam_mock_rm or not s.rm_api_base_url) else "http:" + s.rm_api_base_url
     _log.info(
         "Rainmaker tools enabled (%d) | client=%s | voice_verify=%s",
@@ -1292,6 +1302,8 @@ async def entrypoint(ctx: JobContext) -> None:
         instructions = f"{instructions}\n\n{overlay}"
     if is_review_leg:
         instructions = f"{instructions}\n\n{REVIEW_OVERLAY}"
+    if is_sentinel_leg:
+        instructions = f"{instructions}\n\n{SENTINEL_OVERLAY}"
 
     fast_router = FastIntentRouter()
 
@@ -1774,6 +1786,12 @@ async def entrypoint(ctx: JobContext) -> None:
         outbound_script["spoken"] = resolve_outbound_spoken(outbound_meta)
         if is_review_call(outbound_meta) and not is_review_leg:
             _log.info("review call detected after connect; metadata arrived late")
+        if is_sentinel_call(outbound_meta):
+            code = code_from_brief(str(outbound_meta.get("brief") or ""))
+            if code:
+                tool_deps["sentinel_code"] = code
+            if not is_sentinel_leg:
+                _log.info("sentinel call detected after connect; tools were already chosen")
 
     if (
         is_phone
