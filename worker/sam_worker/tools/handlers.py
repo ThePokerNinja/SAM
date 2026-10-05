@@ -512,11 +512,21 @@ def _md_to_speech(body: str, limit: int = _REVIEW_MAX_SPOKEN) -> str:
 
 
 async def handle_charles_activity(client: RainmakerClient) -> str:
-    """Speak the ledger. Do not ask Charles what he has been doing."""
+    """Speak the record. Do not ask Charles what he has been doing.
+
+    The brief names the website, what he was doing, and the one open question.
+    It is built from the incident rows, so "what's the website?" and "should I
+    be worried?" get the fact, not a guess.
+    """
     res = await client.charles_activity()
     if not res.get("ok"):
         return "I could not read what Charles has been doing."
+    brief = str(res.get("brief") or "").strip()
     lines = [str(line).strip() for line in (res.get("lines") or []) if str(line).strip()]
+    if brief:
+        spoken = brief.replace("\n", " ")
+        extra = [ln for ln in lines if ln not in brief][:2]
+        return " ".join([spoken, *extra])[:700]
     if not lines:
         return "I do not have a record of Charles working yet."
     return " ".join(lines[:3])[:700]

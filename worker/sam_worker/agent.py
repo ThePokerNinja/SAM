@@ -1141,7 +1141,9 @@ async def entrypoint(ctx: JobContext) -> None:
                     snapshot_path = episode_store.path.parent / "sam-hero-snapshot.json"
                     snapshot = await asyncio.to_thread(live_snapshot, skillbuilder_runtime)
                     await asyncio.to_thread(write_snapshot, snapshot_path, snapshot)
-                    if allows_skill_approval_sms(
+                    # A Sentinel call never asks for a latency YES: that offer is already
+                    # open, and a second YES would answer the wrong question.
+                    if not is_sentinel_leg and allows_skill_approval_sms(
                         sam_session.kind, room_name or session_id
                     ):
                         v2v_values = skillbuilder_runtime.metric_values(

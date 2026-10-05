@@ -384,6 +384,9 @@ class MockRainmakerClient:
     async def charles_activity(self) -> dict:
         return {
             "ok": True,
+            "on": True,
+            "brief": "Sentinel. No open problems. Charles is on.",
+            "question": None,
             "lines": ["Sun 19:00. Night shift. reply saved."],
             "doors": [],
             "charles": [{"ts": 0, "line": "Sun 19:00. Night shift. reply saved."}],

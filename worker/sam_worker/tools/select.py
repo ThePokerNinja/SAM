@@ -339,6 +339,25 @@ _CHARLES_ACTIVITY_WORDS: tuple[str, ...] = (
     "charles been working",
     "what charles did",
     "charles activity",
+    # questions about the Sentinel record: the brief answers these, not general Sam
+    "whats the website",
+    "what is the website",
+    "what website",
+    "which website",
+    "what was he doing",
+    "what is he doing",
+    "whats he doing",
+    "should i be worried",
+    "should i worry",
+    "is he safe",
+    "is it safe",
+    "what happened with charles",
+    "what did sentinel",
+    "why is he off",
+    "why is charles off",
+    "why did you stop him",
+    "who deployed",
+    "the deploy",
 )
 
 
