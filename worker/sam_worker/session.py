@@ -6,9 +6,11 @@ Trading is the degenerate default so today's single-user flow does not break.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import os
 import re
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 SessionKind = Literal["trading", "moderator", "appointment", "skillbuilder", "intake", "brainstorm"]
 SurfaceName = Literal["portal", "phone", "sms"]
@@ -57,7 +59,7 @@ class Session:
 
     def activate_from_utterance(self, utterance: str) -> bool:
         """Activate an explicitly requested pack before the current reply."""
-        if not allows_pack_switch(self.kind):
+        if not allows_pack_switch(self.kind, self.room_name):
             return False
         kind = route_session_kind(
             surface=self.surface,
@@ -118,8 +120,15 @@ def should_use_builder_intake_path(
     return False
 
 
-def greeting_instructions(kind: SessionKind) -> str:
-    """Spoken open. Intake is the builder; the voice portal stays the general greet."""
+def greeting_instructions(
+    kind: SessionKind,
+    *,
+    now: datetime | None = None,
+    prior_hook: str = "",
+    last_opener: str = "",
+    standing: str = "",
+) -> str:
+    """Spoken open. Intake is the builder; an owner call uses the clock and last thread."""
     if kind == "intake":
         return (
             "You are Samuel helping scope a job they already asked to talk about. "
@@ -127,10 +136,77 @@ def greeting_instructions(kind: SessionKind) -> str:
             "real. Invite a messy sketch. Then stop and listen. Do not introduce "
             "yourself as a proposal builder. Do not ask how their day is."
         )
-    return (
-        "Greet the user warmly as Samuel in one short spoken sentence, then ask how "
-        "you can help. Do not promise any capabilities, pricing, or actions in the greeting."
+    moment = now or datetime.now(ZoneInfo("America/Los_Angeles"))
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=ZoneInfo("America/Los_Angeles"))
+    else:
+        moment = moment.astimezone(ZoneInfo("America/Los_Angeles"))
+    clock = (
+        f"{moment.strftime('%A, %B')} {moment.day}, "
+        f"{moment.strftime('%I:%M %p').lstrip('0')}"
     )
+    situation = ""
+    if moment.strftime("%A") in {"Tuesday", "Thursday"} and 6 <= moment.hour < 10:
+        situation = (
+            " Sounds like you might be heading toward the office. "
+            "Correct that if it's wrong."
+        )
+    hook = f" Mention this from last time: {prior_hook.strip()}." if prior_hook.strip() else ""
+    repeat = (
+        f" Do not repeat this previous opener: {last_opener.strip()}."
+        if last_opener.strip()
+        else ""
+    )
+    remembered = (
+        f" Standing instructions you already accepted: {standing.strip()}."
+        if standing.strip()
+        else ""
+    )
+    return (
+        "Open as Samuel in one spoken sentence, then stop and listen. "
+        f"Right now it is {clock} Pacific.{situation}{hook}{repeat}{remembered} "
+        "Do not ask what they need. Do not list capabilities, pricing, or actions. "
+        "If you already have an approved proposal with them, you may mention it."
+    )
+
+
+def opener_facts(*, now: datetime, prior_hook: str = "") -> str:
+    """Facts used in the opener, stored so the next call does not reuse the sentence."""
+    moment = now if now.tzinfo else now.replace(tzinfo=ZoneInfo("America/Los_Angeles"))
+    clock = (
+        f"{moment.strftime('%A, %B')} {moment.day}, "
+        f"{moment.strftime('%I:%M %p').lstrip('0')}"
+    )
+    parts = [clock]
+    if moment.strftime("%A") in {"Tuesday", "Thursday"} and 6 <= moment.hour < 10:
+        parts.append("heading toward the office")
+    if prior_hook.strip():
+        parts.append(prior_hook.strip()[:180])
+    return " | ".join(parts)
+
+
+def with_pack_honesty(base: str, overlay: str, pack_id: str) -> str:
+    """Intake must not keep the trading brochure beside a pack that forbids those tools."""
+    if pack_id == "intake":
+        prefix = (
+            "This turn's tools are the proposal notebook. Keep drafting, editing, and "
+            "saving that proposal. Do not claim scans, pulse, trades, or a calendar "
+            "reminder unless that tool is also attached. If you already said you could "
+            "and the tool is missing, say so in one clause and continue the proposal.\n\n"
+        )
+    else:
+        prefix = (
+            "Claim a capability only when its tool is attached to this turn. "
+            "If you already said you could and the tool is missing, say so in one clause "
+            "and do the closest real action. Do not recite a skill list. "
+            "Do not send them to the Morning app instead of calling a tool you have. "
+            "When a proposal is in progress, keep it: draft, take their edits, and on "
+            "approval save it and say they can review it at the start.michaelstewman.com "
+            "link the tool returned. When they ask for a reminder, call "
+            "propose_calendar_change and put the approved notes in the description.\n\n"
+        )
+    body = f"{base}\n\n{overlay}" if overlay.strip() else base
+    return prefix + body
 
 
 def is_builder_test_room(room_name: str) -> bool:
@@ -139,9 +215,14 @@ def is_builder_test_room(room_name: str) -> bool:
     return room.startswith("builder-") or room.startswith("demo-builder-")
 
 
-def allows_pack_switch(kind: SessionKind) -> bool:
-    """Builder / intake rooms stay on the proposal pack. They are not moderator rooms."""
-    return kind != "intake"
+def allows_pack_switch(kind: SessionKind, room_name: str = "") -> bool:
+    """Builder rooms stay on the proposal pack. An owner 855 call can leave it."""
+    if kind != "intake":
+        return True
+    room = (room_name or "").lower()
+    if room.startswith(("builder-", "demo-", "intake-", "samuel-dial-")):
+        return False
+    return room.startswith("call-")
 
 
 def allows_skill_approval_sms(kind: SessionKind, room_name: str = "") -> bool:
@@ -176,7 +257,7 @@ def route_session_kind(
     if room.startswith("samuel-dial-"):
         return "intake"
     if (surface == "phone" or room.startswith("call-")) and re.search(
-        r"\b(continue|resume|pick (?:this|it) back up|where were we|same job|email it|text me)\b",
+        r"\b(continue|resume|pick (?:this|it) back up|where were we|same job)\b",
         blob,
     ):
         return "intake"
@@ -186,9 +267,11 @@ def route_session_kind(
         return "brainstorm"
     if room.startswith("demo-") or room.startswith("intake-") or room.startswith("builder-"):
         return "intake"
-    # Owner-only session kind (Platform 4.0): phone or portal, "brainstorm" / "think out loud".
+    # Portal and brainstorm rooms. Owner 855 stays on the full tool set so a
+    # proposal and a calendar reminder can both run.
     if re.search(r"\b(brainstorm(?:ing)?(?: mode| session)?|think out loud|riff with me|let me talk (?:this|it) through)\b", blob):
-        return "brainstorm"
+        if not room.startswith("call-"):
+            return "brainstorm"
     if re.search(r"\b(moderat(?:e|or|ion)?|help us disagree|settle a disagreement)\b", blob):
         return "moderator"
     if re.search(r"\b(appointment|book (?:an? )?(?:appointment|meeting)|scheduling mode)\b", blob):
@@ -197,6 +280,17 @@ def route_session_kind(
         return "skillbuilder"
     if re.search(r"\b(trading mode|rainmaker mode|back to trading)\b", blob):
         return "trading"
+    if room.startswith("call-") and re.search(
+        r"\b(this isn'?t a proposal|not a proposal|stop scoping|"
+        r"don'?t (?:want|wanna)(?: to)? talk about rainmaker|"
+        r"dont (?:want|wanna)(?: to)? talk about rainmaker)\b",
+        blob,
+    ):
+        return "trading"
+    if room.startswith("call-"):
+        # "working on" / "talk about" must not lock the commute into proposal-only tools.
+        # The proposal itself stays available through the router once they start one.
+        return current_kind
     if re.search(
         r"\b(website|reservation|menu|branding|pitch deck|proposal|estimate|scope|"
         r"instagram|campaign|app|logo|animation|deck|izakaya|cafe|founder|project|"

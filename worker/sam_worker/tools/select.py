@@ -281,6 +281,12 @@ def is_calendar_confirm(utterance: str) -> bool:
 def calendar_action_for_utterance(utterance: str) -> str | None:
     """Map explicit scheduling verbs to the proposal action they permit."""
     text = _normalize(utterance)
+    if re.search(r"\bnext (question|topic|item)\b", text) and not _has_any(
+        text, ("calendar", "meeting", "appointment", "reminder", "event", "schedule")
+    ):
+        return None
+    if _has_any(text, ("reminder", "remind me")):
+        return "create"
     if _has_any(text, ("cancel", "delete", "remove", "clear")):
         return "cancel"
     if _has_any(text, ("move", "reschedule", "change", "update", "shift", "edit")):
@@ -337,6 +343,10 @@ _CHARLES_ACTIVITY_WORDS: tuple[str, ...] = (
     "what charles has been",
     "charles been doing",
     "charles been working",
+    "charles is working",
+    "charles working on",
+    "what charles is working",
+    "whats charles working",
     "what charles did",
     "charles activity",
     # questions about the Sentinel record: the brief answers these, not general Sam
@@ -457,7 +467,18 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         ),
     ):
         selected.append("ask_hermes")
-    if _has_any(text, ("text me", "text that", "sms me", "send that to my phone")):
+    if _has_any(
+        text,
+        (
+            "text me",
+            "text that",
+            "sms me",
+            "send that to my phone",
+            "text the link",
+            "text me the link",
+            "send me the link",
+        ),
+    ):
         selected.append("text_me")
     if _has_any(text, ("health", "status", "are you up")):
         selected.append("get_health")
@@ -503,6 +524,10 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
             "send this",
             "website",
             "branding",
+            "where can i review",
+            "where do i review",
+            "save the proposal",
+            "save this proposal",
         ),
     ) or len(text) >= 80:
         selected.extend(
@@ -519,6 +544,8 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
     calendar_action = calendar_action_for_utterance(utterance)
     if calendar_action:
         selected.append("propose_calendar_change")
+        if calendar_action == "create" and _has_any(text, ("note", "notes")):
+            selected.append("capture_note")
     elif _has_any(
         text,
         (
@@ -556,6 +583,66 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
     if _has_any(text, _RAINMAKERISH):
         return [*_FALLBACK_VOICE, "run_command"]
     return ["run_command"]
+
+
+PROPOSAL_KEEP_TOOLS: tuple[str, ...] = (
+    "capture_note",
+    "proposal_apply_summary",
+    "proposal_set_field",
+    "proposal_focus",
+    "proposal_ask_gap",
+    "proposal_answer_question",
+    "proposal_revise",
+    "proposal_send",
+    "proposal_mark_estimate_ready",
+    "save_brainstorm",
+)
+
+
+def utterance_opens_proposal(utterance: str) -> bool:
+    """True when this turn starts or continues the proposal the owner liked."""
+    text = _normalize(utterance)
+    if _has_any(
+        text,
+        (
+            "lets scope",
+            "scope this job",
+            "scope the job",
+            "scope a job",
+            "draft a proposal",
+            "write a proposal",
+            "start a proposal",
+            "brainstorm",
+            "think out loud",
+            "where can i review",
+            "where do i review",
+            "save the proposal",
+            "save this proposal",
+        ),
+    ):
+        return True
+    if "estimate" in text and _has_any(text, ("job", "proposal", "website", "project")):
+        return True
+    hits = [
+        word
+        for word in ("website", "reservation", "reservations", "menu", "izakaya", "branding", "logo")
+        if re.search(rf"\b{word}\b", text)
+    ]
+    return len(hits) >= 2
+
+
+def utterance_closes_proposal(utterance: str) -> bool:
+    text = _normalize(utterance)
+    return _has_any(
+        text,
+        (
+            "this isnt a proposal",
+            "not a proposal",
+            "stop scoping",
+            "dont want to talk about rainmaker",
+            "back to trading",
+        ),
+    )
 
 
 def filter_tools(tools: list[object], names: list[str]) -> list[object]:

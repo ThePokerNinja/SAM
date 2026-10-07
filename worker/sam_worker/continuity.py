@@ -108,6 +108,16 @@ def build_thread_summary_text(
     lines = []
     if header:
         lines.append(" ".join(header))
+    topic = next(
+        (
+            text.strip()
+            for role, text in turns
+            if role == "user" and len(text.strip()) >= 24
+        ),
+        "",
+    )
+    if topic:
+        lines.append(f"Topic: {topic[:180]}")
     lines.append(rolling)
     if loops:
         lines.append("Open loops: " + " | ".join(loops))

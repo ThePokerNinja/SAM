@@ -83,6 +83,8 @@ class RainmakerClient(Protocol):
     async def record_studio_publish(self, asset_id: str, url: str) -> dict: ...
     async def get_memory_context(self, query: str, token_cap: int = 256) -> dict: ...
     async def get_thread_summary(self) -> dict: ...
+    async def list_standing(self) -> dict: ...
+    async def write_standing(self, text: str, kind: str = "standing") -> dict: ...
     async def write_thread_summary(
         self,
         *,
@@ -109,7 +111,9 @@ class RainmakerClient(Protocol):
     async def create_calendar_event(self, **fields: Any) -> dict: ...
     async def update_calendar_event(self, event_id: str, **fields: Any) -> dict: ...
     async def cancel_calendar_event(self, event_id: str) -> dict: ...
-    async def text_me(self, body: str, media_url: str = "") -> dict: ...
+    async def text_me(
+        self, body: str, media_url: str = "", engagement_id: str = ""
+    ) -> dict: ...
     async def post_call_resume_sms(
         self, engagement_id: str, *, channel: str = "phone"
     ) -> dict: ...
@@ -235,6 +239,12 @@ class MockRainmakerClient:
             },
         }
 
+    async def list_standing(self) -> dict:
+        return {"ok": True, "standing": [], "lastOpener": ""}
+
+    async def write_standing(self, text: str, kind: str = "standing") -> dict:
+        return {"ok": True, "kind": kind, "text": text}
+
     async def write_thread_summary(
         self,
         *,
@@ -337,8 +347,10 @@ class MockRainmakerClient:
     async def cancel_calendar_event(self, event_id: str) -> dict:
         return {"ok": True, "event": {"id": event_id, "deleted": True}}
 
-    async def text_me(self, body: str, media_url: str = "") -> dict:
-        return {"ok": True, "sent": True, "reason": None}
+    async def text_me(
+        self, body: str, media_url: str = "", engagement_id: str = ""
+    ) -> dict:
+        return {"ok": True, "sent": True, "reason": None, "body": body, "engagementId": engagement_id}
 
     async def post_call_resume_sms(
         self, engagement_id: str, *, channel: str = "phone"
@@ -460,6 +472,7 @@ class HttpRainmakerClient:
     MEMORY_CONTEXT_PATH = "/samuel/memory/context"
     MEMORY_TURNS_PATH = "/samuel/memory/turns"
     MEMORY_THREAD_PATH = "/samuel/memory/thread"
+    MEMORY_STANDING_PATH = "/samuel/memory/standing"
     SESSION_BRIEF_PATH = "/ops/session-brief"
     CALENDAR_EVENTS_PATH = "/calendar/events"
     CALENDAR_PROPOSALS_PATH = "/calendar/proposals"
@@ -868,6 +881,30 @@ class HttpRainmakerClient:
         data = res.get("data") or {}
         return {"ok": True, "thread": data.get("thread") or {}}
 
+    async def list_standing(self) -> dict:
+        res = await self._get(
+            self.MEMORY_STANDING_PATH,
+            timeout=min(self.timeout, 0.6),
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"], "standing": [], "lastOpener": ""}
+        data = res.get("data") or {}
+        return {
+            "ok": True,
+            "standing": data.get("standing") or [],
+            "lastOpener": data.get("lastOpener") or "",
+        }
+
+    async def write_standing(self, text: str, kind: str = "standing") -> dict:
+        res = await self._post(
+            self.MEMORY_STANDING_PATH,
+            body={"text": (text or "")[:500], "kind": kind or "standing"},
+            timeout=min(self.timeout, 0.6),
+        )
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        return {"ok": True, **(res.get("data") or {})}
+
     async def get_engagement(self, engagement_id: str) -> dict:
         engagement_id = (engagement_id or "").strip()
         if not engagement_id:
@@ -979,10 +1016,14 @@ class HttpRainmakerClient:
             return {"ok": False, "error": data.get("error") or "calendar_delete_failed"}
         return {"ok": True, "event": data.get("event") or {}}
 
-    async def text_me(self, body: str, media_url: str = "") -> dict:
+    async def text_me(
+        self, body: str, media_url: str = "", engagement_id: str = ""
+    ) -> dict:
         payload: dict[str, Any] = {"body": body}
         if media_url:
             payload["mediaUrl"] = media_url
+        if engagement_id:
+            payload["engagementId"] = engagement_id
         res = await self._post(self.DELIVER_PATH, body=payload)
         if not res["ok"]:
             return {"ok": False, "sent": False, "error": res["error"]}

@@ -24,6 +24,7 @@ import sys
 import time
 from dataclasses import replace
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Any
 
 # Windows consoles default to cp1252; LiveKit's CLI banner prints an emoji that crashes
@@ -104,11 +105,14 @@ from .session import (
     allows_skill_approval_sms,
     build_session,
     greeting_instructions,
+    opener_facts,
     should_speak_builder_opening,
+    with_pack_honesty,
     should_use_builder_intake_path,
     should_use_phone_listen_first_intake,
 )
 from .session_log import SessionLogger
+from .standing import parse_standing_instruction, prior_topic_hook
 from .safety import SafetyState
 from .skillbuilder.advisory import run_advisory
 from .skillbuilder.gap import candidate_from_latency, candidate_from_pythia_brier
@@ -693,6 +697,8 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     pythia_pending: dict[str, int | None] = {"forecast_id": None}
     session_turns: list[tuple[str, str]] = []
+    standing_lines: list[str] = []
+    opener_state = {"last": "", "hook": ""}
     memory_retriever = (
         MemoryRetriever(episode_store, profile_store)
         if episode_store is not None and profile_store is not None
@@ -841,6 +847,12 @@ async def entrypoint(ctx: JobContext) -> None:
             )
         if not owner:
             return
+        standing = parse_standing_instruction(text)
+        if standing and standing not in standing_lines:
+            standing_lines.append(standing)
+            write_standing = getattr(rm_client, "write_standing", None)
+            if write_standing is not None:
+                asyncio.ensure_future(write_standing(standing, kind="standing"))
         profile_update = extract_explicit_profile_update(text)
         if profile_store is not None and profile_update is not None:
             asyncio.ensure_future(
@@ -1299,9 +1311,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     overlay = (pack.persona_overlay or "").strip()
     base_instructions = samuel_instructions()
-    instructions = base_instructions
-    if overlay:
-        instructions = f"{instructions}\n\n{overlay}"
+    instructions = with_pack_honesty(base_instructions, overlay, pack.id)
     if is_review_leg:
         instructions = f"{instructions}\n\n{REVIEW_OVERLAY}"
     if is_sentinel_leg:
@@ -1420,12 +1430,26 @@ async def entrypoint(ctx: JobContext) -> None:
         )
         if craft_items:
             startup_brief = assemble_brief(startup_brief.items, tuple(craft_items))
-        if startup_brief.items:
-            _log.info(
-                "STARTUP_BRIEF items=%d engagement=%s",
-                len(startup_brief.items),
-                builder_engagement_id or "-",
-            )
+        summary = ""
+        if isinstance(thread, dict):
+            summary = str(thread.get("summary") or "")
+        opener_state["hook"] = prior_topic_hook(summary)
+        list_standing = getattr(rm_client, "list_standing", None)
+        if list_standing is not None:
+            standing_payload = await list_standing()
+            if standing_payload.get("ok"):
+                standing_lines.clear()
+                for line in standing_payload.get("standing") or []:
+                    text = str(line or "").strip()
+                    if text and text not in standing_lines:
+                        standing_lines.append(text)
+                opener_state["last"] = str(standing_payload.get("lastOpener") or "")
+        _log.info(
+            "STARTUP_BRIEF items=%d engagement=%s standing=%d",
+            len(startup_brief.items) if startup_brief is not None else 0,
+            builder_engagement_id or "-",
+            len(standing_lines),
+        )
 
     async def _flush_pack(pack_id: str) -> None:
         if artifact_store is None:
@@ -1463,8 +1487,8 @@ async def entrypoint(ctx: JobContext) -> None:
                 pack_registry.unload(previous_pack_id)
             active_pack = pack_registry.activate(sam_session.pack)
             active_overlay = (active_pack.persona_overlay or "").strip()
-            active_instructions = (
-                f"{base_instructions}\n\n{active_overlay}" if active_overlay else base_instructions
+            active_instructions = with_pack_honesty(
+                base_instructions, active_overlay, active_pack.id
             )
             await routed_agent.update_instructions(active_instructions)
             await routed_agent.update_tools(_tools_for_pack(active_pack.id))
@@ -1771,6 +1795,7 @@ async def entrypoint(ctx: JobContext) -> None:
         calendar_confirm_allowed=_calendar_confirm_allowed,
         history_token_cap=history_cap,
         use_full_tool_set=s.prompt_tool_mode == "stable_full",
+        standing_provider=lambda: "\n".join(f"- {line}" for line in standing_lines),
         instructions=instructions,
         tools=rm_tools,
     )
@@ -2003,7 +2028,25 @@ async def entrypoint(ctx: JobContext) -> None:
 
         asyncio.ensure_future(_builder_silence_reask())
     else:
-        await session.generate_reply(instructions=greeting_instructions(sam_session.kind))
+        greeted_at = datetime.now(ZoneInfo("America/Los_Angeles"))
+        await session.generate_reply(
+            instructions=greeting_instructions(
+                sam_session.kind,
+                now=greeted_at,
+                prior_hook=opener_state["hook"],
+                last_opener=opener_state["last"],
+                standing="\n".join(standing_lines),
+            )
+        )
+        if _session_is_owner() and sam_session.kind != "intake":
+            write_opener = getattr(rm_client, "write_standing", None)
+            if write_opener is not None:
+                asyncio.ensure_future(
+                    write_opener(
+                        opener_facts(now=greeted_at, prior_hook=opener_state["hook"]),
+                        kind="opener",
+                    )
+                )
 
 
 if __name__ == "__main__":

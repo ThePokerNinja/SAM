@@ -206,7 +206,10 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     registry.register(
         ToolSpec(
             name="send_email",
-            description="Send an email from the owner account. Owner only. Args: to, subject, body.",
+            description=(
+                "Send an email as santacruzstudios.ai@gmail.com. Owner only. "
+                "Args: to, subject, body. Include the review link in the body when one exists."
+            ),
             read_only=False,
             requires_approval=True,
         ),
@@ -324,7 +327,10 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     registry.register(
         ToolSpec(
             name="text_me",
-            description="Text any answer to the owner's phone. Owner only. Args: body, optional media_url.",
+            description=(
+                "Text the owner, including a secure review link. Owner only. "
+                "Args: body, optional media_url, optional engagement_id."
+            ),
             read_only=False,
             requires_approval=True,
         ),
@@ -1001,8 +1007,15 @@ def _build_commit_calendar_change(
 
 
 def _build_text_me(client: Any, _is_owner: Any, _deps: dict[str, Any]):
-    async def text_me(context: RunContext, body: str, media_url: str = "") -> str:
-        return await handle_text_me(client, body, media_url=media_url)
+    async def text_me(
+        context: RunContext,
+        body: str,
+        media_url: str = "",
+        engagement_id: str = "",
+    ) -> str:
+        return await handle_text_me(
+            client, body, media_url=media_url, engagement_id=engagement_id
+        )
 
     return text_me
 

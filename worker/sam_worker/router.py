@@ -25,12 +25,15 @@ from .tools.handlers import (
 from .tools.select import (
     CALENDAR_PACK_TOOLS,
     INTAKE_PACK_TOOLS,
+    PROPOSAL_KEEP_TOOLS,
     VOICE_INTAKE_LLM_TOOLS,
     calendar_action_for_utterance,
     filter_tools,
     is_calendar_confirm,
     select_tools_for_utterance,
     tool_callable_name,
+    utterance_closes_proposal,
+    utterance_opens_proposal,
 )
 
 _log = logging.getLogger("sam.router")
@@ -210,9 +213,12 @@ class RoutedSamuelAgent(Agent):
         calendar_confirm_allowed: Callable[[str], bool] | None = None,
         history_token_cap: int = DEFAULT_HISTORY_TOKEN_CAP,
         use_full_tool_set: bool = False,
+        standing_provider: Callable[[], str] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
+        self._standing_provider = standing_provider
+        self._proposal_live = False
         self._router = router
         self._direct_execute = direct_execute
         self._publish_command = publish_command
@@ -228,8 +234,26 @@ class RoutedSamuelAgent(Agent):
         self._history_token_cap = history_token_cap
         self._use_full_tool_set = use_full_tool_set
 
+    def _touch_proposal(self, text: str) -> None:
+        if utterance_closes_proposal(text):
+            self._proposal_live = False
+        elif utterance_opens_proposal(text):
+            self._proposal_live = True
+
     async def on_user_turn_completed(self, turn_ctx, new_message) -> None:
         text = str(getattr(new_message, "text_content", "") or "")
+        self._touch_proposal(text)
+        if self._standing_provider is not None:
+            note = str(self._standing_provider() or "").strip()
+            if note:
+                turn_ctx.add_message(
+                    role="developer",
+                    content=(
+                        "Standing instructions the owner already set. Follow them when "
+                        "they say the trigger. Do not ask them to repeat the instruction:\n"
+                        + note
+                    ),
+                )
         if self._session_route is not None:
             await self._session_route(text)
         if self._turn_override is not None:
@@ -259,13 +283,13 @@ class RoutedSamuelAgent(Agent):
         brief = getattr(snapshot, "external", None)
         render_brief = getattr(brief, "as_prompt", None)
         if callable(render_brief):
-            rendered_brief = str(render_brief(token_budget=400) or "").strip()
+            rendered_brief = str(render_brief(token_budget=1200) or "").strip()
             if rendered_brief:
                 turn_ctx.add_message(
                     role="developer",
                     content=(
-                        "Prior consented session artifacts. Use only when relevant and preserve "
-                        f"their provenance:\n{rendered_brief}"
+                        "You already know this from earlier calls. Use it. Do not say you "
+                        f"forgot it:\n{rendered_brief}"
                     ),
                 )
         session_summary = str(getattr(snapshot, "session_summary", "") or "").strip()
@@ -331,7 +355,12 @@ class RoutedSamuelAgent(Agent):
         intake_pack = (
             "proposal_apply_summary" in available_names and "run_command" not in available_names
         )
+        self._touch_proposal(text)
         names = [] if tool_completed else select_tools_for_utterance(text)
+        if self._proposal_live and not tool_completed:
+            for name in PROPOSAL_KEEP_TOOLS:
+                if name not in names:
+                    names.append(name)
         if appointment_pack:
             # Groq still emits leftover calendar tool calls. An empty request.tools
             # fails every fallback rung with "not in request.tools" and Samuel

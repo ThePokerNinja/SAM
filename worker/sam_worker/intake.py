@@ -19,16 +19,23 @@ class SessionBrief:
     items: tuple[BriefItem, ...] = ()
 
     def as_prompt(self, *, token_budget: int = 400) -> str:
+        """Render consented items until ``token_budget`` tokens are used (~4 chars each)."""
         lines = []
         used = 0
+        budget = max(1, int(token_budget))
         for item in self.items:
             if not item.consent:
                 continue
             line = f"- ({item.provenance}, {item.confidence:.2f}) {item.text}"
-            used += len(line)
-            if used > token_budget:
+            cost = max(1, (len(line) + 3) // 4)
+            if used and used + cost > budget:
+                break
+            if not used and cost > budget:
+                line = line[: budget * 4]
+                lines.append(line)
                 break
             lines.append(line)
+            used += cost
         return "\n".join(lines)
 
 

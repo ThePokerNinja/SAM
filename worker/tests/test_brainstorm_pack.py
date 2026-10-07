@@ -13,7 +13,8 @@ from sam_worker.tools.select import select_tools_for_utterance
 
 def test_brainstorm_routes_from_portal_and_phone_and_room_prefix() -> None:
     assert route_session_kind(surface="portal", keyword="Samuel, brainstorm with me") == "brainstorm"
-    assert route_session_kind(surface="phone", keyword="let me think out loud for a sec", room_name="call-_+1555_abc") == "brainstorm"
+    assert route_session_kind(surface="phone", keyword="let me think out loud for a sec", room_name="call-_+1555_abc") == "trading"
+    assert "save_brainstorm" in select_tools_for_utterance("let me think out loud for a sec")
     assert route_session_kind(surface="portal", room_name="brainstorm-owner-1") == "brainstorm"
     # Plain trading talk stays trading; "brainstorm" is not a substring trap for scans/picks.
     assert route_session_kind(surface="portal", keyword="what are today's picks") == "trading"

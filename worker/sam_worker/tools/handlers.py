@@ -428,11 +428,27 @@ async def handle_cancel_calendar_event(client: RainmakerClient, event_id: str) -
     return "Canceled the calendar event."
 
 
-async def handle_text_me(client: RainmakerClient, body: str, media_url: str = "") -> str:
-    res = await client.text_me(body, media_url=media_url)
+async def handle_text_me(
+    client: RainmakerClient,
+    body: str,
+    media_url: str = "",
+    engagement_id: str = "",
+) -> str:
+    res = await client.text_me(body, media_url=media_url, engagement_id=engagement_id)
     if res.get("sent"):
         return "Texted you."
     return f"I couldn't text you ({res.get('reason') or res.get('error') or 'send_failed'})."[:_MAX_SPOKEN]
+
+
+def review_location_line(engagement_id: str) -> str:
+    """Where an approved proposal lives. Same page start_link builds in rm_api."""
+    import os
+
+    eid = str(engagement_id or "").strip()
+    if not eid:
+        return ""
+    base = (os.environ.get("RM_START_URL") or "https://start.michaelstewman.com").rstrip("/")
+    return f"You can review it at {base}/?e={eid}."
 
 
 async def handle_named_tool(
@@ -442,6 +458,11 @@ async def handle_named_tool(
     text = str(res.get("text") or "").strip()
     if not res.get("ok") and not text:
         return "I couldn't do that right now."
+    if str(name).startswith("proposal_"):
+        eid = str(res.get("engagementId") or res.get("engagement_id") or "")
+        extra = review_location_line(eid)
+        if extra and extra not in text:
+            text = f"{text} {extra}".strip()
     return (text or "Done.")[:_MAX_SPOKEN]
 
 

@@ -61,7 +61,8 @@ def test_owner_phone_call_uses_samuel_greet_not_builder_opening() -> None:
     assert not should_speak_builder_opening("call-_+15551212_abc", is_phone=True)
     assert should_speak_builder_opening("builder-abc", is_phone=True)
     trading = greeting_instructions("trading")
-    assert "how you can help" in trading.lower()
+    assert "how you can help" not in trading.lower()
+    assert "how can i help" not in trading.lower()
     assert "proposal builder" not in trading.lower()
     assert "make real" in BUILDER_OPENING.lower()
 
@@ -74,14 +75,14 @@ def test_room_prefix_routes_moderator_and_intake() -> None:
     assert route_session_kind(surface="phone", room_name="samuel-dial-abc") == "intake"
 
 
-def test_phone_proposal_dump_routes_intake() -> None:
+def test_phone_proposal_dump_keeps_full_tools() -> None:
     dump = "Website for Harbor Izakaya with reservations and menu, this month."
-    assert route_session_kind(surface="phone", keyword=dump, room_name="call-owner") == "intake"
+    assert route_session_kind(surface="phone", keyword=dump, room_name="call-owner") == "trading"
 
 
-def test_phone_talk_about_routes_intake_before_project_keyword() -> None:
+def test_phone_talk_about_stays_trading() -> None:
     scoping = "Yeah. I wanna talk about"
-    assert route_session_kind(surface="phone", keyword=scoping, room_name="call-owner") == "intake"
+    assert route_session_kind(surface="phone", keyword=scoping, room_name="call-owner") == "trading"
 
 
 def test_demo_cap_hangup_rules() -> None:
@@ -143,7 +144,8 @@ def test_builder_greeting_is_not_the_portal_greeting() -> None:
     portal = greeting_instructions("trading")
     assert "samuel" in builder.lower()
     assert "how you can help" not in builder.lower()
-    assert "how you can help" in portal.lower()
+    assert "how can i help" not in portal.lower()
+    assert "one spoken sentence" in portal.lower()
     assert "proposal builder" not in portal.lower()
 
 
