@@ -44,13 +44,22 @@ class Session:
     paused: bool = False
     room_name: str = ""
     trading_offer: bool = False
+    offer_text: str = ""
 
-    def trading_offer_reply(self, *, is_owner: bool) -> str | None:
-        """Speak the confirm-first question verbatim; the model paraphrased it on the 2026-10-17 call."""
-        if not self.trading_offer:
+    def trading_offer_for(self, utterance: str, *, is_owner: bool) -> str | None:
+        """The confirm-first question, verbatim (the model paraphrased it on the 2026-10-17 calls).
+
+        Pure: llm_node can run before activate_from_utterance (preemptive generation),
+        so this decides from the utterance and the state the previous turn left."""
+        if not is_owner or self.kind == "trading_discussion":
             return None
-        if not is_owner:
-            self.trading_offer = False
+        if self.trading_offer:
+            # Same utterance re-generated in one turn gets the same answer; the next turn does not.
+            return TRADING_OFFER_LINE if utterance == self.offer_text else None
+        if not allows_pack_switch(self.kind, self.room_name):
+            return None
+        lowered = utterance.lower()
+        if _TRADING_DISCUSSION_RE.search(lowered) or not is_trading_talk(utterance):
             return None
         return TRADING_OFFER_LINE
 
@@ -91,6 +100,7 @@ class Session:
             else:
                 # Confirm first: trade talk only earns the question "Start a trading discussion?".
                 self.trading_offer = is_trading_talk(utterance)
+                self.offer_text = utterance if self.trading_offer else ""
         if kind == self.kind:
             return False
         self.kind = kind

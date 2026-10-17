@@ -203,7 +203,7 @@ def test_llm_node_speaks_cathy_script_instead_of_improv() -> None:
         instructions="test",
     )
     state = {"spoken": CATHY_SCRIPT, "delivered": False}
-    agent._pending_override = take_pending_script(state, "Hello?")
+    agent._pending_override = ("Hello?", take_pending_script(state, "Hello?"))
     context = ChatContext.empty()
     context.add_message(role="user", content="Hello?")
     result = asyncio.run(agent.llm_node(context, [], None))

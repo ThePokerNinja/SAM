@@ -208,6 +208,7 @@ class RoutedSamuelAgent(Agent):
         publish_bench: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
         session_route: Callable[[str], Awaitable[None]] | None = None,
         turn_override: Callable[[str], Awaitable[str | None]] | None = None,
+        reply_override: Callable[[str], str | None] | None = None,
         calendar_turn_state: dict[str, Any] | None = None,
         calendar_commit: Callable[[], Awaitable[str]] | None = None,
         calendar_confirm_allowed: Callable[[str], bool] | None = None,
@@ -227,7 +228,8 @@ class RoutedSamuelAgent(Agent):
         self._publish_bench = publish_bench
         self._session_route = session_route
         self._turn_override = turn_override
-        self._pending_override: str | None = None
+        self._reply_override = reply_override
+        self._pending_override: tuple[str, str] | None = None
         self._calendar_turn_state = calendar_turn_state
         self._calendar_commit = calendar_commit
         self._calendar_confirm_allowed = calendar_confirm_allowed
@@ -257,7 +259,8 @@ class RoutedSamuelAgent(Agent):
         if self._session_route is not None:
             await self._session_route(text)
         if self._turn_override is not None:
-            self._pending_override = await self._turn_override(text)
+            override = await self._turn_override(text)
+            self._pending_override = (text, override) if override is not None else None
         decision = self._router.classify(text)
         if decision.route == "open_dashboard":
             await self._publish_command(
@@ -305,10 +308,18 @@ class RoutedSamuelAgent(Agent):
     async def llm_node(self, chat_ctx, tools, model_settings):
         user_messages = [message for message in chat_ctx.messages() if message.role == "user"]
         text = str(user_messages[-1].text_content or "") if user_messages else ""
+        # Preemptive generation can call llm_node before on_user_turn_completed, so a
+        # reply that must be verbatim is decided from the text here, and a pending
+        # override only answers the utterance that produced it.
+        if self._reply_override is not None:
+            fixed = self._reply_override(text)
+            if fixed:
+                return fixed
         if self._pending_override is not None:
-            override = self._pending_override
+            for_text, override = self._pending_override
             self._pending_override = None
-            return override
+            if for_text == text:
+                return override
         items = list(chat_ctx.items)
         last_user_index = max(
             (

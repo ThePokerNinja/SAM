@@ -23,18 +23,63 @@ def test_trade_talk_asks_first_and_yes_starts_the_pack() -> None:
 
 
 def test_phone_offer_is_spoken_verbatim_to_the_owner_only() -> None:
-    # The 2026-10-17 call: the flag was set but gpt-4o-mini never asked the question.
+    # The 2026-10-17 calls: the flag was set but gpt-4o-mini never asked the question.
     session = build_session(session_id="call-_+18318186191_x", surface="phone")
     session.room_name = "call-_+18318186191_x"
-    session.activate_from_utterance("Let's talk trades.")
-    assert session.trading_offer_reply(is_owner=True) == TRADING_OFFER_LINE == "Start a trading discussion?"
-    assert session.activate_from_utterance("Yes.") is True
+    first = "Yeah. Let's talk trades."
+    # Preemptive generation asks before the session sees the turn; the re-run after it asks the same.
+    assert session.trading_offer_for(first, is_owner=True) == TRADING_OFFER_LINE == "Start a trading discussion?"
+    session.activate_from_utterance(first)
+    assert session.trading_offer_for(first, is_owner=True) == TRADING_OFFER_LINE
+    second = "Yeah. I wanna back test NVIDIA on the swing rule."
+    assert session.trading_offer_for(second, is_owner=True) is None
+    assert session.activate_from_utterance(second) is True
     assert session.kind == "trading_discussion"
-    assert session.trading_offer_reply(is_owner=True) is None
-    guest = build_session(session_id="call-_+15550001111_y", surface="phone")
-    guest.activate_from_utterance("Let's talk trades.")
-    assert guest.trading_offer_reply(is_owner=False) is None
-    assert guest.activate_from_utterance("yes") is False
+    assert session.trading_offer_for("backtest AVGO too", is_owner=True) is None
+    assert session.trading_offer_for(first, is_owner=False) is None
+    assert build_session(session_id="p", surface="portal").trading_offer_for("start a trading discussion", is_owner=True) is None
+
+
+def test_llm_node_speaks_the_offer_even_when_called_before_the_turn_hook() -> None:
+    from livekit.agents import ChatContext
+
+    from sam_worker.router import FastIntentRouter, RoutedSamuelAgent
+
+    async def direct(_decision):
+        raise AssertionError("no direct route")
+
+    async def publish(_command):
+        return None
+
+    session = build_session(session_id="call-_+18318186191_z", surface="phone")
+    session.room_name = "call-_+18318186191_z"
+    agent = RoutedSamuelAgent(
+        router=FastIntentRouter(),
+        direct_execute=direct,
+        publish_command=publish,
+        reply_override=lambda text: session.trading_offer_for(text, is_owner=True),
+        instructions="test",
+    )
+    ctx = ChatContext.empty()
+    ctx.add_message(role="user", content="Let's talk trades.")
+    assert asyncio.run(agent.llm_node(ctx, [], None)) == "Start a trading discussion?"
+    # A pending override from an earlier utterance never answers a later one.
+    agent._pending_override = ("Let's talk trades.", "stale")
+    session.activate_from_utterance("Let's talk trades.")
+    session.activate_from_utterance("Yes.")
+    ctx.add_message(role="user", content="Yes.")
+    from livekit.agents import Agent
+
+    original = Agent.llm_node
+
+    def fake(self, chat_ctx, tools, model_settings):
+        return "llm"
+
+    Agent.llm_node = fake
+    try:
+        assert asyncio.run(agent.llm_node(ctx, [], None)) == "llm"
+    finally:
+        Agent.llm_node = original
 
 
 def test_no_after_the_offer_stays_put_and_clears_it() -> None:

@@ -1479,7 +1479,10 @@ async def entrypoint(ctx: JobContext) -> None:
 
     async def _route_session_pack(text: str) -> None:
         previous_pack_id = pack_registry.active_id
-        if not sam_session.activate_from_utterance(text):
+        changed = sam_session.activate_from_utterance(text)
+        if not _session_is_owner():
+            sam_session.trading_offer = False
+        if not changed:
             return
         try:
             if previous_pack_id != sam_session.pack:
@@ -1669,6 +1672,14 @@ async def entrypoint(ctx: JobContext) -> None:
             _log.info("builder intake turn engagement=%s tools=%s", eid, ",".join(tools))
         return reply or ""
 
+    def _trading_offer_reply(text: str) -> str | None:
+        if sam_session.paused:
+            return None
+        offer = sam_session.trading_offer_for(text, is_owner=_session_is_owner())
+        if offer:
+            _log.info("TRADING_OFFER spoken=verbatim")
+        return offer
+
     async def _session_turn_override(text: str) -> str | None:
         normalized = re.sub(r"\s+", " ", (text or "").strip().lower())
         if re.search(r"\b(pause|hold) (?:this|the) (?:conversation|session)\b", normalized):
@@ -1682,10 +1693,6 @@ async def entrypoint(ctx: JobContext) -> None:
             return "We're back. Please continue when you're ready."
         if sam_session.paused:
             return "We're still paused. Say resume when you're ready to continue."
-        offer = sam_session.trading_offer_reply(is_owner=_session_is_owner())
-        if offer:
-            _log.info("TRADING_OFFER spoken=verbatim")
-            return offer
         if re.search(
             r"\b(continue|resume|pick (?:this|it) back up|where were we|same job|email it|text me)\b",
             normalized,
@@ -1794,6 +1801,7 @@ async def entrypoint(ctx: JobContext) -> None:
         publish_bench=_publish_bench_event,
         session_route=_route_session_pack,
         turn_override=_session_turn_override,
+        reply_override=_trading_offer_reply,
         calendar_turn_state=calendar_turn_state,
         calendar_commit=_commit_calendar,
         calendar_confirm_allowed=_calendar_confirm_allowed,
