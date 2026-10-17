@@ -177,8 +177,9 @@ TRADING_DISCUSSION = PackManifest(
         "sample is too small to mean much. If a question has no tool, queue_research or ask_hermes and say it is "
         "queued. Never place or promise an order; orders go out only as a YES code by text. When the owner says "
         "done or save it, call save_trading_discussion once with the title, thesis, assumptions, the backtests "
-        "you ran, decisions, open questions, and tomorrow's setup. Pass product_change only when they decided "
-        "Rainmaker itself should change. Then confirm in one sentence."
+        "you ran, decisions, open questions, and tomorrow's setup, plus any morning plan they chose (skip, focus, "
+        "risk cut, stand down, no fallback). A rule change goes in rule_change as a study, never live. Pass "
+        "product_change only when they decided Rainmaker itself should change. Then confirm in one sentence."
     ),
     tools=(
         "save_trading_discussion",

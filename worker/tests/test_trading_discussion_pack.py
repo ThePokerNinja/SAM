@@ -99,3 +99,28 @@ def test_save_handler_posts_one_structured_call() -> None:
     spy.calls.clear()
     assert "Give me a title" in asyncio.run(handle_save_trading_discussion(spy, title=""))
     assert spy.calls == []
+    asyncio.run(
+        handle_save_trading_discussion(
+            spy,
+            title="Chop week",
+            skip_symbols=["amd", " "],
+            focus_symbols=["avgo"],
+            risk_scale=0.5,
+            stand_down=False,
+            fallback=False,
+            rule_change="try  a 3R target",
+        )
+    )
+    assert spy.calls == [
+        (
+            "save_trading_discussion",
+            {
+                "title": "Chop week",
+                "rule_change": "try a 3R target",
+                "skip_symbols": ["AMD"],
+                "focus_symbols": ["AVGO"],
+                "risk_scale": 0.5,
+                "fallback": False,
+            },
+        )
+    ]

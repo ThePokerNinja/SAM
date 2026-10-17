@@ -220,9 +220,16 @@ async def handle_save_trading_discussion(
     next_day_setup: list[str] | None = None,
     notes: str = "",
     product_change: str = "",
+    skip_symbols: list[str] | None = None,
+    focus_symbols: list[str] | None = None,
+    risk_scale: float | None = None,
+    stand_down: bool = False,
+    fallback: bool | None = None,
+    rule_change: str = "",
 ) -> str:
-    """Trading discussion kind: rm_api renders the page (capture kind ``trading_discussion``)
-    and queues a Centaur idea when ``product_change`` is set."""
+    """Trading discussion kind: rm_api renders the page (capture kind ``trading_discussion``),
+    writes the next session's morning plan (tighten-only), queues a Centaur idea when
+    ``product_change`` is set, and a study when ``rule_change`` is set."""
     head = " ".join((title or "").split())
     if len(head) < 2 and not (thesis or "").strip():
         return "Give me a title or the thesis and I'll save the discussion."
@@ -237,9 +244,24 @@ async def handle_save_trading_discussion(
         items = [str(v).strip() for v in (val or []) if str(v).strip()]
         if items:
             args[key] = items[:12]
-    for key, val, cap in (("thesis", thesis, 600), ("notes", notes, 1500), ("product_change", product_change, 600)):
+    for key, val, cap in (
+        ("thesis", thesis, 600),
+        ("notes", notes, 1500),
+        ("product_change", product_change, 600),
+        ("rule_change", rule_change, 400),
+    ):
         if (val or "").strip():
             args[key] = " ".join(val.split())[:cap]
+    for key, val in (("skip_symbols", skip_symbols), ("focus_symbols", focus_symbols)):
+        syms = [str(v).strip().upper() for v in (val or []) if str(v).strip()]
+        if syms:
+            args[key] = syms[:12]
+    if risk_scale is not None:
+        args["risk_scale"] = float(risk_scale)
+    if stand_down:
+        args["stand_down"] = True
+    if fallback is False:
+        args["fallback"] = False
     res = await client.run_tool("save_trading_discussion", args)
     text = str(res.get("text") or "").strip()
     if not res.get("ok") and not text:

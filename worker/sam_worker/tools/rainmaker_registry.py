@@ -174,7 +174,9 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
             description=(
                 "Save a trading discussion as one page (title, thesis, assumptions, backtests run, decisions, "
                 "open questions, next-day setup, notes). Ask 'Start a trading discussion?' first and run no tools "
-                "until yes. List only backtests you ran. product_change queues a Centaur idea. Owner only."
+                "until yes. List only backtests you ran. product_change queues a Centaur idea. Morning plan for "
+                "the next session: skip_symbols, focus_symbols, risk_scale 0.25-1, stand_down, fallback=false; "
+                "these only tighten. rule_change queues a study. Owner only."
             ),
             read_only=False,
             requires_approval=True,
@@ -1440,6 +1442,12 @@ def _build_save_trading_discussion(client: Any, _is_owner: Any, _deps: dict[str,
         next_day_setup: list[str] | None = None,
         notes: str = "",
         product_change: str = "",
+        skip_symbols: list[str] | None = None,
+        focus_symbols: list[str] | None = None,
+        risk_scale: float | None = None,
+        stand_down: bool = False,
+        fallback: bool | None = None,
+        rule_change: str = "",
     ) -> str:
         return await handle_save_trading_discussion(
             client,
@@ -1452,6 +1460,12 @@ def _build_save_trading_discussion(client: Any, _is_owner: Any, _deps: dict[str,
             next_day_setup=next_day_setup or [],
             notes=notes,
             product_change=product_change,
+            skip_symbols=skip_symbols or [],
+            focus_symbols=focus_symbols or [],
+            risk_scale=risk_scale,
+            stand_down=stand_down,
+            fallback=fallback,
+            rule_change=rule_change,
         )
 
     return save_trading_discussion
