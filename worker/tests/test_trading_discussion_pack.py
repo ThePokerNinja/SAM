@@ -82,6 +82,16 @@ def test_llm_node_speaks_the_offer_even_when_called_before_the_turn_hook() -> No
         Agent.llm_node = original
 
 
+def test_a_trading_call_never_opens_a_proposal_notebook_at_hang_up() -> None:
+    # 2026-10-17: two trading calls each texted the Izakaya proposal link afterwards.
+    from sam_worker.agent import post_call_notebook_text
+
+    assert post_call_notebook_text("", "") == ""
+    assert post_call_notebook_text("", "   ") == ""
+    assert post_call_notebook_text("", "izakaya site with reservations") == "izakaya site with reservations"
+    assert post_call_notebook_text("eng-1", "anything") == ""
+
+
 def test_no_after_the_offer_stays_put_and_clears_it() -> None:
     session = build_session(session_id="portal-owner", surface="portal")
     session.activate_from_utterance("what if we sized up tomorrow")

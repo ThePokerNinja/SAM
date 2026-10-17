@@ -335,6 +335,14 @@ def _finish_barge_overlap(
     return measured
 
 
+def post_call_notebook_text(bound_engagement_id: str, phone_dump_text: str) -> str:
+    """Text a call may open a proposal notebook with at hang-up: only the intake scoping
+    buffer, and only when nothing was bound during the call. Never the whole-call summary."""
+    if bound_engagement_id:
+        return ""
+    return (phone_dump_text or "").strip()
+
+
 def _session_close_summary(turns: list[tuple[str, str]], *, limit: int = 6) -> str:
     recent = turns[-max(1, limit) :]
     return " | ".join(f"{role}: {text[:240]}" for role, text in recent)
@@ -1022,8 +1030,11 @@ async def entrypoint(ctx: JobContext) -> None:
             return
         eid = proposal_engagement_id["value"] or builder_engagement_id
         if not eid:
-            blob = phone_dump_buffer["text"] or _session_close_summary(session_turns)
-            if blob.strip():
+            # Only a call that collected proposal scoping text may open a notebook here. The
+            # whole-call summary used to go to proposal_apply_summary, which attached trading
+            # calls to the open Izakaya engagement and texted its link (2026-10-17).
+            blob = post_call_notebook_text(eid, phone_dump_buffer["text"])
+            if blob:
                 try:
                     result = await rm_client.run_tool(
                         "proposal_apply_summary",
@@ -1040,7 +1051,7 @@ async def entrypoint(ctx: JobContext) -> None:
                 except Exception:  # noqa: BLE001
                     _log.exception("post-call engagement create failed")
         if not eid:
-            _log.warning("post-call resume sms skipped reason=no_eid")
+            _log.info("post-call resume sms skipped reason=no_proposal_work")
             return
         try:
             result = await rm_client.post_call_resume_sms(eid, channel="phone")
@@ -1697,7 +1708,7 @@ async def entrypoint(ctx: JobContext) -> None:
             r"\b(continue|resume|pick (?:this|it) back up|where were we|same job|email it|text me)\b",
             normalized,
         ):
-            if is_phone or sam_session.kind == "intake":
+            if sam_session.kind != "trading_discussion" and (is_phone or sam_session.kind == "intake"):
                 resume_args = {"channel": "voice"}
                 eid = proposal_engagement_id["value"] or builder_engagement_id
                 if eid:
