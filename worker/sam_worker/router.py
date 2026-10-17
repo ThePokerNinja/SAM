@@ -21,6 +21,7 @@ from .tools.handlers import (
     handle_get_research,
     handle_get_scans,
     handle_get_trades,
+    handle_named_tool,
 )
 from .tools.select import (
     INTAKE_PACK_TOOLS,
@@ -86,6 +87,21 @@ class RouteDecision:
     route: str
     confidence: float
     direct: bool
+    arg: str = ""
+
+
+# "Back test NVIDIA on the swing roll." On the 2026-10-17 call the model answered from
+# memory of an earlier failure instead of calling run_backtest, so this goes straight to the tool.
+_BACKTEST = re.compile(
+    r"(?:sam )?(?:yeah |yes |ok |okay |so |now )?(?:can you |could you |please |lets |i want to |i wanna |go )?"
+    r"(?:run (?:a |the )?)?back ?test(?:ing)? (?:on |of |for )?(?:the stock )?"
+    r"(?P<sym>[a-z][a-z0-9 ]{0,28}?)"
+    r"(?: on (?:the )?swing(?: (?:rule|roll|role|pullback|pull back|strategy))?)?(?: for me)?(?: please)?"
+)
+_NOT_A_SYMBOL = {
+    "it", "that", "this", "them", "those", "these", "again", "one", "something", "stock",
+    "on", "with", "using", "orh", "vwap", "and", "say", "said", "results",
+}
 
 
 @dataclass(frozen=True)
@@ -168,6 +184,9 @@ class FastIntentRouter:
         for route, confidence, patterns in _ROUTES:
             if any(re.fullmatch(pattern, text) for pattern in patterns):
                 return RouteDecision(route, confidence, True)
+        match = _BACKTEST.fullmatch(text)
+        if match and not (set(match.group("sym").split()) & _NOT_A_SYMBOL):
+            return RouteDecision("rainmaker_backtest", 0.95, True, match.group("sym").strip())
         return RouteDecision("llm", 0.0, False)
 
     async def execute(self, decision: RouteDecision, *, rainmaker_client: Any) -> DirectResult:
@@ -191,6 +210,11 @@ class FastIntentRouter:
             return DirectResult(await handle_get_trades(rainmaker_client), tool_name="get_trades")
         if decision.route == "rainmaker_research":
             return DirectResult(await handle_get_research(rainmaker_client), tool_name="get_research")
+        if decision.route == "rainmaker_backtest":
+            spoken = await handle_named_tool(
+                rainmaker_client, "run_backtest", {"symbol": decision.arg, "rule": "swing_pullback"}
+            )
+            return DirectResult(spoken, tool_name="run_backtest")
         raise KeyError(decision.route)
 
 

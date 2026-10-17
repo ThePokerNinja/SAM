@@ -88,7 +88,7 @@ from .prompt_budget import samuel_instructions
 from .review_call import REVIEW_OVERLAY, is_review_call, resolve_outbound_spoken
 from .sentinel_call import SENTINEL_OVERLAY, code_from_brief, is_sentinel_call
 from .pythia import BaselineStore, ForecastLedger, predict_threshold_event
-from .router import FastIntentRouter, RoutedSamuelAgent
+from .router import DirectResult, FastIntentRouter, RoutedSamuelAgent
 from .continuity import (
     ContinuityState,
     brief_from_thread_summary,
@@ -1331,6 +1331,8 @@ async def entrypoint(ctx: JobContext) -> None:
     fast_router = FastIntentRouter()
 
     async def _direct_execute(decision):
+        if decision.route == "rainmaker_backtest" and not _session_is_owner():
+            return DirectResult("Backtests are for the account owner.")
         return await fast_router.execute(decision, rainmaker_client=rm_client)
 
     async def _publish_command(command: dict) -> None:

@@ -82,6 +82,35 @@ def test_llm_node_speaks_the_offer_even_when_called_before_the_turn_hook() -> No
         Agent.llm_node = original
 
 
+def test_backtest_utterances_go_straight_to_the_tool() -> None:
+    from sam_worker.router import FastIntentRouter
+
+    router = FastIntentRouter()
+    for said, sym in (
+        ("Back test NVIDIA on the swing roll.", "nvidia"),
+        ("Yeah. I wanna back test NVIDIA on the swing rule.", "nvidia"),
+        ("backtest AVGO", "avgo"),
+        ("Can you run a backtest on Palo Alto?", "palo alto"),
+        ("Backtest N V D A for me please", "n v d a"),
+    ):
+        decision = router.classify(said)
+        assert (decision.route, decision.direct, decision.arg) == ("rainmaker_backtest", True, sym), said
+    for said in ("backtest it", "backtest that again", "what did the backtest say", "backtest NVDA on orh"):
+        assert router.classify(said).route != "rainmaker_backtest", said
+
+    class Spy(MockRainmakerClient):
+        calls: list = []
+
+        async def run_tool(self, name, args=None):
+            self.calls.append((name, dict(args or {})))
+            return {"ok": True, "text": "NVDA swing pullback, 2025-08-13 to 2026-10-16: 9 trades"}
+
+    spy = Spy()
+    result = asyncio.run(router.execute(router.classify("Back test NVIDIA on the swing roll."), rainmaker_client=spy))
+    assert result.spoken.startswith("NVDA swing pullback") and result.tool_name == "run_backtest"
+    assert spy.calls == [("run_backtest", {"symbol": "nvidia", "rule": "swing_pullback"})]
+
+
 def test_a_trading_call_never_opens_a_proposal_notebook_at_hang_up() -> None:
     # 2026-10-17: two trading calls each texted the Izakaya proposal link afterwards.
     from sam_worker.agent import post_call_notebook_text
