@@ -1682,6 +1682,10 @@ async def entrypoint(ctx: JobContext) -> None:
             return "We're back. Please continue when you're ready."
         if sam_session.paused:
             return "We're still paused. Say resume when you're ready to continue."
+        offer = sam_session.trading_offer_reply(is_owner=_session_is_owner())
+        if offer:
+            _log.info("TRADING_OFFER spoken=verbatim")
+            return offer
         if re.search(
             r"\b(continue|resume|pick (?:this|it) back up|where were we|same job|email it|text me)\b",
             normalized,

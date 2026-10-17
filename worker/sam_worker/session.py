@@ -19,6 +19,7 @@ _TRADING_DISCUSSION_RE = re.compile(r"\b(?:start|open|begin|have|do)?\s*(?:a\s+)
 _AFFIRMATIVE_RE = re.compile(
     r"^\s*(?:yes|yeah|yep|yup|sure|ok(?:ay)?|please|go ahead|do it|let'?s do it|let'?s go|start it)\b"
 )
+TRADING_OFFER_LINE = "Start a trading discussion?"
 SurfaceName = Literal["portal", "phone", "sms"]
 Role = Literal["host", "party", "observer"]
 
@@ -43,6 +44,15 @@ class Session:
     paused: bool = False
     room_name: str = ""
     trading_offer: bool = False
+
+    def trading_offer_reply(self, *, is_owner: bool) -> str | None:
+        """Speak the confirm-first question verbatim; the model paraphrased it on the 2026-10-17 call."""
+        if not self.trading_offer:
+            return None
+        if not is_owner:
+            self.trading_offer = False
+            return None
+        return TRADING_OFFER_LINE
 
     def pause(self) -> None:
         self.paused = True

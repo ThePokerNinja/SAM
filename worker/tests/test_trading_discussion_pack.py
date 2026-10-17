@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 
 from sam_worker.packs.registry import PackRegistry
-from sam_worker.session import build_session, pack_for_kind, route_session_kind
+from sam_worker.session import TRADING_OFFER_LINE, build_session, pack_for_kind, route_session_kind
 from sam_worker.tools.handlers import handle_save_trading_discussion
 from sam_worker.tools.rainmaker import MockRainmakerClient
 from sam_worker.tools.select import TRADING_DISCUSSION_TOOLS, keeps_whole_pack, select_tools_for_utterance
@@ -20,6 +20,21 @@ def test_trade_talk_asks_first_and_yes_starts_the_pack() -> None:
     assert session.kind == "trading_discussion" and session.pack == "trading_discussion"
     assert session.activate_from_utterance("back to trading") is True
     assert session.kind == "trading"
+
+
+def test_phone_offer_is_spoken_verbatim_to_the_owner_only() -> None:
+    # The 2026-10-17 call: the flag was set but gpt-4o-mini never asked the question.
+    session = build_session(session_id="call-_+18318186191_x", surface="phone")
+    session.room_name = "call-_+18318186191_x"
+    session.activate_from_utterance("Let's talk trades.")
+    assert session.trading_offer_reply(is_owner=True) == TRADING_OFFER_LINE == "Start a trading discussion?"
+    assert session.activate_from_utterance("Yes.") is True
+    assert session.kind == "trading_discussion"
+    assert session.trading_offer_reply(is_owner=True) is None
+    guest = build_session(session_id="call-_+15550001111_y", surface="phone")
+    guest.activate_from_utterance("Let's talk trades.")
+    assert guest.trading_offer_reply(is_owner=False) is None
+    assert guest.activate_from_utterance("yes") is False
 
 
 def test_no_after_the_offer_stays_put_and_clears_it() -> None:
