@@ -82,6 +82,15 @@ def test_llm_node_speaks_the_offer_even_when_called_before_the_turn_hook() -> No
         Agent.llm_node = original
 
 
+def test_phone_mishearings_still_earn_the_offer_and_plans_reach_save() -> None:
+    # 2026-10-17 call: STT heard "Let's talk trades" as "Stock trades." and the plan had no save tool.
+    session = build_session(session_id="call-_+18318186191_q", surface="phone")
+    session.room_name = "call-_+18318186191_q"
+    assert session.trading_offer_for("Stock trades.", is_owner=True) == TRADING_OFFER_LINE
+    assert "save_trading_discussion" in select_tools_for_utterance("Skip AMD tomorrow.")
+    assert "save_trading_discussion" in select_tools_for_utterance("focus on AVGO and stand down after that")
+
+
 def test_backtest_utterances_go_straight_to_the_tool() -> None:
     from sam_worker.router import FastIntentRouter
 

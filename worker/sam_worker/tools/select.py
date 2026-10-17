@@ -138,13 +138,30 @@ TRADING_DISCUSSION_TOOLS: tuple[str, ...] = (
 
 TRADING_TALK_WORDS: tuple[str, ...] = (  # already normalized
     "trading discussion",
-    "talk trades",
+    "talk trade",
+    "stock trades",  # phone STT heard "let's talk trades" as "Stock trades." (2026-10-17)
+    "trade talk",
+    "trading talk",
+    "talk trading",
+    "discuss trades",
+    "talk stocks",
+    "talk about stocks",
     "talk about trades",
     "talk through a trade",
     "run the numbers",
     "what if we",
     "backtest",
     "setup for tomorrow",
+)
+TRADING_PLAN_WORDS: tuple[str, ...] = (  # already normalized
+    "skip ",
+    "focus on",
+    "stand down",
+    "half risk",
+    "cut risk",
+    "no fallback",
+    "save the discussion",
+    "save the trading",
 )
 
 CALENDAR_PACK_TOOLS: frozenset[str] = frozenset(
@@ -479,6 +496,9 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         selected.append("save_brainstorm")
     if _has_any(text, TRADING_TALK_WORDS):
         selected.extend(("save_trading_discussion", "run_backtest", "get_trading_status", "get_account"))
+    # A stated morning plan must reach the save tool; without it the model said "saved" and nothing was.
+    if _has_any(text, TRADING_PLAN_WORDS):
+        selected.append("save_trading_discussion")
     if _has_any(text, ("account", "equity", "buying power", "cash", "risk limit")):
         selected.append("get_account")
     if _has_any(text, ("trading status", "kill switch", "pre open", "preopen", "watchlist", "swing")):

@@ -105,6 +105,7 @@ from .session import (
     allows_skill_approval_sms,
     build_session,
     greeting_instructions,
+    is_trading_talk,
     opener_facts,
     should_speak_builder_opening,
     with_pack_honesty,
@@ -1689,6 +1690,13 @@ async def entrypoint(ctx: JobContext) -> None:
         if sam_session.paused:
             return None
         offer = sam_session.trading_offer_for(text, is_owner=_session_is_owner())
+        # region agent log
+        _log.info(
+            "DEBUG_3aa278 trade_talk kind=%s pending=%s owner=%s matched=%s offer=%s utterance=%r",
+            sam_session.kind, sam_session.trading_offer, _session_is_owner(),
+            is_trading_talk(text), bool(offer), " ".join(str(text or "").split())[:120],
+        )
+        # endregion
         if offer:
             _log.info("TRADING_OFFER spoken=verbatim")
         return offer
