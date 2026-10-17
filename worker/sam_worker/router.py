@@ -23,13 +23,13 @@ from .tools.handlers import (
     handle_get_trades,
 )
 from .tools.select import (
-    CALENDAR_PACK_TOOLS,
     INTAKE_PACK_TOOLS,
     PROPOSAL_KEEP_TOOLS,
     VOICE_INTAKE_LLM_TOOLS,
     calendar_action_for_utterance,
     filter_tools,
     is_calendar_confirm,
+    keeps_whole_pack,
     select_tools_for_utterance,
     tool_callable_name,
     utterance_closes_proposal,
@@ -351,7 +351,7 @@ class RoutedSamuelAgent(Agent):
             return result.spoken
         available = list(tools or [])
         available_names = {tool_callable_name(tool) for tool in available}
-        appointment_pack = bool(available_names) and available_names <= CALENDAR_PACK_TOOLS
+        appointment_pack = keeps_whole_pack(available_names)
         intake_pack = (
             "proposal_apply_summary" in available_names and "run_command" not in available_names
         )

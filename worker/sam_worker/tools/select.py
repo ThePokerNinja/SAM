@@ -26,6 +26,10 @@ VOICE_TOOLS: tuple[str, ...] = (
     "queue_research",
     "capture_note",
     "save_brainstorm",
+    "save_trading_discussion",
+    "run_backtest",
+    "get_trading_status",
+    "get_account",
     "list_captures",
     "get_brief",
     "send_brief",
@@ -119,6 +123,30 @@ STUDIO_TOOLS: tuple[str, ...] = (
     "record_studio_publish",
 )
 
+# The trading-discussion pack loads all of these every turn: "yes" or "go ahead"
+# must not leave the turn with no tools.
+TRADING_DISCUSSION_TOOLS: tuple[str, ...] = (
+    "save_trading_discussion",
+    "run_backtest",
+    "get_trading_status",
+    "get_account",
+    "get_scans",
+    "get_pulse",
+    "queue_research",
+    "ask_hermes",
+)
+
+TRADING_TALK_WORDS: tuple[str, ...] = (  # already normalized
+    "trading discussion",
+    "talk trades",
+    "talk about trades",
+    "talk through a trade",
+    "run the numbers",
+    "what if we",
+    "backtest",
+    "setup for tomorrow",
+)
+
 CALENDAR_PACK_TOOLS: frozenset[str] = frozenset(
     {
         "get_calendar_events",
@@ -126,6 +154,12 @@ CALENDAR_PACK_TOOLS: frozenset[str] = frozenset(
         "commit_calendar_change",
     }
 )
+
+
+def keeps_whole_pack(available_names: set[str] | frozenset[str]) -> bool:
+    """Small packs send every attached tool each turn instead of the per-utterance subset."""
+    names = frozenset(available_names)
+    return bool(names) and (names <= CALENDAR_PACK_TOOLS or names <= frozenset(TRADING_DISCUSSION_TOOLS))
 
 INTAKE_PACK_TOOLS: frozenset[str] = frozenset(
     {
@@ -443,6 +477,12 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
             selected.append("capture_note")
     if _has_any(text, ("brainstorm", "think out loud", "riff", "talk this through", "talk it through", "save that", "i'm done", "im done", "that's it")):
         selected.append("save_brainstorm")
+    if _has_any(text, TRADING_TALK_WORDS):
+        selected.extend(("save_trading_discussion", "run_backtest", "get_trading_status", "get_account"))
+    if _has_any(text, ("account", "equity", "buying power", "cash", "risk limit")):
+        selected.append("get_account")
+    if _has_any(text, ("trading status", "kill switch", "pre open", "preopen", "watchlist", "swing")):
+        selected.append("get_trading_status")
     if "brief" in text or "whats on today" in text or "what is on today" in text:
         selected.append("get_brief")
         if _has_any(text, ("text", "send", "sms")):

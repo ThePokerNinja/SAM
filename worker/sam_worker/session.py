@@ -12,7 +12,13 @@ import re
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-SessionKind = Literal["trading", "moderator", "appointment", "skillbuilder", "intake", "brainstorm"]
+SessionKind = Literal[
+    "trading", "moderator", "appointment", "skillbuilder", "intake", "brainstorm", "trading_discussion"
+]
+_TRADING_DISCUSSION_RE = re.compile(r"\b(?:start|open|begin|have|do)?\s*(?:a\s+)?trading discussion\b")
+_AFFIRMATIVE_RE = re.compile(
+    r"^\s*(?:yes|yeah|yep|yup|sure|ok(?:ay)?|please|go ahead|do it|let'?s do it|let'?s go|start it)\b"
+)
 SurfaceName = Literal["portal", "phone", "sms"]
 Role = Literal["host", "party", "observer"]
 
@@ -36,6 +42,7 @@ class Session:
     recording: bool = False
     paused: bool = False
     room_name: str = ""
+    trading_offer: bool = False
 
     def pause(self) -> None:
         self.paused = True
@@ -67,6 +74,13 @@ class Session:
             room_name=self.room_name,
             current_kind=self.kind,
         )
+        offered, self.trading_offer = self.trading_offer, False
+        if kind == self.kind and self.kind != "trading_discussion":
+            if offered and _AFFIRMATIVE_RE.match(utterance.lower()):
+                kind = "trading_discussion"
+            else:
+                # Confirm first: trade talk only earns the question "Start a trading discussion?".
+                self.trading_offer = is_trading_talk(utterance)
         if kind == self.kind:
             return False
         self.kind = kind
@@ -240,7 +254,15 @@ def pack_for_kind(kind: SessionKind) -> str:
         "skillbuilder": "skillbuilder",
         "intake": "intake",
         "brainstorm": "brainstorm",
+        "trading_discussion": "trading_discussion",
     }.get(kind, "trading")
+
+
+def is_trading_talk(utterance: str) -> bool:
+    from .tools.select import TRADING_TALK_WORDS, _normalize
+
+    text = _normalize(utterance)
+    return any(word in text for word in TRADING_TALK_WORDS)
 
 
 def route_session_kind(
@@ -267,6 +289,8 @@ def route_session_kind(
         return "brainstorm"
     if room.startswith("demo-") or room.startswith("intake-") or room.startswith("builder-"):
         return "intake"
+    if _TRADING_DISCUSSION_RE.search(blob):
+        return "trading_discussion"
     # Portal and brainstorm rooms. Owner 855 stays on the full tool set so a
     # proposal and a calendar reminder can both run.
     if re.search(r"\b(brainstorm(?:ing)?(?: mode| session)?|think out loud|riff with me|let me talk (?:this|it) through)\b", blob):

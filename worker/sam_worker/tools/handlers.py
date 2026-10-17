@@ -208,6 +208,45 @@ async def handle_save_brainstorm(
     return _spoken_only(text or "Saved the brainstorm.")[:_MAX_SPOKEN]
 
 
+async def handle_save_trading_discussion(
+    client: RainmakerClient,
+    *,
+    title: str,
+    thesis: str = "",
+    assumptions: list[str] | None = None,
+    backtests: list[str] | None = None,
+    decisions: list[str] | None = None,
+    open_questions: list[str] | None = None,
+    next_day_setup: list[str] | None = None,
+    notes: str = "",
+    product_change: str = "",
+) -> str:
+    """Trading discussion kind: rm_api renders the page (capture kind ``trading_discussion``)
+    and queues a Centaur idea when ``product_change`` is set."""
+    head = " ".join((title or "").split())
+    if len(head) < 2 and not (thesis or "").strip():
+        return "Give me a title or the thesis and I'll save the discussion."
+    args: dict[str, Any] = {"title": head or "Trading discussion"}
+    for key, val in (
+        ("assumptions", assumptions),
+        ("backtests", backtests),
+        ("decisions", decisions),
+        ("open_questions", open_questions),
+        ("next_day_setup", next_day_setup),
+    ):
+        items = [str(v).strip() for v in (val or []) if str(v).strip()]
+        if items:
+            args[key] = items[:12]
+    for key, val, cap in (("thesis", thesis, 600), ("notes", notes, 1500), ("product_change", product_change, 600)):
+        if (val or "").strip():
+            args[key] = " ".join(val.split())[:cap]
+    res = await client.run_tool("save_trading_discussion", args)
+    text = str(res.get("text") or "").strip()
+    if not res.get("ok") and not text:
+        return _fail("trading discussion")
+    return _spoken_only(text or "Saved the trading discussion.")[:_MAX_SPOKEN]
+
+
 async def handle_list_captures(client: RainmakerClient, limit: int = 8) -> str:
     res = await client.list_captures(limit=limit)
     if not res.get("ok"):

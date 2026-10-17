@@ -25,6 +25,7 @@ from .handlers import (
     handle_queue_research,
     handle_record_studio_publish,
     handle_save_brainstorm,
+    handle_save_trading_discussion,
     handle_send_brief,
     handle_send_email,
     handle_send_hero,
@@ -166,6 +167,52 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
             requires_approval=True,
         ),
         _build_save_brainstorm,
+    )
+    registry.register(
+        ToolSpec(
+            name="save_trading_discussion",
+            description=(
+                "Save a trading discussion as one page (title, thesis, assumptions, backtests run, decisions, "
+                "open questions, next-day setup, notes). Ask 'Start a trading discussion?' first and run no tools "
+                "until yes. List only backtests you ran. product_change queues a Centaur idea. Owner only."
+            ),
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_save_trading_discussion,
+    )
+    registry.register(
+        ToolSpec(
+            name="run_backtest",
+            description=(
+                "Backtest one symbol now. rule=swing_pullback (default, the live rule, two years daily) or "
+                "orh / vwap (intraday research, one month of 5m). Quote only the numbers it returns. Owner only."
+            ),
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_run_backtest,
+    )
+    registry.register(
+        ToolSpec(
+            name="get_trading_status",
+            description="Read trading mode, kill switch, the pre-open gate, and the swing watchlist. Owner only.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_get_trading_status,
+    )
+    registry.register(
+        ToolSpec(
+            name="get_account",
+            description=(
+                "Read live equity, cash, open positions, and the stage band's risk limits from the pinned "
+                "Schwab account. Owner only."
+            ),
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_get_account,
     )
     registry.register(
         ToolSpec(
@@ -1379,6 +1426,56 @@ def _build_save_brainstorm(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         )
 
     return save_brainstorm
+
+
+def _build_save_trading_discussion(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def save_trading_discussion(
+        context: RunContext,
+        title: str,
+        thesis: str = "",
+        assumptions: list[str] | None = None,
+        backtests: list[str] | None = None,
+        decisions: list[str] | None = None,
+        open_questions: list[str] | None = None,
+        next_day_setup: list[str] | None = None,
+        notes: str = "",
+        product_change: str = "",
+    ) -> str:
+        return await handle_save_trading_discussion(
+            client,
+            title=title,
+            thesis=thesis,
+            assumptions=assumptions or [],
+            backtests=backtests or [],
+            decisions=decisions or [],
+            open_questions=open_questions or [],
+            next_day_setup=next_day_setup or [],
+            notes=notes,
+            product_change=product_change,
+        )
+
+    return save_trading_discussion
+
+
+def _build_run_backtest(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def run_backtest(context: RunContext, symbol: str, rule: str = "swing_pullback") -> str:
+        return await handle_named_tool(client, "run_backtest", {"symbol": symbol, "rule": rule})
+
+    return run_backtest
+
+
+def _build_get_trading_status(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def get_trading_status(context: RunContext) -> str:
+        return await handle_named_tool(client, "get_trading_status", {})
+
+    return get_trading_status
+
+
+def _build_get_account(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def get_account(context: RunContext) -> str:
+        return await handle_named_tool(client, "get_account", {})
+
+    return get_account
 
 
 def _build_correct_craft(client: Any, _is_owner: Any, deps: dict[str, Any]):

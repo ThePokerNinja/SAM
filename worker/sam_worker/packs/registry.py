@@ -168,12 +168,40 @@ BRAINSTORM = PackManifest(
 )
 
 
+TRADING_DISCUSSION = PackManifest(
+    id="trading_discussion",
+    persona_overlay=(
+        "You are Samuel in a trading discussion with the owner. They already said yes to starting it. "
+        "Ask what they want to test, then use run_backtest for numbers, get_account for equity and limits, "
+        "and get_trading_status for mode and the watchlist. Say only numbers a tool returned, and say when a "
+        "sample is too small to mean much. If a question has no tool, queue_research or ask_hermes and say it is "
+        "queued. Never place or promise an order; orders go out only as a YES code by text. When the owner says "
+        "done or save it, call save_trading_discussion once with the title, thesis, assumptions, the backtests "
+        "you ran, decisions, open questions, and tomorrow's setup. Pass product_change only when they decided "
+        "Rainmaker itself should change. Then confirm in one sentence."
+    ),
+    tools=(
+        "save_trading_discussion",
+        "run_backtest",
+        "get_trading_status",
+        "get_account",
+        "get_scans",
+        "get_pulse",
+        "queue_research",
+        "ask_hermes",
+    ),
+    workflow=("confirm", "test", "decide", "save"),
+    safety_rules=("advisory_only", "no_orders_by_voice", "tool_numbers_only"),
+    artifacts=("trading_discussion",),
+)
+
+
 class PackRegistry:
     def __init__(self) -> None:
         self._packs: dict[str, PackManifest] = {}
         self._warm: set[str] = set()
         self._active_id = "trading"
-        for pack in (TRADING, MODERATOR, APPOINTMENT, SKILLBUILDER, INTAKE, GUEST_INTAKE, FAITH, BRAINSTORM):
+        for pack in (TRADING, MODERATOR, APPOINTMENT, SKILLBUILDER, INTAKE, GUEST_INTAKE, FAITH, BRAINSTORM, TRADING_DISCUSSION):
             self.register(pack)
 
     def register(self, pack: PackManifest) -> None:
