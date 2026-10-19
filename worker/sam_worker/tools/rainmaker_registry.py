@@ -227,6 +227,54 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     )
     registry.register(
         ToolSpec(
+            name="explain_scan",
+            description="Say why the latest swing scan qualified nothing, naming the check each symbol missed. Owner only.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_explain_scan,
+    )
+    registry.register(
+        ToolSpec(
+            name="get_strategy_study",
+            description="Read the Warrior versus swing study and whether a weight change was promoted. Owner only.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_get_strategy_study,
+    )
+    registry.register(
+        ToolSpec(
+            name="get_morning_check",
+            description="Read this morning's check on the setup armed last night. Owner only.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_get_morning_check,
+    )
+    registry.register(
+        ToolSpec(
+            name="get_desk",
+            description=(
+                "Read the live trading desk: armed, placed, filled, sold; account and caps; latest picks with "
+                "Warrior levels; today's texts and what each code meant. Owner only."
+            ),
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_get_desk,
+    )
+    registry.register(
+        ToolSpec(
+            name="analyze_ticker",
+            description="Analyze one ticker: price, scan rank, and Warrior levels or why it doesn't fit today. Owner only.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_analyze_ticker,
+    )
+    registry.register(
+        ToolSpec(
             name="list_captures",
             description="Read today's notes, tasks, and brainstorms.",
             read_only=True,
@@ -1497,6 +1545,41 @@ def _build_run_backtest(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_named_tool(client, "run_backtest", {"symbol": symbol, "rule": rule})
 
     return run_backtest
+
+
+def _build_explain_scan(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def explain_scan(context: RunContext) -> str:
+        return await handle_named_tool(client, "explain_scan", {})
+
+    return explain_scan
+
+
+def _build_get_strategy_study(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def get_strategy_study(context: RunContext) -> str:
+        return await handle_named_tool(client, "get_strategy_study", {})
+
+    return get_strategy_study
+
+
+def _build_get_morning_check(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def get_morning_check(context: RunContext) -> str:
+        return await handle_named_tool(client, "get_morning_check", {})
+
+    return get_morning_check
+
+
+def _build_get_desk(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def get_desk(context: RunContext) -> str:
+        return await handle_named_tool(client, "get_desk", {})
+
+    return get_desk
+
+
+def _build_analyze_ticker(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def analyze_ticker(context: RunContext, symbol: str) -> str:
+        return await handle_named_tool(client, "analyze_ticker", {"symbol": symbol})
+
+    return analyze_ticker
 
 
 def _build_get_trading_status(client: Any, _is_owner: Any, _deps: dict[str, Any]):
