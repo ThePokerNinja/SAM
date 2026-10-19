@@ -141,11 +141,20 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     registry.register(
         ToolSpec(
             name="queue_research",
-            description="Queue research on a topic or ticker. Owner only. Arg: topic.",
+            description="Queue research on a topic or ticker. Charles answers it overnight. Owner only. Arg: topic.",
             read_only=False,
             requires_approval=True,
         ),
         _build_queue_research,
+    )
+    registry.register(
+        ToolSpec(
+            name="research_answers",
+            description="Read what Charles answered overnight. Args: task_id, feedback=up|down when the owner judges an answer.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_research_answers,
     )
     registry.register(
         ToolSpec(
@@ -851,6 +860,18 @@ def _build_queue_research(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_queue_research(client, topic)
 
     return queue_research
+
+
+def _build_research_answers(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def research_answers(context: RunContext, task_id: str = "", feedback: str = "") -> str:
+        args: dict[str, Any] = {}
+        if task_id:
+            args["task_id"] = task_id
+        if feedback:
+            args["feedback"] = feedback
+        return await handle_named_tool(client, "research_answers", args)
+
+    return research_answers
 
 
 def _build_capture_note(client: Any, _is_owner: Any, _deps: dict[str, Any]):
