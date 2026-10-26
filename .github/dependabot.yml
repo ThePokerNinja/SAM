@@ -1,0 +1,25 @@
+# Rainmaker SEC-010 supply chain. Version-bump PRs for Samuel's services; a human
+# merges. livekit-* is pinned as a set (see worker/requirements.txt), so its
+# updates are grouped and must move together.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /worker
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      livekit:
+        patterns: ["livekit*"]
+
+  - package-ecosystem: npm
+    directory: /client
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      client-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directory: /deploy
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 2

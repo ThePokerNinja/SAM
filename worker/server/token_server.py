@@ -33,6 +33,14 @@ except ImportError:  # deps not installed in --mock-only setups
     FastAPI = None  # type: ignore[assignment]
 
 
+try:
+    from sam_worker import runtime_line
+
+    runtime_line.start("sam-token")
+except ImportError:
+    pass
+
+
 # How long a minted token is valid for the initial join handshake.
 _TOKEN_TTL_SECONDS = 600
 

@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "engines": {
+    "node": ">=24.22.1 <25"
+  },
   "description": "Samuel (S.A.M.), Systems Agent Model — React/Vite voice portal.",
   "scripts": {
     "dev": "vite",

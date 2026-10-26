@@ -2075,6 +2075,9 @@ async def entrypoint(ctx: JobContext) -> None:
 
 
 if __name__ == "__main__":
+    from sam_worker import runtime_line
+
+    runtime_line.start("sam-agent")
     start_health_server()
     start_nightly_scheduler()
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
