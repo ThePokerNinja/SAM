@@ -24,7 +24,7 @@ httpx>=0.27
 # CA bundle httpx trusts. Floor = first bundle after the eMudhra intermediate-key
 # compromise settled (2026-10-23).
 certifi>=2026.10.23
-websockets>=13
+websockets>=16.1.1
 python-dotenv>=1.0
 
 # Owner voice verification (Tier-T gate). On-device speaker recognition; inert unless
