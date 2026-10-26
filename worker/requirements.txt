@@ -2,16 +2,16 @@
 # the real LiveKit pipeline needs the agents stack.
 
 # Bumped 2026-09-14 for GPTLiveModel (gpt-live lab). Pin together — do not mix 1.6/1.8.
-livekit-agents==1.8.1
-livekit-plugins-elevenlabs==1.8.1
-livekit-plugins-openai==1.8.1
-livekit-plugins-silero==1.8.1
-livekit-plugins-deepgram==1.8.1
-livekit-plugins-turn-detector==1.8.1
-livekit-api==1.2.0
-livekit==1.1.18
-livekit-protocol==1.1.22
-livekit-blingfire==1.1.0
+livekit-agents==1.8.8
+livekit-plugins-elevenlabs==1.8.8
+livekit-plugins-openai==1.8.8
+livekit-plugins-silero==1.8.8
+livekit-plugins-deepgram==1.8.8
+livekit-plugins-turn-detector==1.8.8
+livekit-api==1.2.2
+livekit==1.1.21
+livekit-protocol==1.1.28
+livekit-blingfire==1.2.0
 livekit-local-inference==0.2.7
 # Default STT = LiveKit Inference (deepgram/nova-3 string model). Set DEEPGRAM_API_KEY + SAM_STT=deepgram to use direct.
 
