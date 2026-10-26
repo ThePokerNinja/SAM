@@ -87,6 +87,7 @@ def test_intelligence_report_uses_existing_two_arena_scorecard() -> None:
         observations,
         v2v_ms=[700.0, 750.0],
         barge_in_f1=1.0,
+        naturalness_mos=4.2,
         interruption_accuracy=1.0,
         learning_efficiency=0.8,
     )
@@ -100,7 +101,8 @@ def test_intelligence_report_uses_existing_two_arena_scorecard() -> None:
 
 def test_intelligence_report_fails_closed_on_missing_fixture() -> None:
     report = evaluate_observations([])
-    assert len(report.failures) == len(GROUNDED_TASKS)
+    assert len(report.failures) == len(GROUNDED_TASKS) + 1
+    assert "missing:naturalness_mos" in report.failures
     assert report.scorecard.grounded.score() < 1.0
 
 

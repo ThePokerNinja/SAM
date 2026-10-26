@@ -20,7 +20,8 @@ def test_gpt_live_requires_staging_room() -> None:
     assert gpt_live_lab_enabled(s, "sam-gptlive-lab1") is True
 
 
-def test_gpt_live_requires_openai_key() -> None:
+def test_gpt_live_requires_openai_key(monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     s = Settings(voice_arch="gpt-live")
     assert gpt_live_lab_enabled(s, "staging-test") is False
 
