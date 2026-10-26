@@ -36,6 +36,8 @@ VOICE_TOOLS: tuple[str, ...] = (
     "get_morning_check",
     "get_desk",
     "analyze_ticker",
+    "price_setup",
+    "stage_trade",
     "list_captures",
     "get_brief",
     "send_brief",
@@ -531,6 +533,10 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         selected.append("get_desk")
     if _has_any(text, ("ticker", "analyze", "look at", "what about", "setup on")):
         selected.append("analyze_ticker")
+    if _has_any(text, ("price", "levels", "entry", "stop", "target", "swing", "warrior", "setup")):
+        selected.append("price_setup")
+    if _has_any(text, ("arm", "stage", "set it up", "set up", "take the trade", "buy", "more risk", "risk more")):
+        selected.append("stage_trade")
     if "brief" in text or "whats on today" in text or "what is on today" in text:
         selected.append("get_brief")
         if _has_any(text, ("text", "send", "sms")):

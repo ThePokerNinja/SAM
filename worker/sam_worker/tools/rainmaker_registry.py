@@ -275,6 +275,31 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     )
     registry.register(
         ToolSpec(
+            name="price_setup",
+            description=(
+                "Price one ticker on warrior (today's premarket buy-stop) or swing (next open): entry, stop, "
+                "target, shares, risk, and whether it needs the owner's YES. Reads only. Owner only."
+            ),
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_price_setup,
+    )
+    registry.register(
+        ToolSpec(
+            name="stage_trade",
+            description=(
+                "Stage a warrior (9:00-10:15 AM ET) or swing (next open) trade. The owner gets a text: within "
+                "normal risk it places unless they reply NO; above it, up to $50, it waits for YES and the code. "
+                "risk_usd sets the dollars at risk. The only way to offer more risk. Owner only."
+            ),
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_stage_trade,
+    )
+    registry.register(
+        ToolSpec(
             name="list_captures",
             description="Read today's notes, tasks, and brainstorms.",
             read_only=True,
@@ -1580,6 +1605,23 @@ def _build_analyze_ticker(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_named_tool(client, "analyze_ticker", {"symbol": symbol})
 
     return analyze_ticker
+
+
+def _build_price_setup(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def price_setup(context: RunContext, symbol: str, strategy: str = "warrior") -> str:
+        return await handle_named_tool(client, "price_setup", {"symbol": symbol, "strategy": strategy})
+
+    return price_setup
+
+
+def _build_stage_trade(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def stage_trade(context: RunContext, symbol: str, strategy: str = "warrior", risk_usd: float = 0) -> str:
+        args: dict[str, Any] = {"symbol": symbol, "strategy": strategy}
+        if risk_usd and risk_usd > 0:
+            args["risk_usd"] = risk_usd
+        return await handle_named_tool(client, "stage_trade", args)
+
+    return stage_trade
 
 
 def _build_get_trading_status(client: Any, _is_owner: Any, _deps: dict[str, Any]):
