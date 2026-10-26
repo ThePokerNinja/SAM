@@ -1,7 +1,7 @@
 # Samuel LiveKit agent worker (Phase 0 prod).
 # Build context: SAM repo root (see render.yaml dockerContext).
 
-FROM python:3.12-slim-bookworm
+FROM python:3.15-slim-bookworm
 # Must equal the FROM tag. Printed on the RM_RUNTIME line Sentinel reads.
 ENV RM_BASE_IMAGE=python:3.12-slim-bookworm
 
