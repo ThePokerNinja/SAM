@@ -206,6 +206,45 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     )
     registry.register(
         ToolSpec(
+            name="backtest_idea",
+            description=(
+                "How a named strategy did in its 2016-2024 backtest and since Oct 29, from stored reports. "
+                "rerun=true only when the owner asks for a fresh run. Quote only the numbers it returns. Owner only."
+            ),
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_backtest_idea,
+    )
+    registry.register(
+        ToolSpec(
+            name="recommend_from_history",
+            description="The strategy with the strongest backtest that beats random entries, or none. Owner only.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_recommend_from_history,
+    )
+    registry.register(
+        ToolSpec(
+            name="rank_candidates",
+            description="The selector's current ranking of today's setups and its pick. Owner only.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_rank_candidates,
+    )
+    registry.register(
+        ToolSpec(
+            name="why_this_trade",
+            description="Explain one ranked setup by symbol, or the current pick. Owner only.",
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_why_this_trade,
+    )
+    registry.register(
+        ToolSpec(
             name="get_trading_status",
             description="Read trading mode, kill switch, the pre-open gate, and the swing watchlist. Owner only.",
             read_only=True,
@@ -1570,6 +1609,34 @@ def _build_run_backtest(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_named_tool(client, "run_backtest", {"symbol": symbol, "rule": rule})
 
     return run_backtest
+
+
+def _build_backtest_idea(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def backtest_idea(context: RunContext, strategy: str, rerun: bool = False) -> str:
+        return await handle_named_tool(client, "backtest_idea", {"strategy": strategy, "rerun": rerun})
+
+    return backtest_idea
+
+
+def _build_recommend_from_history(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def recommend_from_history(context: RunContext) -> str:
+        return await handle_named_tool(client, "recommend_from_history", {})
+
+    return recommend_from_history
+
+
+def _build_rank_candidates(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def rank_candidates(context: RunContext) -> str:
+        return await handle_named_tool(client, "rank_candidates", {})
+
+    return rank_candidates
+
+
+def _build_why_this_trade(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def why_this_trade(context: RunContext, symbol: str = "") -> str:
+        return await handle_named_tool(client, "why_this_trade", {"symbol": symbol})
+
+    return why_this_trade
 
 
 def _build_explain_scan(client: Any, _is_owner: Any, _deps: dict[str, Any]):

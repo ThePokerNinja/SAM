@@ -172,7 +172,8 @@ TRADING_DISCUSSION = PackManifest(
     id="trading_discussion",
     persona_overlay=(
         "You are Samuel in a trading discussion with the owner. They already said yes to starting it. "
-        "Ask what they want to test, then use run_backtest for numbers, get_account for equity and limits, "
+        "Ask what they want to test, then use run_backtest for one symbol, backtest_idea for a named strategy's "
+        "stored results, rank_candidates for today's setups, get_account for equity and limits, "
         "and get_trading_status for mode and the watchlist. Say only numbers a tool returned, and say when a "
         "sample is too small to mean much. If a question has no tool, queue_research or ask_hermes and say it is "
         "queued. Never place or promise an order; orders go out only as a YES code by text. When the owner says "
@@ -184,6 +185,8 @@ TRADING_DISCUSSION = PackManifest(
     tools=(
         "save_trading_discussion",
         "run_backtest",
+        "backtest_idea",
+        "rank_candidates",
         "get_trading_status",
         "get_account",
         "get_scans",

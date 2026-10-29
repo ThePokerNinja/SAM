@@ -29,6 +29,10 @@ VOICE_TOOLS: tuple[str, ...] = (
     "save_brainstorm",
     "save_trading_discussion",
     "run_backtest",
+    "backtest_idea",
+    "recommend_from_history",
+    "rank_candidates",
+    "why_this_trade",
     "get_trading_status",
     "get_account",
     "explain_scan",
@@ -136,6 +140,8 @@ STUDIO_TOOLS: tuple[str, ...] = (
 TRADING_DISCUSSION_TOOLS: tuple[str, ...] = (
     "save_trading_discussion",
     "run_backtest",
+    "backtest_idea",
+    "rank_candidates",
     "get_trading_status",
     "get_account",
     "get_scans",
@@ -519,6 +525,12 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
     # A stated morning plan must reach the save tool; without it the model said "saved" and nothing was.
     if _has_any(text, TRADING_PLAN_WORDS):
         selected.append("save_trading_discussion")
+    if _has_any(text, ("backtest", "strategy", "strategies", "how did", "best setup", "which setup", "holy grail",
+                       "failure test", "fashionably late", "pullback", "episodic", "history say")):
+        selected.extend(("backtest_idea", "recommend_from_history"))
+    if _has_any(text, ("rank", "candidates", "best trade", "selector", "whats setting up", "why this trade",
+                       "why that trade")):
+        selected.extend(("rank_candidates", "why_this_trade"))
     if _has_any(text, ("account", "equity", "buying power", "cash", "risk limit")):
         selected.append("get_account")
     if _has_any(text, ("trading status", "kill switch", "pre open", "preopen", "watchlist", "swing")):
