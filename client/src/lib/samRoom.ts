@@ -21,6 +21,8 @@ export class PortalAccessDeniedError extends Error {
 
 const COMMAND_TOPIC = "sam-command";
 const ALLOWED_COMMAND_URLS = new Set([
+  "https://rainmaker.michaelstewman.com/latest.html",
+  // Until GitHub Pages retires, so a worker still draining on the old link is not refused.
   "https://thepokerninja.github.io/rainmaker-morning/latest.html",
   "http://127.0.0.1:8787/latest.html",
 ]);

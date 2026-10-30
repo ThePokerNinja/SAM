@@ -198,7 +198,7 @@ class FastIntentRouter:
         if decision.route == "open_dashboard":
             return DirectResult(
                 "Opening Rainmaker.",
-                {"type": "open_url", "url": "https://thepokerninja.github.io/rainmaker-morning/latest.html"},
+                {"type": "open_url", "url": "https://rainmaker.michaelstewman.com/latest.html"},
             )
         if decision.route == "rainmaker_pulse":
             return DirectResult(await handle_get_pulse(rainmaker_client), tool_name="get_pulse")
@@ -290,7 +290,7 @@ class RoutedSamuelAgent(Agent):
             await self._publish_command(
                 {
                     "type": "open_url",
-                    "url": "https://thepokerninja.github.io/rainmaker-morning/latest.html",
+                    "url": "https://rainmaker.michaelstewman.com/latest.html",
                 }
             )
         if decision.direct or self._context_provider is None:
