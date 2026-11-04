@@ -176,6 +176,11 @@ TRADING_PLAN_WORDS: tuple[str, ...] = (  # already normalized
     "no fallback",
     "save the discussion",
     "save the trading",
+    # 2026-11-03 commute fragments that were trading ideas, not orders
+    "make the buy",
+    "buy immediately",
+    "not wait to get into",
+    "dont wait to get into",
 )
 
 CALENDAR_PACK_TOOLS: frozenset[str] = frozenset(
@@ -236,6 +241,60 @@ VOICE_INTAKE_LLM_TOOLS: frozenset[str] = frozenset(
 _FALLBACK_VOICE: tuple[str, ...] = ("get_pulse", "get_scans")
 
 _TICKER = re.compile(r"\b[A-Z]{1,5}\b")
+_SYMBOL = re.compile(r"\b[A-Z]{2,5}\b")
+
+# "Make a note" on the 2026-11-03 commute became nine propose_calendar_change calls and no capture.
+NOTE_WORDS: tuple[str, ...] = (  # already normalized
+    "make a note",
+    "take a note",
+    "note this",
+    "note that",
+    "a note for",
+    "jot",
+    "write that down",
+    "write this down",
+    "log this",
+    "my feedback",
+    "some feedback",
+    "feedback for",
+    "for the record",
+)
+TRADING_IDEA_WORDS: tuple[str, ...] = (
+    "stop",
+    "limit",
+    "support",
+    "resistance",
+    "the open",
+    "premarket",
+    "pre market",
+    "after hours",
+    "momentum",
+    "macd",
+    "rsi",
+    "warrior",
+    "entry",
+    "buy",
+    "sell",
+    "trade",
+    "stock",
+    "wait",
+)
+_CALENDAR_NOUNS: tuple[str, ...] = (
+    "calendar",
+    "meeting",
+    "appointment",
+    "reminder",
+    "remind me",
+    "event",
+    "schedule",
+)
+_CONTINUES = ("so", "and", "but", "then", "because", "um", "uh")
+
+
+def is_note_utterance(utterance: str) -> bool:
+    """True when the owner is dictating a note, not asking for a calendar change."""
+    text = _normalize(utterance)
+    return _has_any(text, NOTE_WORDS) and not _has_any(text, _CALENDAR_NOUNS)
 
 _RAINMAKERISH = (
     "rainmaker",
@@ -328,6 +387,8 @@ def is_calendar_confirm(utterance: str) -> bool:
     text = _normalize(utterance)
     if not text or _YES_OR_NO.search(text):
         return False
+    if text.split()[-1] in _CONTINUES:
+        return False  # "Yeah. So" is the start of a sentence the phone split, not a yes
     if _has_any(text, _INTAKE_SCOPE):
         return False
     if _CONFIRM_FORCE.search(text):
@@ -346,6 +407,8 @@ def is_calendar_confirm(utterance: str) -> bool:
 def calendar_action_for_utterance(utterance: str) -> str | None:
     """Map explicit scheduling verbs to the proposal action they permit."""
     text = _normalize(utterance)
+    if is_note_utterance(utterance):
+        return None
     if re.search(r"\bnext (question|topic|item)\b", text) and not _has_any(
         text, ("calendar", "meeting", "appointment", "reminder", "event", "schedule")
     ):
@@ -474,6 +537,10 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         return ["run_command"]
     if is_calendar_confirm(utterance):
         return ["commit_calendar_change", "run_command"]
+    if is_note_utterance(utterance):
+        if _has_any(text, TRADING_IDEA_WORDS):
+            return ["save_trading_discussion", "capture_note"]
+        return ["capture_note", "list_captures"]
     selected: list[str] = []
 
     if is_review_utterance(utterance):
@@ -547,7 +614,10 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         selected.append("analyze_ticker")
     if _has_any(text, ("price", "levels", "entry", "stop", "target", "swing", "warrior", "setup")):
         selected.append("price_setup")
-    if _has_any(text, ("arm", "stage", "set it up", "set up", "take the trade", "buy", "more risk", "risk more")):
+    if _has_any(text, ("arm", "stage", "set it up", "set up", "take the trade", "more risk", "risk more")) or (
+        "buy" in text.split() and _SYMBOL.search(raw)
+    ):
+        # "Let's make the buy immediately" is an idea about timing, not an order for a named stock.
         selected.append("stage_trade")
     if "brief" in text or "whats on today" in text or "what is on today" in text:
         selected.append("get_brief")
