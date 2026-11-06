@@ -219,6 +219,23 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     )
     registry.register(
         ToolSpec(
+            name="test_idea",
+            description=(
+                "When the owner challenges how Sam trades, offer a test: say the question and that better means "
+                "more +1% days with the average day above zero and the worst week no deeper. After a yes, call "
+                "this with his words and one test: an exit (be_1r, be_profit, 1r_low1, 1r_low2, 1r_range1, "
+                "1r_range2, 1r_sma20, profit_low1, profit_low2, profit_range1, profit_range2, profit_sma20, sr_stop, "
+                "sr_target, sr_both) or an account rule (up:half, up:trail, up:none, up_buys:none, up_buys:all, "
+                "down:-0.75, down:-1.5, lines:off, lean_in, size:-1_half, size:-1_full, size:-2_quarter). Changes "
+                "nothing live. Owner only."
+            ),
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_test_idea,
+    )
+    registry.register(
+        ToolSpec(
             name="recommend_from_history",
             description="The strategy with the strongest backtest that beats random entries, or none. Owner only.",
             read_only=True,
@@ -1634,6 +1651,13 @@ def _build_backtest_idea(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_named_tool(client, "backtest_idea", {"strategy": strategy, "rerun": rerun})
 
     return backtest_idea
+
+
+def _build_test_idea(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def test_idea(context: RunContext, words: str, test: str) -> str:
+        return await handle_named_tool(client, "test_idea", {"words": words, "test": test})
+
+    return test_idea
 
 
 def _build_recommend_from_history(client: Any, _is_owner: Any, _deps: dict[str, Any]):
