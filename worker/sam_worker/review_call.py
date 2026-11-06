@@ -72,4 +72,8 @@ def resolve_outbound_spoken(meta: dict[str, Any] | None) -> str:
 
     if is_sentinel_call(meta):
         return sentinel_opening(meta)
+    from .report_call import is_report_call, report_opening
+
+    if is_report_call(meta):
+        return report_opening(meta)
     return str((meta or {}).get("spoken") or "").strip()

@@ -86,6 +86,7 @@ from .owner_gate import (
 from .packs.moderator import ModeratorRuntime
 from .prompt_budget import samuel_instructions
 from .review_call import REVIEW_OVERLAY, is_review_call, resolve_outbound_spoken
+from .report_call import is_report_call, report_overlay
 from .sentinel_call import SENTINEL_OVERLAY, code_from_brief, is_sentinel_call
 from .pythia import BaselineStore, ForecastLedger, predict_threshold_event
 from .router import DirectResult, FastIntentRouter, RoutedSamuelAgent
@@ -382,6 +383,8 @@ async def entrypoint(ctx: JobContext) -> None:
     # TALK is the same shape for a Sentinel warning: tools stay on so charles_decide can run.
     is_review_leg = is_outbound_guest and is_review_call(outbound_meta)
     is_sentinel_leg = is_outbound_guest and is_sentinel_call(outbound_meta)
+    # CALL ME about a report: no tools (Sam explains, never approves); the report rides in the instructions.
+    is_report_leg = is_outbound_guest and is_report_call(outbound_meta)
     outbound_script = {"spoken": resolve_outbound_spoken(outbound_meta), "delivered": False}
     surface = (
         "phone"
@@ -1338,6 +1341,8 @@ async def entrypoint(ctx: JobContext) -> None:
         instructions = f"{instructions}\n\n{REVIEW_OVERLAY}"
     if is_sentinel_leg:
         instructions = f"{instructions}\n\n{SENTINEL_OVERLAY}"
+    if is_report_leg:
+        instructions = f"{instructions}\n\n{report_overlay(outbound_meta)}"
 
     fast_router = FastIntentRouter()
 
@@ -1856,6 +1861,8 @@ async def entrypoint(ctx: JobContext) -> None:
                 tool_deps["sentinel_code"] = code
             if not is_sentinel_leg:
                 _log.info("sentinel call detected after connect; tools were already chosen")
+        if is_report_call(outbound_meta) and not is_report_leg:
+            _log.info("report call detected after connect; the report is not in the instructions")
 
     if (
         is_phone
@@ -2022,7 +2029,7 @@ async def entrypoint(ctx: JobContext) -> None:
             _log.info("outbound guest never answered; skipping greeting")
             ctx.shutdown("outbound unanswered")
             return
-        guest = outbound_meta.get("guest_name") or ("the owner" if is_review_leg else "the recipient")
+        guest = outbound_meta.get("guest_name") or ("the owner" if is_review_leg or is_report_leg else "the recipient")
         spoken = (outbound_script.get("spoken") or resolve_outbound_spoken(outbound_meta)).strip()
         outbound_script["spoken"] = spoken
         _log.info(
