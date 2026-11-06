@@ -43,6 +43,8 @@ VOICE_TOOLS: tuple[str, ...] = (
     "analyze_ticker",
     "price_setup",
     "stage_trade",
+    "approve_strategy",
+    "undo_strategy",
     "list_captures",
     "get_brief",
     "send_brief",
@@ -184,6 +186,10 @@ TRADING_PLAN_WORDS: tuple[str, ...] = (  # already normalized
     "not wait to get into",
     "dont wait to get into",
 )
+
+# Kept one more turn so the owner's bare "yes" after Sam reads the name back can reach approve_strategy.
+STRATEGY_APPROVE_TOOLS: tuple[str, ...] = ("approve_strategy", "undo_strategy")
+_APPROVE_WORDS: tuple[str, ...] = ("approve", "undo", "take it back", "take that back")
 
 CALENDAR_PACK_TOOLS: frozenset[str] = frozenset(
     {
@@ -621,6 +627,8 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
     ):
         # "Let's make the buy immediately" is an idea about timing, not an order for a named stock.
         selected.append("stage_trade")
+    if _has_any(text, _APPROVE_WORDS):
+        selected.extend(STRATEGY_APPROVE_TOOLS)
     if "brief" in text or "whats on today" in text or "what is on today" in text:
         selected.append("get_brief")
         if _has_any(text, ("text", "send", "sms")):

@@ -26,6 +26,7 @@ from .tools.handlers import (
 from .tools.select import (
     INTAKE_PACK_TOOLS,
     PROPOSAL_KEEP_TOOLS,
+    STRATEGY_APPROVE_TOOLS,
     VOICE_INTAKE_LLM_TOOLS,
     calendar_action_for_utterance,
     filter_tools,
@@ -244,6 +245,7 @@ class RoutedSamuelAgent(Agent):
         super().__init__(**kwargs)
         self._standing_provider = standing_provider
         self._proposal_live = False
+        self._approve_keep = 0
         self._router = router
         self._direct_execute = direct_execute
         self._publish_command = publish_command
@@ -396,6 +398,11 @@ class RoutedSamuelAgent(Agent):
             for name in PROPOSAL_KEEP_TOOLS:
                 if name not in names:
                     names.append(name)
+        if any(name in names for name in STRATEGY_APPROVE_TOOLS):
+            self._approve_keep = 1
+        elif self._approve_keep and not tool_completed:
+            self._approve_keep -= 1
+            names.extend(STRATEGY_APPROVE_TOOLS)
         if appointment_pack:
             # Groq still emits leftover calendar tool calls. An empty request.tools
             # fails every fallback rung with "not in request.tools" and Samuel

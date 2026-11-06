@@ -357,6 +357,27 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     )
     registry.register(
         ToolSpec(
+            name="approve_strategy",
+            description=(
+                "Approve a backtested strategy that passed its test, after you read its name back and the owner "
+                "said yes. This is not a trade. He gets a text: Reply UNDO <code> within 10 minutes. Owner only."
+            ),
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_approve_strategy,
+    )
+    registry.register(
+        ToolSpec(
+            name="undo_strategy",
+            description="Take back a voice strategy approval within 10 minutes, by its code. Owner only.",
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_undo_strategy,
+    )
+    registry.register(
+        ToolSpec(
             name="list_captures",
             description="Read today's notes, tasks, and brainstorms.",
             read_only=True,
@@ -1731,6 +1752,20 @@ def _build_stage_trade(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_named_tool(client, "stage_trade", args)
 
     return stage_trade
+
+
+def _build_approve_strategy(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def approve_strategy(context: RunContext, strategy_id: str) -> str:
+        return await handle_named_tool(client, "approve_strategy", {"strategy_id": strategy_id})
+
+    return approve_strategy
+
+
+def _build_undo_strategy(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def undo_strategy(context: RunContext, code: str) -> str:
+        return await handle_named_tool(client, "undo_strategy", {"code": code})
+
+    return undo_strategy
 
 
 def _build_get_trading_status(client: Any, _is_owner: Any, _deps: dict[str, Any]):
