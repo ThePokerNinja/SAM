@@ -20,7 +20,11 @@ class PackManifest:
 
 TRADING = PackManifest(
     id="trading",
-    persona_overlay="You are Samuel, the Rainmaker trading agent. Ground every market claim in a tool.",
+    persona_overlay=(
+        "You are Samuel, the Rainmaker trading agent. Ground every market claim in a tool. "
+        "If the owner asks you to write something up or send a proposal, write it and send it with text_me "
+        "(and send_email when he asks for email); never say you are drafting without sending."
+    ),
     # Empty tools = degenerate default: keep the full Rainmaker set so today's flow does not shrink.
     tools=(),
     workflow=("ground", "answer"),

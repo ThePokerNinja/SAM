@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any, TypedDict
 
 from livekit.agents import RunContext
@@ -1123,11 +1124,23 @@ def _build_get_calendar_events(client: Any, _is_owner: Any, _deps: dict[str, Any
     return get_calendar_events
 
 
+CALENDAR_PENDING_TTL_S = 600.0
+
+
+def calendar_pending_fresh(pending: dict[str, Any] | None, now: float | None = None) -> bool:
+    """A bare "yes" may commit only when this call read back a calendar change in the last 10 minutes."""
+    at = (pending or {}).get("at")
+    if not at:
+        return False
+    return (time.monotonic() if now is None else now) - float(at) <= CALENDAR_PENDING_TTL_S
+
+
 def _build_propose_calendar_change(
     client: Any, _is_owner: Any, deps: dict[str, Any]
 ):
     session_id = str(deps.get("session_id") or "samuel-voice")
     turn_state = deps.get("calendar_turn_state")
+    pending = deps.get("calendar_pending")
 
     async def propose_calendar_change(
         context: RunContext,
@@ -1168,6 +1181,11 @@ def _build_propose_calendar_change(
         )
         if isinstance(turn_state, dict):
             turn_state["completed"] = True
+        if isinstance(pending, dict):
+            if result.startswith("I couldn't"):
+                pending.clear()
+            else:
+                pending["at"] = time.monotonic()
         return result
 
     return propose_calendar_change

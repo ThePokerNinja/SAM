@@ -128,7 +128,11 @@ from .tier_session import apply_tier_to_session, parse_tier_payload
 from .tool_latency import ToolLatencyManager
 from .builder_intake import run_builder_intake_turn
 from .tools.handlers import build_rainmaker_client, handle_commit_calendar_change, handle_named_tool
-from .tools.rainmaker_registry import engagement_id_from_room, register_rainmaker_tools
+from .tools.rainmaker_registry import (
+    calendar_pending_fresh,
+    engagement_id_from_room,
+    register_rainmaker_tools,
+)
 from .tools.registry import ToolRegistry
 from .turns import build_turn_handling
 from .voice_verify import VoiceVerifier
@@ -1019,7 +1023,7 @@ async def entrypoint(ctx: JobContext) -> None:
         if close_persistence_state["post_call_sms"]:
             return
         inbound_owner = (room_name or "").lower().startswith("call-")
-        if is_outbound_guest or not is_phone:
+        if is_outbound_guest or (not is_phone and not _session_is_owner()):
             _log.info("post-call resume sms skipped reason=not_owner_phone")
             return
         if not _session_is_owner() and not inbound_owner:
@@ -1281,6 +1285,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     tool_registry = _build_tool_registry()
     calendar_turn_state: dict[str, Any] = {}
+    calendar_pending: dict[str, Any] = {}
 
     def _tool_timing(_name: str, elapsed_ms: float, _cached: bool) -> None:
         perf_state["tool_ms"] = float(perf_state["tool_ms"] or 0.0) + elapsed_ms
@@ -1294,6 +1299,7 @@ async def entrypoint(ctx: JobContext) -> None:
         "room_name": room_name,
         "engagement_id": proposal_engagement_id,
         "calendar_turn_state": calendar_turn_state,
+        "calendar_pending": calendar_pending,
         "sentinel_code": code_from_brief(str(outbound_meta.get("brief") or "")),
     }
     all_rm_tools = tool_registry.build_livekit_tools(
@@ -1308,6 +1314,11 @@ async def entrypoint(ctx: JobContext) -> None:
     def _tools_for_pack(pack_id: str) -> list[Any]:
         selected_names = pack_registry.tools_for(pack_id, all_tool_names)
         if selected_names is None:
+            if pack_id == "trading" and not builder_engagement_id and not should_speak_builder_opening(
+                room_name, is_phone=is_phone
+            ):
+                # Sales-builder tools can't send anything on a trading call; "write it up" goes out via text_me/send_email.
+                return [t for n, t in tool_by_name.items() if not n.startswith("proposal_")]
             return list(all_rm_tools)
         return [tool_by_name[name] for name in selected_names if name in tool_by_name]
 
@@ -1788,6 +1799,7 @@ async def entrypoint(ctx: JobContext) -> None:
         perf_state["route_ms"] = elapsed_ms
 
     async def _commit_calendar() -> str:
+        calendar_pending.clear()
         return await handle_commit_calendar_change(rm_client, session_id=session_id)
 
     def _calendar_confirm_allowed(_text: str) -> bool:
@@ -1797,7 +1809,7 @@ async def entrypoint(ctx: JobContext) -> None:
             return False
         if proposal_engagement_id["value"]:
             return False
-        return True
+        return calendar_pending_fresh(calendar_pending)
 
     history_cap = effective_history_token_cap(
         s,

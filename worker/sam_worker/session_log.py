@@ -49,6 +49,27 @@ def session_log_dir() -> Path:
     return root
 
 
+def session_log_keep_days() -> float:
+    try:
+        return float(os.environ.get("SAM_SESSION_LOG_DAYS", "14"))
+    except ValueError:
+        return 14.0
+
+
+def prune_old_logs(root: Path, now: float | None = None) -> int:
+    """Delete call logs older than ``SAM_SESSION_LOG_DAYS`` (default 14). Never raises."""
+    cutoff = (time.time() if now is None else now) - session_log_keep_days() * 86400
+    removed = 0
+    try:
+        for p in root.glob("*.jsonl"):
+            if p.stat().st_mtime < cutoff:
+                p.unlink(missing_ok=True)
+                removed += 1
+    except OSError:
+        pass
+    return removed
+
+
 def _safe_room_slug(room_name: str) -> str:
     slug = re.sub(r"[^\w.\-]+", "_", room_name.strip())[:120]
     return slug or "room"
@@ -90,6 +111,7 @@ class SessionLogger:
         owner = self.is_owner()
         if session_log_owner_only() and not owner:
             return
+        prune_old_logs(self._path.parent)
         self._active = True
         self.write(
             "session_start",

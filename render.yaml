@@ -116,6 +116,12 @@ services:
         value: "1"
       - key: SAM_CACHE_DIR
         value: /var/data
+      - key: SAM_SESSION_LOG
+        value: "1"
+      - key: SAM_SESSION_LOG_OWNER_ONLY
+        value: "1"
+      - key: SAM_SESSION_LOG_DAYS
+        value: "14"
       - key: SAM_INTERRUPT_MIN_DURATION
         value: "0.25"
       - key: SAM_INTERRUPT_MIN_WORDS
