@@ -818,7 +818,7 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
     registry.register(
         ToolSpec(
             name="send_link",
-            description="Queue a YouTube video the owner found helpful; Charles goes through it tonight. Owner only. Args: url.",
+            description="Queue a YouTube video the owner found helpful; Charles goes through it tonight. Owner only. Args: url, note (why he sent it and where it applies, in his words).",
             read_only=False,
             requires_approval=False,
         ),
@@ -1411,8 +1411,8 @@ def _build_centaur_idea(client: Any, _is_owner: Any, _deps: dict[str, Any]):
 
 
 def _build_send_link(client: Any, _is_owner: Any, _deps: dict[str, Any]):
-    async def send_link(context: RunContext, url: str) -> str:
-        return await handle_named_tool(client, "send_link", {"url": url})
+    async def send_link(context: RunContext, url: str, note: str = "") -> str:
+        return await handle_named_tool(client, "send_link", {"url": url, "note": note})
 
     return send_link
 
