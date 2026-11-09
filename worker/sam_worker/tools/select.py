@@ -696,6 +696,8 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         selected.append("set_memory")
     if _has_any(text, ("centaur idea", "queue this idea", "write a prd")):
         selected.append("centaur_idea")
+    if _has_any(text, ("youtube", "video", "the link i sent", "that link")):
+        selected.extend(["send_link", "video_status"])
     if _has_any(
         text,
         (

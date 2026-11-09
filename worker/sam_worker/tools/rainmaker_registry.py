@@ -815,6 +815,24 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
         ),
         _build_centaur_idea,
     )
+    registry.register(
+        ToolSpec(
+            name="send_link",
+            description="Queue a YouTube video the owner found helpful; Charles goes through it tonight. Owner only. Args: url.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_send_link,
+    )
+    registry.register(
+        ToolSpec(
+            name="video_status",
+            description="What a video the owner sent turned into, by its YES code (or the latest video). Owner only. Args: code.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_video_status,
+    )
     # Proposal Studio review: Charles's staging area. Owner only. Reads are owner-gated too
     # because the artifacts are internal strategy. Nothing moves a lane from voice; the
     # owner texts YES <code> after the call.
@@ -1390,6 +1408,20 @@ def _build_centaur_idea(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_named_tool(client, "centaur_idea", args)
 
     return centaur_idea
+
+
+def _build_send_link(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def send_link(context: RunContext, url: str) -> str:
+        return await handle_named_tool(client, "send_link", {"url": url})
+
+    return send_link
+
+
+def _build_video_status(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def video_status(context: RunContext, code: str = "") -> str:
+        return await handle_named_tool(client, "video_status", {"code": code})
+
+    return video_status
 
 
 def _build_proposal_apply_summary(client: Any, _is_owner: Any, deps: dict[str, Any]):
