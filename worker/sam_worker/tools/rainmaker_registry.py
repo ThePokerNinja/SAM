@@ -833,6 +833,24 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
         ),
         _build_video_status,
     )
+    registry.register(
+        ToolSpec(
+            name="learning_status",
+            description="How the lessons from shared videos are testing: each candidate (like swing 1.2t) and its result. Only when the owner asks; read the answer as given and never add numbers. Owner only. Args: line.",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_learning_status,
+    )
+    registry.register(
+        ToolSpec(
+            name="tag_item",
+            description="Tag a strategy, candidate (like swing 1.2t), or video so it can be found later. by=owner when he asked, sam when it is your own suggestion; remove=true takes a tag off. Owner only. Args: name, tag, by, remove.",
+            read_only=False,
+            requires_approval=False,
+        ),
+        _build_tag_item,
+    )
     # Proposal Studio review: Charles's staging area. Owner only. Reads are owner-gated too
     # because the artifacts are internal strategy. Nothing moves a lane from voice; the
     # owner texts YES <code> after the call.
@@ -1422,6 +1440,20 @@ def _build_video_status(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_named_tool(client, "video_status", {"code": code})
 
     return video_status
+
+
+def _build_learning_status(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def learning_status(context: RunContext, line: str = "") -> str:
+        return await handle_named_tool(client, "learning_status", {"line": line})
+
+    return learning_status
+
+
+def _build_tag_item(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def tag_item(context: RunContext, name: str, tag: str, by: str = "owner", remove: bool = False) -> str:
+        return await handle_named_tool(client, "tag_item", {"name": name, "tag": tag, "by": by, "remove": remove})
+
+    return tag_item
 
 
 def _build_proposal_apply_summary(client: Any, _is_owner: Any, deps: dict[str, Any]):

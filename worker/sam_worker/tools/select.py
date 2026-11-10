@@ -698,6 +698,10 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         selected.append("centaur_idea")
     if _has_any(text, ("youtube", "video", "the link i sent", "that link")):
         selected.extend(["send_link", "video_status"])
+    if _has_any(text, ("lesson", "learning", "1.2", "candidate", "what did we learn", "how are the tests", "creator")):
+        selected.append("learning_status")
+    if _has_any(text, ("tag ", "untag", "tagged", "label it", "file it under")):
+        selected.append("tag_item")
     if _has_any(
         text,
         (
