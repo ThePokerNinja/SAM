@@ -49,6 +49,11 @@ _TOOL_PARAMS: dict[str, dict[str, Any]] = {
         "properties": {"run_id": {"type": "string"}},
         "required": ["run_id"],
     },
+    "studio_social_report": {
+        "type": "object",
+        "properties": {"channel": {"type": "string"}},
+        "required": [],
+    },
     "make_studio_deliverable": {
         "type": "object",
         "properties": {

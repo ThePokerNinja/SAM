@@ -32,6 +32,7 @@ from .handlers import (
     handle_send_hero,
     handle_studio_asset_status,
     handle_studio_campaign_report,
+    handle_studio_social_report,
     handle_named_tool,
     handle_text_me,
     handle_review_digest,
@@ -480,6 +481,15 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
             requires_approval=False,
         ),
         _build_studio_campaign_report,
+    )
+    registry.register(
+        ToolSpec(
+            name="studio_social_report",
+            description="How our posts on a channel are doing. Arg: channel (default linkedin).",
+            read_only=True,
+            requires_approval=False,
+        ),
+        _build_studio_social_report,
     )
     registry.register(
         ToolSpec(
@@ -1171,6 +1181,13 @@ def _build_studio_campaign_report(client: Any, _is_owner: Any, _deps: dict[str, 
         return await handle_studio_campaign_report(client, run_id)
 
     return studio_campaign_report
+
+
+def _build_studio_social_report(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def studio_social_report(context: RunContext, channel: str = "linkedin") -> str:
+        return await handle_studio_social_report(client, channel)
+
+    return studio_social_report
 
 
 def _build_make_studio(client: Any, is_owner: Any, _deps: dict[str, Any]):

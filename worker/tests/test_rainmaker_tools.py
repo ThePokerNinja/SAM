@@ -257,7 +257,7 @@ class StudioVoiceToolTests(unittest.TestCase):
 
     def test_registered_with_tiers(self) -> None:
         specs = {s.name: s for s in self.registry.specs()}
-        for name in ("list_studio_runs", "studio_asset_status", "studio_campaign_report"):
+        for name in ("list_studio_runs", "studio_asset_status", "studio_campaign_report", "studio_social_report"):
             self.assertTrue(specs[name].read_only, name)
         for name in ("make_studio_deliverable", "record_studio_publish"):
             self.assertFalse(specs[name].read_only, name)
@@ -301,6 +301,31 @@ class StudioVoiceToolTests(unittest.TestCase):
         req = self._only_request()
         self.assertEqual(req.url.params.get("run_id"), "r1")
         self.assertEqual(out, "Report pov-01: 2 assets, $1.50.")
+
+    def test_studio_social_report(self) -> None:
+        tool = self._tool(
+            "studio_social_report",
+            {
+                ("GET", "/studio/social-report"): {
+                    "ok": True,
+                    "channel": "linkedin",
+                    "post_count": 2,
+                    "impressions": 1200,
+                    "clicks": 30,
+                    "reactions": 15,
+                    "top": [{"asset_id": "a", "title": "Launch post", "impressions": 900, "clicks": 20}],
+                }
+            },
+            owner=False,
+        )
+        out = asyncio.run(tool(None))
+        req = self._only_request()
+        self.assertEqual(req.url.params.get("channel"), "linkedin")
+        self.assertEqual(
+            out,
+            "LinkedIn: 2 posts, 1200 impressions, 30 clicks, 15 reactions. "
+            "Top post: Launch post with 900 impressions.",
+        )
 
     def test_read_tool_failure_is_honest(self) -> None:
         tool = self._tool("studio_asset_status", {}, owner=False)

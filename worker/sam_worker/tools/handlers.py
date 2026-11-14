@@ -341,6 +341,24 @@ async def handle_studio_campaign_report(client: RainmakerClient, run_id: str) ->
     return f"Report {run.get('name') or run_id}: {n} assets, ${float(res.get('cost_usd') or 0):.2f}."[:_MAX_SPOKEN]
 
 
+async def handle_studio_social_report(client: RainmakerClient, channel: str = "linkedin") -> str:
+    res = await client.studio_social_report(channel or "linkedin")
+    if not res.get("ok"):
+        return _fail("social report")
+    ch = str(res.get("channel") or channel or "linkedin")
+    label = "LinkedIn" if ch == "linkedin" else ch.title()
+    if not res.get("post_count"):
+        return f"No {label} numbers yet."
+    line = (
+        f"{label}: {res.get('post_count')} posts, {res.get('impressions') or 0} impressions, "
+        f"{res.get('clicks') or 0} clicks, {res.get('reactions') or 0} reactions."
+    )
+    top = (res.get("top") or [{}])[0]
+    if top.get("title"):
+        line += f" Top post: {top['title']} with {top.get('impressions') or 0} impressions."
+    return line[:_MAX_SPOKEN]
+
+
 async def handle_make_studio_deliverable(client: RainmakerClient, type: str, run_id: str = "") -> str:
     res = await client.make_studio_deliverable(type, run_id=run_id)
     if res.get("needs_approval"):

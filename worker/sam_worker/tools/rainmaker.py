@@ -79,6 +79,7 @@ class RainmakerClient(Protocol):
     async def list_studio_runs(self, limit: int = 8) -> dict: ...
     async def studio_asset_status(self, asset_id: str) -> dict: ...
     async def studio_campaign_report(self, run_id: str) -> dict: ...
+    async def studio_social_report(self, channel: str = "linkedin") -> dict: ...
     async def make_studio_deliverable(self, type: str, run_id: str = "") -> dict: ...
     async def record_studio_publish(self, asset_id: str, url: str) -> dict: ...
     async def get_memory_context(self, query: str, token_cap: int = 256) -> dict: ...
@@ -209,6 +210,19 @@ class MockRainmakerClient:
 
     async def studio_campaign_report(self, run_id: str) -> dict:
         return {"ok": True, "run": {"id": run_id, "name": run_id}, "assets": [], "cost_usd": 0}
+
+    async def studio_social_report(self, channel: str = "linkedin") -> dict:
+        return {
+            "ok": True,
+            "channel": channel,
+            "post_count": 0,
+            "impressions": 0,
+            "clicks": 0,
+            "reactions": 0,
+            "comments": 0,
+            "shares": 0,
+            "top": [],
+        }
 
     async def make_studio_deliverable(self, type: str, run_id: str = "") -> dict:
         return {"ok": True, "asset": {"id": f"{type}-mock", "type": type, "status": "draft"}}
@@ -467,6 +481,7 @@ class HttpRainmakerClient:
     STUDIO_RUNS_PATH = "/studio/runs"
     STUDIO_ASSET_PATH = "/studio/asset"
     STUDIO_REPORT_PATH = "/studio/campaign/report"
+    STUDIO_SOCIAL_PATH = "/studio/social-report"
     STUDIO_MAKE_PATH = "/studio/make"
     STUDIO_PUBLISH_PATH = "/studio/publish"
     MEMORY_CONTEXT_PATH = "/samuel/memory/context"
@@ -808,6 +823,12 @@ class HttpRainmakerClient:
 
     async def studio_campaign_report(self, run_id: str) -> dict:
         res = await self._get(self.STUDIO_REPORT_PATH, params={"run_id": run_id})
+        if not res["ok"]:
+            return {"ok": False, "error": res["error"]}
+        return {"ok": True, **(res.get("data") or {})}
+
+    async def studio_social_report(self, channel: str = "linkedin") -> dict:
+        res = await self._get(self.STUDIO_SOCIAL_PATH, params={"channel": channel or "linkedin"})
         if not res["ok"]:
             return {"ok": False, "error": res["error"]}
         return {"ok": True, **(res.get("data") or {})}

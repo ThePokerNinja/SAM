@@ -134,6 +134,7 @@ STUDIO_TOOLS: tuple[str, ...] = (
     "list_studio_runs",
     "studio_asset_status",
     "studio_campaign_report",
+    "studio_social_report",
     "make_studio_deliverable",
     "record_studio_publish",
 )
@@ -560,7 +561,7 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
     if is_charles_activity_utterance(utterance):
         selected.append("charles_activity")
 
-    if _has_any(text, ("studio", "campaign", "deliverable", "asset id", "render")):
+    if _has_any(text, ("studio", "campaign", "deliverable", "asset id", "render", "linkedin")):
         selected.extend(STUDIO_TOOLS)
 
     if _has_any(text, ("scan", "picks", "watchlist", "board")):
