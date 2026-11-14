@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import unittest
+
+import httpx
 
 from sam_worker.config import Settings
 from sam_worker.tools.handlers import (
@@ -21,6 +24,11 @@ from sam_worker.tools.handlers import (
     handle_send_hero,
 )
 from sam_worker.tools.rainmaker import HttpRainmakerClient, MockRainmakerClient
+from sam_worker.tools.rainmaker_registry import _OWNER_REFUSAL, register_rainmaker_tools
+from sam_worker.tools.registry import ToolRegistry
+
+STUDIO_BASE = "https://rm-api.test"
+STUDIO_TOKEN = "cron-secret"
 
 
 class SpyClient:
@@ -209,6 +217,137 @@ class StudioHandlerTests(unittest.TestCase):
         out = asyncio.run(handle_make_studio_deliverable(spy, "email"))
         self.assertIn("make:email", spy.calls)
         self.assertIn("email", out.lower())
+
+
+class StudioVoiceToolTests(unittest.TestCase):
+    """Studio voice tools end to end: registry tool -> handler -> HttpRainmakerClient -> rm_api."""
+
+    def setUp(self) -> None:
+        self.requests: list[httpx.Request] = []
+        self.registry = ToolRegistry()
+        register_rainmaker_tools(self.registry)
+
+    def _tool(self, name: str, routes: dict[tuple[str, str], dict], *, owner: bool = True):
+        def handler(request: httpx.Request) -> httpx.Response:
+            self.requests.append(request)
+            body = routes.get((request.method, request.url.path))
+            if body is None:
+                return httpx.Response(404, json={"detail": "not found"})
+            return httpx.Response(200, json=body)
+
+        client = HttpRainmakerClient(
+            STUDIO_BASE,
+            STUDIO_TOKEN,
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+        tools = self.registry.build_livekit_tools(
+            client,
+            lambda: owner,
+            function_tool=lambda fn: fn,
+            owner_refusal="owner only",
+            only=[name],
+        )
+        return tools[0]
+
+    def _only_request(self) -> httpx.Request:
+        self.assertEqual(len(self.requests), 1)
+        req = self.requests[0]
+        self.assertEqual(req.headers.get("X-RM-CRON-TOKEN"), STUDIO_TOKEN)
+        return req
+
+    def test_registered_with_tiers(self) -> None:
+        specs = {s.name: s for s in self.registry.specs()}
+        for name in ("list_studio_runs", "studio_asset_status", "studio_campaign_report"):
+            self.assertTrue(specs[name].read_only, name)
+        for name in ("make_studio_deliverable", "record_studio_publish"):
+            self.assertFalse(specs[name].read_only, name)
+            self.assertIn("Owner only", specs[name].description)
+
+    def test_list_studio_runs(self) -> None:
+        tool = self._tool(
+            "list_studio_runs",
+            {("GET", "/studio/runs"): {"ok": True, "runs": [{"id": "r1", "name": "pov-01"}, {"id": "r2", "name": "safari"}]}},
+            owner=False,
+        )
+        out = asyncio.run(tool(None))
+        req = self._only_request()
+        self.assertEqual(req.url.params.get("limit"), "8")
+        self.assertEqual(out, "Studio runs: pov-01, safari.")
+
+    def test_studio_asset_status(self) -> None:
+        tool = self._tool(
+            "studio_asset_status",
+            {("GET", "/studio/asset/email-r1"): {"ok": True, "asset": {"id": "email-r1", "status": "draft", "cost_usd": 0.12}}},
+            owner=False,
+        )
+        out = asyncio.run(tool(None, "email-r1"))
+        self._only_request()
+        self.assertEqual(out, "Asset email-r1: draft, $0.12.")
+
+    def test_studio_campaign_report(self) -> None:
+        tool = self._tool(
+            "studio_campaign_report",
+            {
+                ("GET", "/studio/campaign/report"): {
+                    "ok": True,
+                    "run": {"id": "r1", "name": "pov-01"},
+                    "assets": [{"id": "a"}, {"id": "b"}],
+                    "cost_usd": 1.5,
+                }
+            },
+            owner=False,
+        )
+        out = asyncio.run(tool(None, "r1"))
+        req = self._only_request()
+        self.assertEqual(req.url.params.get("run_id"), "r1")
+        self.assertEqual(out, "Report pov-01: 2 assets, $1.50.")
+
+    def test_read_tool_failure_is_honest(self) -> None:
+        tool = self._tool("studio_asset_status", {}, owner=False)
+        out = asyncio.run(tool(None, "missing"))
+        self.assertIn("couldn't pull the asset status", out)
+
+    def test_make_studio_deliverable_owner(self) -> None:
+        tool = self._tool(
+            "make_studio_deliverable",
+            {("POST", "/studio/make"): {"ok": True, "asset": {"id": "email-r1", "type": "email", "status": "draft"}, "run_id": "r1"}},
+        )
+        out = asyncio.run(tool(None, "email", "r1"))
+        req = self._only_request()
+        self.assertEqual(json.loads(req.content), {"type": "email", "run_id": "r1"})
+        self.assertEqual(out, "Drafted email as email-r1. Open Studio to review.")
+
+    def test_make_studio_deliverable_paid_step_pauses(self) -> None:
+        tool = self._tool(
+            "make_studio_deliverable",
+            {("POST", "/studio/make"): {"ok": False, "needs_approval": True, "reason": "paid step $2.00 exceeds $0 render gate"}},
+        )
+        out = asyncio.run(tool(None, "video"))
+        req = self._only_request()
+        self.assertEqual(json.loads(req.content), {"type": "video"})
+        self.assertEqual(out, "Make paused: paid step $2.00 exceeds $0 render gate.")
+
+    def test_record_studio_publish_owner(self) -> None:
+        tool = self._tool(
+            "record_studio_publish",
+            {("POST", "/studio/publish"): {"ok": True, "publish": {"asset_id": "email-r1", "url": "https://x.test/p", "channel": "web"}}},
+        )
+        out = asyncio.run(tool(None, "email-r1", "https://x.test/p"))
+        req = self._only_request()
+        self.assertEqual(json.loads(req.content), {"asset_id": "email-r1", "url": "https://x.test/p"})
+        self.assertEqual(out, "Recorded publish for email-r1.")
+
+    def test_make_studio_deliverable_refuses_non_owner(self) -> None:
+        tool = self._tool("make_studio_deliverable", {("POST", "/studio/make"): {"ok": True}}, owner=False)
+        out = asyncio.run(tool(None, "email", "r1"))
+        self.assertEqual(out, _OWNER_REFUSAL)
+        self.assertEqual(self.requests, [])
+
+    def test_record_studio_publish_refuses_non_owner(self) -> None:
+        tool = self._tool("record_studio_publish", {("POST", "/studio/publish"): {"ok": True}}, owner=False)
+        out = asyncio.run(tool(None, "email-r1", "https://x.test/p"))
+        self.assertEqual(out, _OWNER_REFUSAL)
+        self.assertEqual(self.requests, [])
 
 
 class MockFormattingTests(unittest.TestCase):
