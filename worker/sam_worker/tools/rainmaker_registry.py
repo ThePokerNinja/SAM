@@ -222,7 +222,8 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
         ToolSpec(
             name="test_idea",
             description=(
-                "When the owner challenges how Sam trades, offer a test: say the question and that better means "
+                "When the owner challenges how Sam trades, or says 'test a new trade idea' or 'I want you to "
+                "backtest an idea', offer a test: say the question and that better means "
                 "more +1% days with the average day above zero and the worst week no deeper. After a yes, call "
                 "this with his words and one test: an exit (be_1r, be_profit, 1r_low1, 1r_low2, 1r_range1, "
                 "1r_range2, 1r_sma20, profit_low1, profit_low2, profit_range1, profit_range2, profit_sma20, sr_stop, "

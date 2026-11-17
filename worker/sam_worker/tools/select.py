@@ -604,6 +604,8 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
     if _has_any(text, ("backtest", "strategy", "strategies", "how did", "best setup", "which setup", "holy grail",
                        "failure test", "fashionably late", "pullback", "episodic", "history say")):
         selected.extend(("backtest_idea", "recommend_from_history"))
+    if _has_any(text, ("trade idea", "backtest an idea", "test an idea", "test a new")):
+        selected.append("test_idea")
     if _has_any(text, ("rank", "candidates", "best trade", "selector", "whats setting up", "why this trade",
                        "why that trade")):
         selected.extend(("rank_candidates", "why_this_trade"))
