@@ -211,12 +211,38 @@ def register_rainmaker_tools(registry: ToolRegistry) -> None:
             name="backtest_idea",
             description=(
                 "How a named strategy did in its 2016-2024 backtest and since Oct 29, from stored reports. "
-                "rerun=true only when the owner asks for a fresh run. Quote only the numbers it returns. Owner only."
+                "rerun=true only when the owner asks for a fresh run. An unknown name still replies with the "
+                "save-or-list offer; quote that line. Owner only."
             ),
             read_only=False,
             requires_approval=True,
         ),
         _build_backtest_idea,
+    )
+    registry.register(
+        ToolSpec(
+            name="list_strategies",
+            description=(
+                "Speak the names Sam actually tests (Swing, Warrior, and any that passed). Call this when the "
+                "owner says yes after you offered to list them, or asks what strategies you have. Do not call "
+                "get_trading_status. Owner only."
+            ),
+            read_only=True,
+            requires_approval=True,
+        ),
+        _build_list_strategies,
+    )
+    registry.register(
+        ToolSpec(
+            name="save_named_idea",
+            description=(
+                "Save a strategy name the owner asked to test that you do not have yet, as a draft. No backtest. "
+                "Call this when they say save it after you offered. Pass the name they used. Owner only."
+            ),
+            read_only=False,
+            requires_approval=True,
+        ),
+        _build_save_named_idea,
     )
     registry.register(
         ToolSpec(
@@ -1754,6 +1780,20 @@ def _build_backtest_idea(client: Any, _is_owner: Any, _deps: dict[str, Any]):
         return await handle_named_tool(client, "backtest_idea", {"strategy": strategy, "rerun": rerun})
 
     return backtest_idea
+
+
+def _build_list_strategies(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def list_strategies(context: RunContext) -> str:
+        return await handle_named_tool(client, "list_strategies", {})
+
+    return list_strategies
+
+
+def _build_save_named_idea(client: Any, _is_owner: Any, _deps: dict[str, Any]):
+    async def save_named_idea(context: RunContext, name: str) -> str:
+        return await handle_named_tool(client, "save_named_idea", {"name": name})
+
+    return save_named_idea
 
 
 def _build_test_idea(client: Any, _is_owner: Any, _deps: dict[str, Any]):

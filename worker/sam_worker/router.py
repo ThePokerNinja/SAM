@@ -27,6 +27,7 @@ from .tools.select import (
     INTAKE_PACK_TOOLS,
     PROPOSAL_KEEP_TOOLS,
     STRATEGY_APPROVE_TOOLS,
+    STRATEGY_LIST_TOOLS,
     VOICE_INTAKE_LLM_TOOLS,
     calendar_action_for_utterance,
     filter_tools,
@@ -246,6 +247,7 @@ class RoutedSamuelAgent(Agent):
         self._standing_provider = standing_provider
         self._proposal_live = False
         self._approve_keep = 0
+        self._list_keep = 0
         self._router = router
         self._direct_execute = direct_execute
         self._publish_command = publish_command
@@ -393,7 +395,10 @@ class RoutedSamuelAgent(Agent):
             "proposal_apply_summary" in available_names and "run_command" not in available_names
         )
         self._touch_proposal(text)
-        names = [] if tool_completed else select_tools_for_utterance(text)
+        calendar_pending = bool(self._calendar_commit) and (
+            self._calendar_confirm_allowed is None or self._calendar_confirm_allowed(text)
+        )
+        names = [] if tool_completed else select_tools_for_utterance(text, calendar_pending=calendar_pending)
         if self._proposal_live and not tool_completed:
             for name in PROPOSAL_KEEP_TOOLS:
                 if name not in names:
@@ -403,6 +408,11 @@ class RoutedSamuelAgent(Agent):
         elif self._approve_keep and not tool_completed:
             self._approve_keep -= 1
             names.extend(STRATEGY_APPROVE_TOOLS)
+        if any(name in names for name in ("backtest_idea", *STRATEGY_LIST_TOOLS)):
+            self._list_keep = 1
+        elif self._list_keep and not tool_completed:
+            self._list_keep -= 1
+            names.extend(STRATEGY_LIST_TOOLS)
         if appointment_pack:
             # Groq still emits leftover calendar tool calls. An empty request.tools
             # fails every fallback rung with "not in request.tools" and Samuel

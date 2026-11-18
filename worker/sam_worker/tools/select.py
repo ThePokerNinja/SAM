@@ -30,6 +30,8 @@ VOICE_TOOLS: tuple[str, ...] = (
     "save_trading_discussion",
     "run_backtest",
     "backtest_idea",
+    "list_strategies",
+    "save_named_idea",
     "test_idea",
     "recommend_from_history",
     "rank_candidates",
@@ -145,6 +147,8 @@ TRADING_DISCUSSION_TOOLS: tuple[str, ...] = (
     "save_trading_discussion",
     "run_backtest",
     "backtest_idea",
+    "list_strategies",
+    "save_named_idea",
     "test_idea",
     "rank_candidates",
     "get_trading_status",
@@ -191,6 +195,8 @@ TRADING_PLAN_WORDS: tuple[str, ...] = (  # already normalized
 # Kept one more turn so the owner's bare "yes" after Sam reads the name back can reach approve_strategy.
 STRATEGY_APPROVE_TOOLS: tuple[str, ...] = ("approve_strategy", "undo_strategy")
 _APPROVE_WORDS: tuple[str, ...] = ("approve", "undo", "take it back", "take that back")
+# Same pattern after Sam offers to save a name or list the ones he tests.
+STRATEGY_LIST_TOOLS: tuple[str, ...] = ("list_strategies", "save_named_idea")
 
 CALENDAR_PACK_TOOLS: frozenset[str] = frozenset(
     {
@@ -533,7 +539,7 @@ def is_review_utterance(utterance: str) -> bool:
     return False
 
 
-def select_tools_for_utterance(utterance: str) -> list[str]:
+def select_tools_for_utterance(utterance: str, *, calendar_pending: bool = True) -> list[str]:
     """Return the tool names the LLM should see for this utterance.
 
     Empty means no tools — correct for pricing, stories, and general chat.
@@ -544,7 +550,7 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
         return []
     if _has_any(text, ("story", "joke", "trivia", "poem")):
         return ["run_command"]
-    if is_calendar_confirm(utterance):
+    if is_calendar_confirm(utterance) and calendar_pending:
         return ["commit_calendar_change", "run_command"]
     if is_note_utterance(utterance):
         if _has_any(text, TRADING_IDEA_WORDS):
@@ -602,8 +608,11 @@ def select_tools_for_utterance(utterance: str) -> list[str]:
     if _has_any(text, TRADING_PLAN_WORDS):
         selected.append("save_trading_discussion")
     if _has_any(text, ("backtest", "strategy", "strategies", "how did", "best setup", "which setup", "holy grail",
-                       "failure test", "fashionably late", "pullback", "episodic", "history say")):
-        selected.extend(("backtest_idea", "recommend_from_history"))
+                       "failure test", "fashionably late", "pullback", "episodic", "history say",
+                       "other strategies", "list strategies", "hear them", "hear swing", "ones you test")):
+        selected.extend(("backtest_idea", "recommend_from_history", "list_strategies", "save_named_idea"))
+    if _has_any(text, ("save it", "save that", "save this")):
+        selected.extend(("save_named_idea", "save_brainstorm"))
     if _has_any(text, ("trade idea", "backtest an idea", "test an idea", "test a new")):
         selected.append("test_idea")
     if _has_any(text, ("rank", "candidates", "best trade", "selector", "whats setting up", "why this trade",

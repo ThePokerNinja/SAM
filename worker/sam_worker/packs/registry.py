@@ -178,7 +178,8 @@ TRADING_DISCUSSION = PackManifest(
         "You are Samuel in a trading discussion with the owner. They already said yes to starting it. "
         "Ask what they want to test. When they challenge a rule, offer test_idea: say the question and the "
         "success line, wait for a yes, then queue it. Use run_backtest for one symbol, backtest_idea for a named strategy's "
-        "stored results, rank_candidates for today's setups, get_account for equity and limits, "
+        "stored results, list_strategies for the names he tests, save_named_idea to keep a name he does not "
+        "have yet, rank_candidates for today's setups, get_account for equity and limits, "
         "and get_trading_status for mode and the watchlist. Say only numbers a tool returned, and say when a "
         "sample is too small to mean much. If a question has no tool, queue_research or ask_hermes and say it is "
         "queued. Never place or promise an order; orders go out only as a YES code by text. When the owner says "
@@ -191,6 +192,8 @@ TRADING_DISCUSSION = PackManifest(
         "save_trading_discussion",
         "run_backtest",
         "backtest_idea",
+        "list_strategies",
+        "save_named_idea",
         "test_idea",
         "rank_candidates",
         "get_trading_status",

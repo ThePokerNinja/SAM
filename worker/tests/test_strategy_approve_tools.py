@@ -10,7 +10,12 @@ import httpx
 from sam_worker.tools.rainmaker import HttpRainmakerClient
 from sam_worker.tools.rainmaker_registry import _OWNER_REFUSAL, register_rainmaker_tools
 from sam_worker.tools.registry import ToolRegistry
-from sam_worker.tools.select import STRATEGY_APPROVE_TOOLS, VOICE_TOOLS, select_tools_for_utterance
+from sam_worker.tools.select import (
+    STRATEGY_APPROVE_TOOLS,
+    STRATEGY_LIST_TOOLS,
+    VOICE_TOOLS,
+    select_tools_for_utterance,
+)
 
 RM_BASE = "https://rm-api.test"
 RM_TOKEN = "cron-secret"
@@ -33,6 +38,54 @@ def test_approve_words_select_both_tools() -> None:
 
 def test_bare_yes_alone_does_not_select_approve() -> None:
     assert "approve_strategy" not in select_tools_for_utterance("yes")
+
+
+def test_named_new_strategy_selects_lookup_and_list() -> None:
+    said = "run a test on a new strategy called mean reversion"
+    tools = select_tools_for_utterance(said)
+    assert "backtest_idea" in tools and "list_strategies" in tools
+    assert "list_strategies" in select_tools_for_utterance("other strategies")
+    assert set(STRATEGY_LIST_TOOLS) <= set(VOICE_TOOLS)
+
+
+def test_yes_after_unknown_name_keeps_list_one_turn() -> None:
+    from livekit.agents import Agent
+    from livekit.agents.llm import ChatContext
+
+    from sam_worker.router import FastIntentRouter, RoutedSamuelAgent
+
+    seen: list[list[str]] = []
+
+    def fake_parent(self, chat_ctx, tools, model_settings):
+        seen.append([getattr(tool, "__name__", "") for tool in (tools or [])])
+        return "ok"
+
+    async def direct(_decision):
+        raise AssertionError("list must reach the model")
+
+    async def publish(_command):
+        return None
+
+    class _Tool:
+        def __init__(self, name: str) -> None:
+            self.__name__ = name
+
+    tools = [_Tool(name) for name in ("backtest_idea", "list_strategies", "save_named_idea", "get_pulse", "run_command")]
+    original = Agent.llm_node
+    Agent.llm_node = fake_parent
+    try:
+        agent = RoutedSamuelAgent(
+            router=FastIntentRouter(), direct_execute=direct, publish_command=publish, instructions="test"
+        )
+        for said in ("run a test on a new strategy called mean reversion", "yes", "yes"):
+            context = ChatContext.empty()
+            context.add_message(role="user", content=said)
+            asyncio.run(agent.llm_node(context, tools, None))
+    finally:
+        Agent.llm_node = original
+    assert "backtest_idea" in seen[0] and "list_strategies" in seen[0]
+    assert "list_strategies" in seen[1]
+    assert "list_strategies" not in seen[2]
 
 
 def test_yes_after_read_back_keeps_approve_one_turn() -> None:
